@@ -566,3 +566,6 @@ nav.tabs button { min-width: 0; }
 .gar-glow { opacity: .35; }
 :root[data-theme="dark"] .gar-glow { opacity: .08; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gar-glow { opacity: .08; } }
+.car-pick { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.car-pick .fp-art { max-width: 92px; }
+.mini-bloom.mini-car { width: 28px; }

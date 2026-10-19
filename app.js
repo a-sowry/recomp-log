@@ -531,7 +531,7 @@ const GROWS = {
     label: 'Bonsai', tab: 'Forest', section: 'Your forest', next: 'to the next tree', grownLabel: 'Trees grown', growing: 'Growing',
     names: ['A seed, waiting', 'A little sprout', 'A young sapling', 'The trunk is thickening', 'Branches filling out', 'Almost fully grown'],
     wilt: d => `Your bonsai's leaves are browning. It's been ${d} days since your last workout. One session today brings it back.`,
-    grew: 'Your bonsai grew', done: () => 'Your bonsai is fully grown!', doneText: 'It\'s been planted in your forest. A new seed is already in the pot.',
+    grew: 'Your bonsai grew', done: v => `Your ${BONSAI[bonsaiSp(v)].name.toLowerCase()} bonsai is fully grown!`, doneText: 'It\'s been planted in your forest. A new seed is already in the pot.',
     how: 'it becomes a full-grown tree and gets planted in your forest', wiltHow: 'its leaves turn brown', footer: 'Each tree is planted on the day it finished growing. Change what you grow in Settings.',
     icon: '<path d="M12 21v-7"/><path d="M12 15l-3-2M12 13l3-2"/><path d="M7 21h10"/><path d="M5 9.5a3 3 0 0 1 3-3 4 4 0 0 1 8 0 3 3 0 0 1 0 6H8a3 3 0 0 1-3-3z"/>',
   },
@@ -539,7 +539,7 @@ const GROWS = {
     label: 'Car build', tab: 'Garage', section: 'Your garage', next: 'to the next finished car', grownLabel: 'Cars built', growing: 'In the workshop',
     names: ['A bare chassis', 'Wheels are on', 'Body shell fitted', 'Doors and glass in', 'Fresh paint', 'Almost ready to drive'],
     wilt: d => `Your build's gathering dust. It's been ${d} days since your last workout. One session today gets it moving again.`,
-    grew: 'Your car build moved forward', done: () => 'Your car is finished!', doneText: 'It\'s parked in your garage. A new chassis just rolled in.',
+    grew: 'Your car build moved forward', done: v => `Your ${CAR_STYLES[carStyle(v)].name} is finished!`, doneText: 'It\'s parked in your garage. A new chassis just rolled in.',
     how: 'the car is finished and parked in your garage', wiltHow: 'it gathers dust', footer: 'Each car is parked on the day it was finished. Change what you build in Settings.',
     icon: '<path d="M3 16.5v-3.5l2.2-5h13.6l2.2 5v3.5z"/><path d="M3 13h18"/><circle cx="7.5" cy="17" r="1.8"/><circle cx="16.5" cy="17" r="1.8"/>',
   },
@@ -554,83 +554,137 @@ function gm() { return GROWS[growKind()]; }
 function growType() { const k = growKind(); return k === 'flower' ? flowerType() : k; }
 function kindOf(type) { return type === 'bonsai' || type === 'car' ? type : 'flower'; }
 
-function bonsaiTree(stage, wilt) {
-  const dark = wilt ? '#9C8F4A' : '#3F7D45', light = wilt ? '#BCA95E' : '#62A85A', bark = '#6E4B30';
-  const pad = (cx, cy, s) => `<g><circle cx="${cx - 9 * s}" cy="${cy + 2 * s}" r="${7 * s}" fill="${dark}"/><circle cx="${cx + 9 * s}" cy="${cy + 2 * s}" r="${7 * s}" fill="${dark}"/><circle cx="${cx}" cy="${cy - 2 * s}" r="${9.5 * s}" fill="${dark}"/>
-    <circle cx="${cx - 7 * s}" cy="${cy - 1 * s}" r="${4.5 * s}" fill="${light}"/><circle cx="${cx + 2 * s}" cy="${cy - 6 * s}" r="${5 * s}" fill="${light}"/></g>`;
+const BONSAI = {
+  juniper: { name: 'Juniper', dark: '#3F7D45', light: '#62A85A', bark: '#6E4B30', pot: ['#5E7F8C', '#4C6A77', '#3E5762'] },
+  maple: { name: 'Japanese maple', dark: '#B83227', light: '#E8743B', bark: '#7A5A44', pot: ['#E6DAC5', '#D3C3A8', '#B5A386'], fallen: '#D9532F' },
+  sakura: { name: 'Cherry blossom', dark: '#EE9DBE', light: '#FBD0E1', bark: '#5B3A2E', pot: ['#3F3434', '#302727', '#221B1B'], dots: '#FFFFFF', fallen: '#F6B9D0' },
+  pine: { name: 'Pine', dark: '#2C5B4C', light: '#4E8A6E', bark: '#5C4636', pot: ['#C46A45', '#A9573A', '#8C482F'], flat: true },
+  ficus: { name: 'Ficus', dark: '#3F8A34', light: '#86C25A', bark: '#9A8670', pot: ['#6E8F5B', '#5B7A4A', '#4A643C'], thick: true },
+};
+// Car body styles. Front is on the right; tyres touch the ground at y 129.
+const CAR_STYLES = {
+  jdm: { name: 'JDM coupe', w: [30, 90], r: 11,
+    body: 'M8 118 V108 Q8 102 15 101 L40 98 L54 87 Q57 85 62 85 H76 Q82 85 87 89 L99 98 L108 100 Q113 101 113 107 V118 Z',
+    glass: ['M57 97 L63 89 Q64 88 67 88 H70 V97 Z', 'M73 88 H77 Q81 88 84 91 L91 97 H73 Z'], doors: 'M71.5 98 V116 M50 100 Q49 108 50 116', handles: [[62, 102]], mirror: [87, 93],
+    head: [106, 102], tail: [8, 103],
+    extra5: e => `<path d="M12 101 V92 M21 101 V92" stroke="${e}" stroke-width="2"/><rect x="3" y="88.5" width="24" height="4" rx="1.5" fill="${e}"/><path d="M98 117 h15" stroke="${e}" stroke-width="2"/>` },
+  hatch: { name: 'Hot hatch', w: [30, 84], r: 10.5,
+    body: 'M14 118 V104 Q14 98 18 94 L24 84 Q26 80 31 80 H70 Q76 80 80 85 L88 95 L100 98 Q104 99 104 105 V118 Z',
+    glass: ['M26 95 L30 86 Q31 84 34 84 H52 V95 Z', 'M55 84 H69 Q73 84 76 88 L82 95 H55 Z'], doors: 'M53.5 96 V116', handles: [[60, 100]], mirror: [79, 90],
+    head: [99, 101], tail: [14, 100],
+    extra5: e => `<path d="M18 80.5 h16 l-2 3 h-14z" fill="${e}"/><circle cx="16" cy="115" r="1.6" fill="#9EA4AA"/><circle cx="20" cy="115" r="1.6" fill="#9EA4AA"/>` },
+  ute: { name: 'Ute', w: [30, 92], r: 11.5,
+    body: 'M8 118 V100 H52 V86 Q52 80 58 80 H74 Q80 80 84 85 L93 96 L106 98 Q112 99 112 106 V118 Z',
+    glass: ['M56 96 V86 Q56 84 59 84 H70 V96 Z', 'M73 84 H74 Q78 84 81 87 L88 96 H73 Z'], doors: 'M71.5 97 V116 M52 100 V116', handles: [[63, 100]], mirror: [86, 91],
+    head: [106, 101], tail: [8, 102],
+    extra5: e => `<path d="M14 100 V90 H46 V100" fill="none" stroke="#3A3F45" stroke-width="2.4"/><path d="M14 95 H46" stroke="#3A3F45" stroke-width="1.4"/><path d="M8 100 H52" stroke="${e}" stroke-width="1.5"/>` },
+  fourwd: { name: '4WD', w: [30, 90], r: 13,
+    body: 'M8 114 V96 Q8 92 12 91 L20 74 Q22 70 27 70 H80 Q86 70 89 75 L97 89 L106 91 Q112 92 112 99 V114 Z',
+    glass: ['M22 88 L27 77 Q28 75 31 75 H54 V88 Z', 'M57 75 H79 Q83 75 86 79 L92 88 H57 Z'], doors: 'M55.5 89 V112 M33 90 V112', handles: [[44, 93], [64, 93]], mirror: [93, 84],
+    head: [106, 95], tail: [8, 96],
+    extra5: e => `<path d="M26 70 V65 M80 70 V65" stroke="#3A3F45" stroke-width="2"/><rect x="22" y="62.5" width="62" height="3" rx="1.5" fill="#3A3F45"/><circle cx="9" cy="100" r="7" fill="#1E2023"/><circle cx="9" cy="100" r="3.5" fill="#5B6168"/><path d="M96 89 V72" stroke="#2A2E33" stroke-width="2.6" stroke-linecap="round"/>` },
+  muscle: { name: 'Muscle car', w: [28, 92], r: 11.5,
+    body: 'M6 118 V106 Q6 101 12 100 L32 98 L46 86 Q49 83 54 83 H66 Q71 83 74 87 L81 97 L108 99 Q114 100 114 107 V118 Z',
+    glass: ['M49 97 L54 88 Q55 86 58 86 H61 V97 Z', 'M64 86 H66 Q69 86 72 89 L77 97 H64 Z'], doors: 'M62.5 98 V116 M44 99 Q43 108 44 116', handles: [[53, 101]], mirror: [76, 93],
+    head: [109, 102], tail: [6, 103],
+    extra4: () => `<path d="M8 104 H113" stroke="#FFFFFF" stroke-width="2.2" opacity=".85"/><path d="M8 108 H113" stroke="#FFFFFF" stroke-width="2.2" opacity=".85"/>`,
+    extra5: e => `<path d="M4 100 l3 -3 h12 l-2 3z" fill="${e}"/><rect x="88" y="95.5" width="12" height="3.5" rx="1" fill="#2A2E33"/><path d="M6 116 h8" stroke="#9EA4AA" stroke-width="2.4"/>` },
+  sedan: { name: 'Sedan', w: [32, 88], r: 11,
+    body: 'M10 118 V107 Q10 100 18 99 L38 97 L50 84 Q53 80 58 80 H79 Q85 80 89 85 L98 96 L106 98 Q111 99 111 105 V118 Z',
+    glass: ['M53 96 L60 86 Q62 84 65 84 H69 V96 Z', 'M72 84 H79 Q83 84 86 88 L93 96 H72 Z'], doors: 'M70.5 97 V116 M48 99 Q47 108 48 116', handles: [[60, 101], [77, 101]], mirror: [89, 91],
+    head: [104, 101], tail: [10, 102],
+    extra5: e => `<path d="M13 98 V93 M21 98 V93" stroke="${e}" stroke-width="2"/><rect x="5" y="90.5" width="21" height="3.5" rx="1.5" fill="${e}"/>` },
+};
+const DEFAULT_BONSAI = 'juniper', DEFAULT_CAR = 'jdm';
+function bonsaiSp(v) { v = v ?? S.config?.bonsai; return BONSAI[v] ? v : DEFAULT_BONSAI; }
+function carStyle(v) { v = v ?? S.config?.car; return CAR_STYLES[v] ? v : DEFAULT_CAR; }
+function growVariant() { const k = growKind(); return k === 'bonsai' ? bonsaiSp() : k === 'car' ? carStyle() : undefined; }
+
+function bonsaiTree(stage, wilt, v) {
+  const B = BONSAI[bonsaiSp(v)];
+  const dark = wilt ? '#9C8F4A' : B.dark, light = wilt ? '#BCA95E' : B.light, bark = B.bark;
+  const pad = (cx, cy, s) => {
+    if (B.flat) return `<g><ellipse cx="${cx}" cy="${cy}" rx="${17 * s}" ry="${7 * s}" fill="${dark}"/><ellipse cx="${cx - 2 * s}" cy="${cy - 3 * s}" rx="${12 * s}" ry="${4.5 * s}" fill="${light}"/>`
+      + Array.from({ length: 7 }, (_, k) => `<path d="M${cx - 14 * s + k * 4.6 * s} ${cy + 5 * s} l${1.2 * s} ${-3 * s}" stroke="${light}" stroke-width=".9" opacity=".8"/>`).join('') + '</g>';
+    let g = `<g><circle cx="${cx - 9 * s}" cy="${cy + 2 * s}" r="${7 * s}" fill="${dark}"/><circle cx="${cx + 9 * s}" cy="${cy + 2 * s}" r="${7 * s}" fill="${dark}"/><circle cx="${cx}" cy="${cy - 2 * s}" r="${9.5 * s}" fill="${dark}"/>
+      <circle cx="${cx - 7 * s}" cy="${cy - 1 * s}" r="${4.5 * s}" fill="${light}"/><circle cx="${cx + 2 * s}" cy="${cy - 6 * s}" r="${5 * s}" fill="${light}"/>`;
+    if (B.dots && !wilt) g += [[-11, 3], [-4, -7], [5, 0], [10, -2], [-1, 3], [7, -9]].map(([dx, dy]) => `<circle cx="${cx + dx * s}" cy="${cy + dy * s}" r="${1.4 * s}" fill="${B.dots}"/>`).join('');
+    return g + '</g>';
+  };
   if (stage === 0) return `<path d="M48 119 q12 -8 24 0z" fill="#6B4226"/><ellipse cx="60" cy="114" rx="4" ry="3" fill="#8B5E3C" transform="rotate(-20 60 114)"/>`;
-  if (stage === 1) return `<path d="M60 119 Q58 111 61 104" fill="none" stroke="#5E9A4E" stroke-width="2.5" stroke-linecap="round"/><path d="M61 105 q-8 -6 -11 0 q5 4 11 0z" fill="${light}"/><path d="M61 104 q7 -7 11 -1 q-5 4 -11 1z" fill="${dark}"/>`;
-  if (stage === 2) return `<path d="M60 119 C56 109 66 100 60 90" fill="none" stroke="${bark}" stroke-width="5" stroke-linecap="round"/>${pad(60, 82, 0.9)}`;
+  if (stage === 1) return `<path d="M60 119 Q58 111 61 104" fill="none" stroke="#5E9A4E" stroke-width="2.5" stroke-linecap="round"/><path d="M61 105 q-8 -6 -11 0 q5 4 11 0z" fill="#7DB46A"/><path d="M61 104 q7 -7 11 -1 q-5 4 -11 1z" fill="#5E9A4E"/>`;
+  const tw = B.thick ? 3 : 0;
+  if (stage === 2) return `<path d="M60 119 C56 109 66 100 60 90" fill="none" stroke="${bark}" stroke-width="${5 + tw}" stroke-linecap="round"/>${pad(60, 82, 0.9)}`;
   const s = stage === 5 ? 1.2 : 1;
-  let t = `<path d="M60 119 C52 106 72 96 62 82 C56 74 64 66 60 58" fill="none" stroke="${bark}" stroke-width="${stage === 5 ? 9 : 7}" stroke-linecap="round"/>
-    <path d="M60 119 C52 106 72 96 62 82" fill="none" stroke="#8A6242" stroke-width="2" stroke-linecap="round" opacity=".5" transform="translate(-2 0)"/>
-    <path d="M61 88 Q50 86 40 80" fill="none" stroke="${bark}" stroke-width="4" stroke-linecap="round"/>`;
+  let t = `<path d="M60 119 C52 106 72 96 62 82 C56 74 64 66 60 58" fill="none" stroke="${bark}" stroke-width="${(stage === 5 ? 9 : 7) + tw}" stroke-linecap="round"/>
+    <path d="M60 119 C52 106 72 96 62 82" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity=".15" transform="translate(-2 0)"/>
+    <path d="M61 88 Q50 86 40 80" fill="none" stroke="${bark}" stroke-width="${4 + tw / 2}" stroke-linecap="round"/>`;
+  if (B.thick && stage === 5) t += `<path d="M57 100 Q52 110 54 119 M64 98 Q69 110 67 119" fill="none" stroke="${bark}" stroke-width="1.6" opacity=".8"/>`;
   if (stage >= 4) t += `<path d="M61 70 Q72 70 82 64" fill="none" stroke="${bark}" stroke-width="3.5" stroke-linecap="round"/>`;
   t += pad(36, 76, 0.9 * s);
   if (stage >= 4) t += pad(86, 60, 0.85 * s);
   t += pad(60, 50, s);
   return t;
 }
-function bonsaiSVG(stage, wilting, label) {
-  const moss = stage === 5 ? `<path d="M30 119 q5 -4 10 0 q4 -3 8 0" fill="#7DB46A"/><path d="M74 119 q5 -4 10 0 q4 -3 8 0" fill="#7DB46A"/>` : '';
-  const pot = `<ellipse cx="60" cy="119" rx="36" ry="3.5" fill="#5A3A24"/>${moss}<rect x="18" y="119" width="84" height="7" rx="3" fill="#5E7F8C"/><path d="M23 126 H97 L92 138 H28 Z" fill="#4C6A77"/><rect x="31" y="138" width="8" height="4" rx="1" fill="#3E5762"/><rect x="81" y="138" width="8" height="4" rx="1" fill="#3E5762"/>`;
-  return `<svg class="flower${wilting ? ' wilt' : ''}" viewBox="0 -16 120 166" role="img" aria-label="${label || 'Your bonsai'}"><g class="fl-sway">${bonsaiTree(stage, wilting)}</g>${pot}</svg>`;
+function bonsaiSVG(stage, wilting, label, v) {
+  const B = BONSAI[bonsaiSp(v)]; const [rim, body, feet] = B.pot;
+  const ground = stage === 5 ? (B.fallen && !wilting ? `<g fill="${B.fallen}"><ellipse cx="34" cy="118.5" rx="2.2" ry="1.2"/><ellipse cx="78" cy="118" rx="2" ry="1.1"/><ellipse cx="88" cy="119" rx="1.8" ry="1"/></g>` : `<path d="M30 119 q5 -4 10 0 q4 -3 8 0" fill="#7DB46A"/><path d="M74 119 q5 -4 10 0 q4 -3 8 0" fill="#7DB46A"/>`) : '';
+  const pot = `<ellipse cx="60" cy="119" rx="36" ry="3.5" fill="#5A3A24"/>${ground}<rect x="18" y="119" width="84" height="7" rx="3" fill="${rim}"/><path d="M23 126 H97 L92 138 H28 Z" fill="${body}"/><rect x="31" y="138" width="8" height="4" rx="1" fill="${feet}"/><rect x="81" y="138" width="8" height="4" rx="1" fill="${feet}"/>`;
+  return `<svg class="flower${wilting ? ' wilt' : ''}" viewBox="0 -16 120 166" role="img" aria-label="${label || B.name + ' bonsai'}"><g class="fl-sway">${bonsaiTree(stage, wilting, v)}</g>${pot}</svg>`;
 }
-function carBody(stage, colour, wilting) {
-  // side view, front on the right, wheels at x 32 / 88, tyres touch the ground at y 129
-  const tyre = cx => `<circle cx="${cx}" cy="118" r="11" fill="#1E2023"/><circle cx="${cx}" cy="118" r="6.5" fill="#C9CDD2"/><circle cx="${cx}" cy="118" r="2" fill="#7E858C"/>`
-    + [0, 72, 144, 216, 288].map(a => `<path d="M${cx} 118 l0 -5.5" stroke="#9EA4AA" stroke-width="1.4" transform="rotate(${a} ${cx} 118)"/>`).join('');
+function carBody(stage, colour, wilting, v) {
+  const C = CAR_STYLES[carStyle(v)]; const r = C.r, cy = 129 - r; const [w1, w2] = C.w;
+  const tyre = cx => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1E2023"/><circle cx="${cx}" cy="${cy}" r="${r * 0.6}" fill="#C9CDD2"/><circle cx="${cx}" cy="${cy}" r="${r * 0.18}" fill="#7E858C"/>`
+    + [0, 72, 144, 216, 288].map(a => `<path d="M${cx} ${cy} l0 ${-r * 0.5}" stroke="#9EA4AA" stroke-width="1.4" transform="rotate(${a} ${cx} ${cy})"/>`).join('');
   let g = `<ellipse cx="60" cy="130" rx="54" ry="3.5" fill="#000" opacity=".18"/>`;
   if (stage <= 1) {
-    g += `<rect x="14" y="113" width="94" height="4.5" rx="2" fill="#5B6168"/><rect x="86" y="102" width="17" height="11" rx="2" fill="#7A8088"/><rect x="90" y="99" width="9" height="3" rx="1" fill="#5B6168"/>
-      <rect x="55" y="103" width="9" height="10" rx="2" fill="#3E444B"/><rect x="53" y="98" width="3" height="15" rx="1.5" fill="#3E444B"/>`;
-    if (stage === 0) g += [32, 88].map(cx => `<circle cx="${cx}" cy="118" r="3" fill="#3A3F45"/><path d="M${cx - 6} 129 L${cx - 3} 121 H${cx + 3} L${cx + 6} 129 Z" fill="#C0392B"/>`).join('');
-    else g += tyre(32) + tyre(88);
+    const fx = w2 + 2;
+    g += `<rect x="${w1 - 16}" y="${cy - 5}" width="${w2 - w1 + 32}" height="4.5" rx="2" fill="#5B6168"/><rect x="${fx - 6}" y="${cy - 16}" width="17" height="11" rx="2" fill="#7A8088"/><rect x="${fx - 2}" y="${cy - 19}" width="9" height="3" rx="1" fill="#5B6168"/>
+      <rect x="${(w1 + w2) / 2 - 5}" y="${cy - 15}" width="9" height="10" rx="2" fill="#3E444B"/><rect x="${(w1 + w2) / 2 - 7}" y="${cy - 20}" width="3" height="15" rx="1.5" fill="#3E444B"/>`;
+    if (stage === 0) g += [w1, w2].map(cx => `<circle cx="${cx}" cy="${cy}" r="3" fill="#3A3F45"/><path d="M${cx - 6} 129 L${cx - 3} ${cy + 3} H${cx + 3} L${cx + 6} 129 Z" fill="#C0392B"/>`).join('');
+    else g += tyre(w1) + tyre(w2);
     return g;
   }
   const paint = stage >= 4 ? colour : '#A7ACB2';
   const edge = hexMix(paint, '#000000', 0.28);
-  const body = 'M10 118 V107 Q10 100 18 99 L38 97 L50 84 Q53 80 58 80 H79 Q85 80 89 85 L98 96 L106 98 Q111 99 111 105 V118 Z';
   const glass = stage >= 3 ? '#A8D0EE' : '#3C4148';
-  if (stage === 5) g += `<path d="M13 98 V93 M21 98 V93" stroke="${edge}" stroke-width="2"/><rect x="5" y="90.5" width="21" height="3.5" rx="1.5" fill="${edge}"/>`;
-  g += `<path d="${body}" fill="${paint}" stroke="${edge}" stroke-width="1"/>
-    <path d="M53 96 L60 86 Q62 84 65 84 H69 V96 Z" fill="${glass}"/><path d="M72 84 H79 Q83 84 86 88 L93 96 H72 Z" fill="${glass}"/>
-    <circle cx="32" cy="118" r="13.5" fill="#26292D"/><circle cx="88" cy="118" r="13.5" fill="#26292D"/>`;
-  if (stage >= 3) g += `<path d="M70.5 97 V116 M48 99 Q47 108 48 116" stroke="${edge}" stroke-width="1" fill="none" opacity=".7"/><rect x="60" y="101" width="6" height="1.8" rx=".9" fill="${edge}"/><rect x="77" y="101" width="6" height="1.8" rx=".9" fill="${edge}"/><path d="M89 91 h5 v3 h-4z" fill="${edge}"/>`;
-  if (stage >= 4) g += `<path d="M16 105 H104" stroke="#FFFFFF" stroke-width="2" opacity=".3"/><path d="M58 83 H78" stroke="#FFFFFF" stroke-width="1.5" opacity=".35"/>`;
-  if (stage === 5) g += `<path d="M104 101 h6 v4 h-7z" fill="#FFE59A"/><path d="M111 102 l9 -2 v7 l-9 -2z" fill="#FFE59A" opacity=".45"/><rect x="10" y="102" width="4" height="4" rx="1" fill="#E23B3B"/><rect x="8" y="114" width="7" height="2.4" rx="1.2" fill="#9EA4AA"/>`;
-  g += tyre(32) + tyre(88);
+  g += `<path d="${C.body}" fill="${paint}" stroke="${edge}" stroke-width="1"/>${C.glass.map(d => `<path d="${d}" fill="${glass}"/>`).join('')}
+    <circle cx="${w1}" cy="${cy}" r="${r + 2.5}" fill="#26292D"/><circle cx="${w2}" cy="${cy}" r="${r + 2.5}" fill="#26292D"/>`;
+  if (stage >= 3) g += `<path d="${C.doors}" stroke="${edge}" stroke-width="1" fill="none" opacity=".7"/>${C.handles.map(([x, y]) => `<rect x="${x}" y="${y}" width="6" height="1.8" rx=".9" fill="${edge}"/>`).join('')}<path d="M${C.mirror[0]} ${C.mirror[1]} h5 v3 h-4z" fill="${edge}"/>`;
+  if (stage >= 4) g += (C.extra4 ? C.extra4() : '') + `<path d="M${w1 - 14} ${cy - 13} H${w2 + 14}" stroke="#FFFFFF" stroke-width="2" opacity=".28"/>`;
+  if (stage === 5) { const [hx, hy] = C.head, [tx, ty] = C.tail; g += C.extra5(edge) + `<path d="M${hx} ${hy} h6 v4 h-7z" fill="#FFE59A"/><path d="M${hx + 7} ${hy + 1} l8 -2 v7 l-8 -2z" fill="#FFE59A" opacity=".45"/><rect x="${tx}" y="${ty}" width="4" height="4" rx="1" fill="#E23B3B"/>`; }
+  g += tyre(w1) + tyre(w2);
   if (wilting) g += `<g fill="#8A7A5C" opacity=".5"><circle cx="30" cy="104" r="1.2"/><circle cx="45" cy="110" r="1"/><circle cx="66" cy="92" r="1.1"/><circle cx="80" cy="108" r="1.3"/><circle cx="96" cy="103" r="1"/><circle cx="58" cy="112" r=".9"/></g>`;
   return g;
 }
-function carSVG(stage, wilting, colour, label) {
-  return `<svg class="flower car${wilting ? ' wilt' : ''}" viewBox="0 64 120 84" role="img" aria-label="${label || 'Your car build'}">
-    <rect x="0" y="66" width="120" height="80" rx="12" fill="var(--sunk)"/><rect x="0" y="130" width="120" height="16" rx="0" fill="#000" opacity=".08"/><path d="M0 130 H120" stroke="#000" opacity=".12"/>
-    <path d="M60 66 V71" stroke="var(--muted)" stroke-width="1"/><path d="M50 71 h20 l-3 4 h-14z" fill="var(--muted)"/><ellipse cx="60" cy="78" rx="16" ry="4" fill="#FFF3C4" opacity=".35"/>
-    <g class="car-g">${carBody(stage, colour, wilting)}</g></svg>`;
+function carSVG(stage, wilting, colour, label, v) {
+  return `<svg class="flower car${wilting ? ' wilt' : ''}" viewBox="0 56 120 92" role="img" aria-label="${label || CAR_STYLES[carStyle(v)].name}">
+    <rect x="0" y="58" width="120" height="88" rx="12" fill="var(--sunk)"/><rect x="0" y="130" width="120" height="16" fill="#000" opacity=".08"/><path d="M0 130 H120" stroke="#000" opacity=".12"/>
+    <path d="M60 58 V62" stroke="var(--muted)" stroke-width="1"/><path d="M51 62 h18 l-3 3.5 h-12z" fill="var(--muted)"/>
+    <g class="car-g">${carBody(stage, colour, wilting, v)}</g></svg>`;
 }
 function carColour(i) { return CAR_COLOURS[i % CAR_COLOURS.length]; }
 function growSVG(type, stage, wilting, opts = {}) {
-  if (type === 'bonsai') return bonsaiSVG(stage, wilting, opts.label);
-  if (type === 'car') return carSVG(stage, wilting, carColour(opts.i || 0), opts.label);
+  if (type === 'bonsai') return bonsaiSVG(stage, wilting, opts.label, opts.v);
+  if (type === 'car') return carSVG(stage, wilting, carColour(opts.i || 0), opts.label, opts.v);
   return flowerSVG(stage, wilting, { type, label: opts.label });
 }
-function miniSVG(type, i) {
-  if (type === 'bonsai') return `<svg class="mini-bloom" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 11 V2" stroke="#6E4B30" stroke-width="2.6" stroke-linecap="round"/><circle cx="-5.5" cy="0" r="5" fill="#3F7D45"/><circle cx="5.5" cy="0" r="5" fill="#3F7D45"/><circle cx="0" cy="-5" r="6" fill="#62A85A"/></svg>`;
-  if (type === 'car') { const c = carColour(i); return `<svg class="mini-bloom" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-11.5 5 V1 Q-11.5 -1.5 -8.5 -1.5 L-5 -2 L-2 -7 H4 L8 -2 Q11.5 -1.5 11.5 1.5 V5 Z" fill="${c}" stroke="${hexMix(c, '#000000', 0.3)}" stroke-width=".8"/><path d="M-1.4 -6 H3.6 L6.6 -2.4 H-3.8 Z" fill="#A8D0EE"/><circle cx="-6" cy="5" r="3.2" fill="#1E2023"/><circle cx="6" cy="5" r="3.2" fill="#1E2023"/></svg>`; }
+function miniSVG(type, i, v) {
+  if (type === 'bonsai') { const B = BONSAI[bonsaiSp(v)]; return `<svg class="mini-bloom" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 11 V2" stroke="${B.bark}" stroke-width="2.6" stroke-linecap="round"/><circle cx="-5.5" cy="0" r="5" fill="${B.dark}"/><circle cx="5.5" cy="0" r="5" fill="${B.dark}"/><circle cx="0" cy="-5" r="6" fill="${B.light}"/></svg>`; }
+  if (type === 'car') return `<svg class="mini-bloom mini-car" viewBox="2 64 116 70" aria-hidden="true">${carBody(5, carColour(i), false, v)}</svg>`;
   return miniBloomSVG(type);
 }
-function groundTree(x, gy, i, stage, wilting) {
+function groundTree(x, gy, i, stage, wilting, v) {
   const flip = i % 2 ? -1 : 1; const s = stage === 5 ? 1 : 0.95;
-  return `<g transform="translate(${x} ${gy}) scale(${flip * s} ${s}) translate(-60 -119)"${wilting ? ' opacity=".85"' : ''}>${bonsaiTree(stage, wilting)}</g>`;
+  return `<g transform="translate(${x} ${gy}) scale(${flip * s} ${s}) translate(-60 -119)"${wilting ? ' opacity=".85"' : ''}>${bonsaiTree(stage, wilting, v)}</g>`;
 }
-function groundCar(x, gy, i, stage, wilting) {
+function groundCar(x, gy, i, stage, wilting, v) {
   const s = 0.92;
-  return `<g transform="translate(${x - 60 * s} ${gy - 129 * s}) scale(${s})"${wilting ? ' class="car-dusty"' : ''}>${carBody(stage, carColour(i), wilting)}</g>`;
+  return `<g transform="translate(${x - 60 * s} ${gy - 129 * s}) scale(${s})"${wilting ? ' class="car-dusty"' : ''}>${carBody(stage, carColour(i), wilting, v)}</g>`;
 }
-function groundItem(x, gy, i, type, stage, wilting) {
-  if (type === 'bonsai') return groundTree(x, gy, i, stage, wilting);
-  if (type === 'car') return groundCar(x, gy, i, stage, wilting);
+function groundItem(x, gy, i, type, stage, wilting, v) {
+  if (type === 'bonsai') return groundTree(x, gy, i, stage, wilting, v);
+  if (type === 'car') return groundCar(x, gy, i, stage, wilting, v);
   return groundFlower(x, gy, i, type, stage, wilting);
 }
 function gardenCard() {
@@ -643,9 +697,9 @@ function gardenCard() {
   else if (g.todayPts === 0) msg = `Nothing logged yet today. A workout gives it the biggest boost (+${GARDEN.WORKOUT}).`;
   else msg = `+${g.todayPts} today. ${g.toNext} more to go, about ${Math.ceil(g.toNext / GARDEN.WORKOUT)} workout${Math.ceil(g.toNext / GARDEN.WORKOUT) > 1 ? 's' : ''}.`;
   const shown = Math.min(g.bloomed, 14);
-  const bed = g.bloomed ? `<div class="bed" aria-label="${g.bloomed} ${M.grownLabel.toLowerCase()}">${Array.from({ length: shown }, (_, k) => miniSVG(blooms[k]?.type || type, k)).join('')}${g.bloomed > shown ? `<span class="small muted">+${g.bloomed - shown}</span>` : ''}</div>` : '';
+  const bed = g.bloomed ? `<div class="bed" aria-label="${g.bloomed} ${M.grownLabel.toLowerCase()}">${Array.from({ length: shown }, (_, k) => miniSVG(blooms[k]?.type || type, k, blooms[k] ? blooms[k].v : growVariant())).join('')}${g.bloomed > shown ? `<span class="small muted">+${g.bloomed - shown}</span>` : ''}</div>` : '';
   return `<section class="card garden${type === 'car' ? ' is-car' : ''}" aria-label="${M.label}">
-    <div class="garden-plant">${growSVG(type, g.stage, g.wilting, { label: names[g.stage], i: blooms.length })}</div>
+    <div class="garden-plant">${growSVG(type, g.stage, g.wilting, { label: names[g.stage], i: blooms.length, v: growVariant() })}</div>
     <div class="garden-text">
       <div class="garden-title">${g.wilting ? 'Needs a workout' : names[g.stage]}</div>
       ${streakChips()}
@@ -1830,10 +1884,10 @@ function syncBlooms() {
     bloomSyncArmed = false;
     const cfg = cfgCopy(); const prev = cfg.blooms || []; const type = growType();
     const firstTime = !cfg.bloomsInit;
-    const added = dates.slice(prev.length).map(date => ({ date, type }));
+    const v = growVariant(); const added = dates.slice(prev.length).map(date => ({ date, type, ...(v ? { v } : {}) }));
     cfg.blooms = [...prev, ...added]; cfg.bloomsInit = true;
     saveConfig(cfg);
-    if (added.some(x => x.date === todayISO()) && (!firstTime || added.length === 1)) { const M = gm(); celebrate(M.done(), [{ text: M.doneText }], `<div class="cele-flower">${growSVG(type, 5, false, { i: prev.length + added.length - 1 })}</div>`); }
+    if (added.some(x => x.date === todayISO()) && (!firstTime || added.length === 1)) { const M = gm(); celebrate(M.done(v), [{ text: M.doneText }], `<div class="cele-flower">${growSVG(type, 5, false, { i: prev.length + added.length - 1, v })}</div>`); }
   }, 0);
 }
 function groundFlower(x, gy, i, type, stage = 5, wilting = false) {
@@ -1879,10 +1933,10 @@ function gardenScene() {
       const it = items[r * PER + c]; if (!it) continue;
       const x = 60 + c * 120;
       if (it.kind === 'bloom') {
-        svg += groundItem(x, gy - 4, it.i, it.type || growType(), 5);
+        svg += groundItem(x, gy - 4, it.i, it.type || growType(), 5, false, it.v);
         svg += `<text x="${x}" y="${gy + 22}" text-anchor="middle" class="g-label">${fmtDay(it.date, { day: 'numeric', month: 'short' })}</text>`;
       } else {
-        svg += groundItem(x, gy - 4, it.i, growType(), g.stage, g.wilting);
+        svg += groundItem(x, gy - 4, it.i, growType(), g.stage, g.wilting, growVariant());
         svg += `<text x="${x}" y="${gy + 22}" text-anchor="middle" class="g-label">${g.wilting ? 'Needs a workout' : gm().growing}</text>`;
       }
     }
@@ -1920,11 +1974,19 @@ function viewGarden() {
 /* ---------- SETTINGS ---------- */
 function growPicker(kind, act, cur) { // non-soft themes: bonsai / car / flower
   return `<div class="flower-pick grow-pick" role="group" aria-label="What you grow">${['bonsai', 'car', 'flower'].map(k => `<button type="button" class="fp" data-act="${act}" data-v="${k}" aria-pressed="${cur === k}">
-    <span class="fp-art">${k === 'flower' ? flowerSVG(5, false, { type: flowerType(), label: 'Flower' }) : growSVG(k, 5, false, { i: 0, label: GROWS[k].label })}</span><span class="fp-name">${GROWS[k].label}</span></button>`).join('')}</div>`;
+    <span class="fp-art">${k === 'flower' ? flowerSVG(5, false, { type: flowerType(), label: 'Flower' }) : growSVG(k, 5, false, { i: 0, label: GROWS[k].label, v: k === 'bonsai' ? bonsaiSp() : carStyle() })}</span><span class="fp-name">${GROWS[k].label}</span></button>`).join('')}</div>`;
 }
 function flowerPicker(act, cur) {
   return `<div class="flower-pick" role="group" aria-label="Choose your flower">${Object.entries(FLOWERS).map(([id, f]) => `<button type="button" class="fp" data-act="${act}" data-v="${id}" aria-pressed="${cur === id}">
     <span class="fp-art">${flowerSVG(5, false, { type: id, label: f.name })}</span><span class="fp-name">${f.name}</span></button>`).join('')}</div>`;
+}
+function bonsaiPicker(act, cur) {
+  return `<div class="flower-pick" role="group" aria-label="Bonsai type">${Object.entries(BONSAI).map(([id, b]) => `<button type="button" class="fp" data-act="${act}" data-v="${id}" aria-pressed="${cur === id}">
+    <span class="fp-art">${bonsaiSVG(5, false, b.name, id)}</span><span class="fp-name">${b.name}</span></button>`).join('')}</div>`;
+}
+function carPicker(act, cur) {
+  return `<div class="flower-pick car-pick" role="group" aria-label="Car style">${Object.entries(CAR_STYLES).map(([id, c], k) => `<button type="button" class="fp" data-act="${act}" data-v="${id}" aria-pressed="${cur === id}">
+    <span class="fp-art">${carSVG(5, false, carColour(k), c.name, id)}</span><span class="fp-name">${c.name}</span></button>`).join('')}</div>`;
 }
 function growSettings() {
   const soft = softTheme(); const kind = growKind(); const M = gm();
@@ -1935,7 +1997,7 @@ function growSettings() {
         <button type="button" data-act="garden" data-v="off" aria-pressed="${!gardenOn()}">Hide</button>
       </div>
       ${soft ? '' : `<div class="small muted">What you grow</div>${growPicker(kind, 'grow', kind)}`}
-      ${kind === 'flower' ? `<div class="small muted">Your flower</div>${flowerPicker('flower', flowerType())}` : `<div class="small muted">${kind === 'car' ? 'Each finished car gets a new colour and is parked in your Garage tab.' : 'Each finished bonsai is planted as a tree in your Forest tab.'}</div>`}
+      ${kind === 'flower' ? `<div class="small muted">Your flower</div>${flowerPicker('flower', flowerType())}` : kind === 'car' ? `<div class="small muted">Car style</div>${carPicker('carStyle', carStyle())}<div class="small muted">Each finished car gets a new colour and is parked in your Garage tab. Switching style starts the next build as that style; finished cars keep theirs.</div>` : `<div class="small muted">Bonsai type</div>${bonsaiPicker('bonsaiSp', bonsaiSp())}<div class="small muted">Each finished bonsai is planted as a tree in your Forest tab. Switching type grows the next one as that type; finished trees keep theirs.</div>`}
       ${soft ? '<div class="small muted">On the other colours you can grow a bonsai or build a car instead.</div>' : ''}
     </div>`;
 }
@@ -2057,6 +2119,8 @@ document.addEventListener('click', async e => {
     case 'flower': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.flower = b.dataset.v; saveConfig(cfg); openSettings(); toast(`${FLOWERS[b.dataset.v].name} planted`); break;
     }
+    case 'bonsaiSp': { const cfg = cfgCopy(); cfg.bonsai = b.dataset.v; saveConfig(cfg); openSettings(); toast(`${BONSAI[b.dataset.v].name} it is`); break; }
+    case 'carStyle': { const cfg = cfgCopy(); cfg.car = b.dataset.v; saveConfig(cfg); openSettings(); toast(`Building a ${CAR_STYLES[b.dataset.v].name}`); break; }
     case 'grow': { const cfg = cfgCopy(); cfg.grow = b.dataset.v; saveConfig(cfg); openSettings(); toast(b.dataset.v === 'car' ? 'New build started in the garage' : b.dataset.v === 'bonsai' ? 'Bonsai planted' : 'Flower planted'); break; }
     case 'garden': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.garden = b.dataset.v === 'on'; saveConfig(cfg); openSettings(); break;
