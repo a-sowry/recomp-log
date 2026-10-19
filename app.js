@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 16; // keep in step with VERSION in sw.js
+const APP_VERSION = 17; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'chalk', name: 'Chalk', bg: '#F1F1EC', surface: '#FFFFFF', sunk: '#E7E8E2', line: '#D6D8D1' },
@@ -1602,8 +1602,9 @@ const MEASURES = [['waist', 'Waist'], ['arms', 'Arms'], ['chest', 'Chest'], ['hi
 const SUPP_SUGGEST = ['Creatine 5 g', 'Protein powder', 'Fish oil', 'Vitamin D', 'Magnesium', 'Multivitamin', 'Iron', 'Electrolytes'];
 function suppCard() {
   const list = S.config?.supps || []; if (!list.length) return '';
+  if (S.config?.suppHidden) return `<section class="sec"><h2>Supplements <button class="linkbtn h2btn push" data-act="suppHide" data-v="0" aria-expanded="false">Show</button></h2></section>`;
   const taken = new Set(S.days[S.date]?.supps || []);
-  return `<section class="sec"><h2>Supplements <span class="aside">${list.filter(s => taken.has(s.id)).length}/${list.length} today</span></h2>
+  return `<section class="sec"><h2>Supplements <span class="aside">${list.filter(s => taken.has(s.id)).length}/${list.length} today</span><button class="linkbtn h2btn" data-act="suppHide" data-v="1" aria-expanded="true">Hide</button></h2>
     <div class="card supp-row">${list.map(s => `<button class="supp${taken.has(s.id) ? ' on' : ''}" data-act="suppTick" data-v="${s.id}" aria-pressed="${taken.has(s.id)}"><span class="tick" aria-hidden="true"></span>${esc(s.name)}</button>`).join('')}</div></section>`;
 }
 
@@ -2213,6 +2214,7 @@ document.addEventListener('click', async e => {
     case 'weekNav': S.weekOff = Math.max(0, (S.weekOff || 0) + Number(b.dataset.d)); render(); break;
     case 'measure': S.measure = b.dataset.v; render(); break;
     case 'openNutrients': openNutrients(); break;
+    case 'suppHide': { const cfg = cfgCopy(); cfg.suppHidden = b.dataset.v === '1'; saveConfig(cfg); break; }
     case 'waterHide': { const cfg = cfgCopy(); cfg.water = { ...(cfg.water || {}), hidden: b.dataset.v === '1' }; saveConfig(cfg); break; }
     case 'water': {
       const day = localDay(S.date); const before = day.water || 0; const g = waterGoal();
