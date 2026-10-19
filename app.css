@@ -486,3 +486,33 @@ nav.tabs button { min-width: 0; }
 :root[data-style="soft"] { --g-sky-top: color-mix(in srgb, var(--btn) 18%, #FFFFFF); --g-sky-bot: #FFF8FB; }
 :root[data-theme="dark"] { --g-sky-top: #24324A; --g-sky-bot: #3B4A63; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --g-sky-top: #24324A; --g-sky-bot: #3B4A63; } }
+
+/* water */
+.water { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 14px; align-items: center; }
+.water-art { width: 104px; }
+.bottle-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.bottle-svg .wave { animation: wv 3.2s ease-in-out infinite alternate; }
+.bottle-svg .bub { animation: bub 2.8s ease-in infinite; }
+.bottle-svg .bub.b2 { animation-delay: 1.3s; }
+@keyframes wv { from { transform: translateX(0); } to { transform: translateX(-20px); } }
+@keyframes bub { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bottle-svg .wave, .bottle-svg .bub { animation: none; } }
+.water-side { display: grid; gap: 8px; min-width: 0; }
+.water-n { font-size: 15px; color: var(--muted); }
+.water-n b { font-size: 34px; color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums; }
+.water-n span { font-size: 13px; }
+.water-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.water-btns .btn { padding-left: 11px; padding-right: 11px; }
+.wb-sz { opacity: .75; font-weight: 500; margin-left: 2px; }
+.water .linkbtn { justify-self: start; font-size: 13px; }
+.water.done .water-n b { color: var(--green); }
+[data-style="soft"] .water-n b { font-family: 'Playfair Display', Georgia, serif; }
+[data-style="soft"] .water.done .water-n b { color: var(--btn); }
+.stanley-pick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.sp { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 2px; display: grid; justify-items: center; gap: 4px; color: var(--ink); }
+.sp[aria-pressed="true"] { border-color: var(--btn); box-shadow: inset 0 0 0 1.5px var(--btn); }
+.sp-art { width: 100%; max-width: 40px; display: block; }
+.sp-art .wave, .sp-art .bub { animation: none; }
+.sp-name { font-size: 10.5px; line-height: 1.15; text-align: center; font-weight: 600; }
+[data-style="soft"] .sp { border: 0; box-shadow: var(--shadow); }
+[data-style="soft"] .sp[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--btn), var(--shadow); }

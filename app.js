@@ -613,6 +613,7 @@ function viewToday() {
       </div>
     </div>
   </section>
+  ${waterCard()}
   ${suppCard()}
   <section class="sec"><h2>Last 7 days</h2>
     <div class="week">${weekStrip()}</div>
@@ -1433,11 +1434,109 @@ function suppCard() {
     <div class="card supp-row">${list.map(s => `<button class="supp${taken.has(s.id) ? ' on' : ''}" data-act="suppTick" data-v="${s.id}" aria-pressed="${taken.has(s.id)}"><span class="tick" aria-hidden="true"></span>${esc(s.name)}</button>`).join('')}</div></section>`;
 }
 
+/* ---------- water ---------- */
+const STANLEY_COLOURS = [
+  ['rose', 'Rose Quartz', '#E7A1B4'], ['fuchsia', 'Fuchsia', '#D8457F'], ['blush', 'Blush', '#F1C3C0'], ['lilac', 'Lilac', '#B89BE2'],
+  ['peach', 'Peach', '#F3AE85'], ['butter', 'Butter', '#F1D98A'], ['sage', 'Sage', '#9CB89A'], ['sky', 'Sky', '#8DC2E6'],
+  ['cream', 'Cream', '#EFE4D2'], ['black', 'Black', '#2C2B30'],
+];
+function softTheme() { const t = THEMES.find(x => x.id === (S.config?.theme || lsGet('rl:theme') || 'auto')); return !!(t && t.style === 'soft'); }
+function hexMix(a, b, t) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const x = p(a), y = p(b); return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+function waterGoal() {
+  if (S.config?.water?.goal) return S.config.water.goal;
+  const w = weightList().slice(-1)[0]?.kg;
+  return w ? Math.min(4000, Math.max(2000, Math.round(w * 35 / 250) * 250)) : 2500;
+}
+function bottleSize() { return S.config?.water?.bottle || (softTheme() ? 1180 : 750); }
+function stanleyColour() { const id = S.config?.water?.colour || 'rose'; return (STANLEY_COLOURS.find(c => c[0] === id) || STANLEY_COLOURS[0])[2]; }
+const fmtL = ml => (ml / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+function waveD(y, x0, x1) { // gentle wave across, closed down to the bottom
+  let d = `M${x0} ${y}`; for (let x = x0; x < x1; x += 40) d += ` q10 -4 20 0 t20 0`;
+  return d + ` V210 H${x0} Z`;
+}
+function stanleySVG(f, col) {
+  const dark = hexMix(col, '#000000', 0.22), pale = hexMix(col, '#FFFFFF', 0.62), shine = hexMix(col, '#FFFFFF', 0.85);
+  const top = 46, bot = 192, y = bot - f * (bot - top);
+  const body = 'M22 46 H98 L90 148 H30 Z M33 148 H87 L85 187 Q84.6 192 80 192 H40 Q35.4 192 35 187 Z';
+  return `<svg viewBox="0 0 124 200" class="bottle-svg" role="img" aria-label="Stanley cup ${Math.round(f * 100)}% full">
+    <defs><clipPath id="stClip"><path d="${body}"/></clipPath></defs>
+    <path d="M94 60 C116 60 116 62 115 92 L113 124 C112 132 106 134 89 134" fill="none" stroke="${dark}" stroke-width="9" stroke-linecap="round"/>
+    <path d="M94 60 C116 60 116 62 115 92 L113 124 C112 132 106 134 89 134" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round"/>
+    <rect x="66" y="2" width="7" height="34" rx="3.5" transform="rotate(14 69 36)" fill="${dark}"/>
+    <path d="${body}" fill="${pale}"/>
+    <g clip-path="url(#stClip)">
+      <g class="wave"><path d="${waveD(y, -40, 180)}" fill="${col}"/></g>
+      ${f > 0.08 ? `<circle class="bub" cx="48" cy="${Math.min(184, y + 22)}" r="2.2" fill="${shine}"/><circle class="bub b2" cx="70" cy="${Math.min(186, y + 40)}" r="1.6" fill="${shine}"/>` : ''}
+      <rect x="29" y="52" width="7" height="88" rx="3.5" fill="#FFFFFF" opacity=".35"/>
+      <rect x="31" y="150" width="58" height="3" fill="${dark}" opacity=".25"/>
+    </g>
+    <rect x="18" y="32" width="84" height="16" rx="7" fill="${dark}"/>
+    <rect x="25" y="26" width="70" height="9" rx="4.5" fill="${col}"/>
+    <rect x="25" y="26" width="70" height="3" rx="1.5" fill="#FFFFFF" opacity=".3"/>
+  </svg>`;
+}
+function plainBottleSVG(f) {
+  const top = 54, bot = 190, y = bot - f * (bot - top);
+  const body = 'M42 36 H78 Q78 46 92 56 V178 Q92 190 80 190 H40 Q28 190 28 178 V56 Q42 46 42 36 Z';
+  return `<svg viewBox="0 0 124 200" class="bottle-svg" role="img" aria-label="Water bottle ${Math.round(f * 100)}% full">
+    <defs><clipPath id="pbClip"><path d="${body}"/></clipPath></defs>
+    <path d="${body}" fill="var(--sunk)" opacity=".55"/>
+    <g clip-path="url(#pbClip)">
+      <g class="wave"><path d="${waveD(y, -40, 180)}" fill="#4BA3E3" opacity=".85"/></g>
+      ${f > 0.08 ? `<circle class="bub" cx="50" cy="${Math.min(182, y + 22)}" r="2.2" fill="#FFFFFF" opacity=".7"/><circle class="bub b2" cx="72" cy="${Math.min(184, y + 40)}" r="1.6" fill="#FFFFFF" opacity=".7"/>` : ''}
+      <rect x="34" y="62" width="6" height="110" rx="3" fill="#FFFFFF" opacity=".35"/>
+    </g>
+    <path d="${body}" fill="none" stroke="var(--line)" stroke-width="2"/>
+    ${[0.25, 0.5, 0.75].map(t => `<line x1="84" x2="92" y1="${bot - t * (bot - top)}" y2="${bot - t * (bot - top)}" stroke="var(--muted)" stroke-width="1.5" opacity=".6"/>`).join('')}
+    <path d="M30 112 H90 M30 120 H90" stroke="var(--line)" stroke-width="1.5" opacity=".8"/>
+    <rect x="38" y="20" width="44" height="18" rx="5" fill="var(--btn)"/>
+    <rect x="50" y="8" width="20" height="14" rx="4" fill="var(--btn)" opacity=".85"/>
+  </svg>`;
+}
+function waterCard() {
+  const ml = S.days[S.date]?.water || 0; const goal = waterGoal(); const f = Math.min(1, ml / goal);
+  const soft = softTheme(); const bs = bottleSize(); const left = Math.max(0, goal - ml);
+  const msg = ml >= goal ? 'Goal hit. Nicely done.'
+    : ml === 0 ? `Start with a glass. Your goal is ${fmtL(goal)} L.`
+    : `${fmtL(left)} L to go, about ${Math.max(1, Math.round(left / bs * 2) / 2)} ${soft ? 'Stanley' : 'bottle'}${left / bs > 1 ? 's' : ''}.`;
+  return `<section class="sec"><h2>Water <span class="aside">${fmtL(ml)} / ${fmtL(goal)} L</span></h2>
+    <div class="card water${ml >= goal ? ' done' : ''}">
+      <div class="water-art">${soft ? stanleySVG(f, stanleyColour()) : plainBottleSVG(f)}</div>
+      <div class="water-side">
+        <div class="water-n"><b>${fmtL(ml)}</b> L <span>of ${fmtL(goal)} L</span></div>
+        <div class="small muted">${msg}</div>
+        <div class="water-btns">
+          <button class="btn ghost sm" data-act="water" data-d="250">+ 250 ml</button>
+          <button class="btn ghost sm" data-act="water" data-d="500">+ 500 ml</button>
+          <button class="btn sm" data-act="water" data-d="${bs}">+ ${soft ? 'Full Stanley' : 'Full bottle'} <span class="wb-sz">${fmtL(bs)} L</span></button>
+        </div>
+        ${ml ? '<button class="linkbtn muted" data-act="water" data-d="-250">Take off 250 ml</button>' : ''}
+      </div>
+    </div></section>`;
+}
+function waterSettings() {
+  const soft = softTheme(); const cur = S.config?.water?.colour || 'rose';
+  return `<div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Water</div>
+    <div class="grid2">
+      <label class="f">Daily goal (ml)<input type="number" id="wt_goal" min="500" max="8000" step="250" value="${waterGoal()}"></label>
+      <label class="f">${soft ? 'Stanley' : 'Bottle'} size (ml)<input type="number" id="wt_bottle" min="100" max="3000" step="10" value="${bottleSize()}"></label>
+    </div>
+    <div class="small muted">${S.config?.water?.goal ? '' : 'Goal starts at about 35 ml per kg of body weight. '}Drink more on hot days and long sessions.${soft ? ' A 40 oz Stanley holds 1,180 ml.' : ''}</div>
+    ${soft ? `<div class="small muted">Stanley colour</div>
+    <div class="stanley-pick" role="group" aria-label="Stanley colour">${STANLEY_COLOURS.map(([id, name, hex]) => `<button type="button" class="sp" data-act="stanleyColour" data-v="${id}" aria-pressed="${cur === id}" title="${name}">
+      <span class="sp-art">${stanleySVG(0.6, hex).replace(/stClip/g, 'stClip_' + id)}</span><span class="sp-name">${name}</span></button>`).join('')}</div>` : ''}
+  </div>`;
+}
+
 /* ---------- streaks ---------- */
 const WEEK_GOAL = 3;
 function loggedDates() {
   const set = new Set();
-  for (const d of Object.values(S.days)) if (d.meals?.length || d.cardio?.length || d.supps?.length) set.add(d.date);
+  for (const d of Object.values(S.days)) if (d.meals?.length || d.cardio?.length || d.supps?.length || d.water) set.add(d.date);
   for (const s of Object.values(S.sessions)) if (s.source !== 'spreadsheet' && s.exercises?.length) set.add(s.date);
   for (const w of Object.values(S.weights)) if (w.kg) set.add(w.date);
   return set;
@@ -1606,6 +1705,7 @@ function openSettings() {
       <div class="small muted">On days with extra exercise, like a long hike, swim or run, eat a bit more to fuel it.</div>
       <div><button type="button" class="btn ghost sm" data-act="redoSetup">Recalculate from my stats</button></div>
     </div>
+    ${waterSettings()}
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Supplements</div>
       ${(S.config?.supps || []).length ? `<div class="rows">${S.config.supps.map(x => `<div class="row"><span class="t">${esc(x.name)}</span><button type="button" class="xbtn" data-act="suppDel" data-v="${x.id}" aria-label="Remove ${esc(x.name)}">×</button></div>`).join('')}</div>` : '<div class="small muted">Add what you take and tick them off on the Food tab each day.</div>'}
       <div class="formrow"><label class="f">Add a supplement<input type="text" id="supp_new" placeholder="e.g. Creatine 5 g"></label><button type="button" class="btn ghost" data-act="suppAdd">Add</button></div>
@@ -1773,6 +1873,12 @@ document.addEventListener('click', async e => {
     case 'closeCelebrate': { const r = document.getElementById('celebrateRoot'); r.hidden = true; r.innerHTML = ''; break; }
     case 'weekNav': S.weekOff = Math.max(0, (S.weekOff || 0) + Number(b.dataset.d)); render(); break;
     case 'measure': S.measure = b.dataset.v; render(); break;
+    case 'water': {
+      const day = localDay(S.date); const before = day.water || 0; const g = waterGoal();
+      day.water = Math.max(0, before + Number(b.dataset.d)); saveDay(S.date, day);
+      if (before < g && day.water >= g) toast('Water goal hit. Nice!'); break;
+    }
+    case 'stanleyColour': { const cfg = cfgCopy(); cfg.water = { ...(cfg.water || {}), colour: b.dataset.v }; saveConfig(cfg); openSettings(); break; }
     case 'suppTick': {
       const day = localDay(S.date); const set = new Set(day.supps || []);
       if (set.has(b.dataset.v)) set.delete(b.dataset.v); else set.add(b.dataset.v);
@@ -1829,6 +1935,11 @@ document.addEventListener('change', e => {
   else if (el.id === 'cmpB') { S.compare.b = el.value; render(); }
   else if (el.id === 'cmpPose') { S.compare.pose = el.value; render(); }
   else if (el.dataset.f === 'name' && S.tab === 'train') { pendingRender = false; render(); }
+  else if (el.id === 'wt_goal' || el.id === 'wt_bottle') {
+    const n = Math.round(+el.value); const k = el.id === 'wt_goal' ? 'goal' : 'bottle';
+    if (!(n >= 100 && n <= 8000)) { toast('Enter a number in ml'); return; }
+    const cfg = cfgCopy(); cfg.water = { ...(cfg.water || {}), [k]: n }; saveConfig(cfg); toast(k === 'goal' ? 'Water goal saved' : 'Bottle size saved');
+  }
   else if (el.id === 'steps') {
     const day = localDay(S.date); const v = numOrNull(el.value); if (day.steps === v) return; day.steps = v; saveDay(S.date, day); toast('Steps saved');
   }
