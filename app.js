@@ -1028,7 +1028,7 @@ function openSettings() {
         <label class="f">Carbs g<input type="number" id="t_c" value="${T.c}" min="0" max="800"></label>
         <label class="f">Fat g<input type="number" id="t_f" value="${T.f}" min="0" max="300"></label>
       </div>
-      <div class="small muted">Started at ~2,250 kcal: 10% under a ~2,500 maintenance. Add 200–400 kcal on big hike, swim or run club days.</div>
+      <div class="small muted">On days with extra exercise, like a long hike, swim or run, eat a bit more to fuel it.</div>
     </div>
     ${ed}
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" type="submit">Save</button><button type="button" class="btn ghost" data-act="pgReset">Reset program to original split</button></div>
