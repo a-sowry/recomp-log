@@ -593,7 +593,7 @@ function viewToday() {
         <label class="f">Carbs g<input type="number" id="cf_c" inputmode="decimal" min="0" value="0"></label>
         <label class="f">Fat g<input type="number" id="cf_f" inputmode="decimal" min="0" value="0"></label>
       </div>
-      <label class="f">Ingredients for your grocery list (optional, one per line)<textarea id="cf_ing" rows="3" placeholder="200 g chicken breast&#10;1 avocado&#10;100 g rice"></textarea></label>
+      <label class="f">Ingredients (optional, one per line, for nutrients and your grocery list)<textarea id="cf_ing" rows="3" placeholder="200 g chicken breast&#10;1 avocado&#10;100 g rice"></textarea></label>
       <div class="formrow">
         <label class="f">Meal<select id="cf_slot">${SLOTS.map(s => `<option>${s}</option>`).join('')}</select></label>
         <label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="cf_save" checked> Save to my meal plan</label>
@@ -620,6 +620,7 @@ function viewToday() {
     <div class="legend"><span><i style="background:var(--green)"></i>On target</span><span><i style="background:var(--yellow)"></i>Under, or protein short</span><span><i style="background:var(--red)"></i>Over by 150+</span></div>
   </section>
   <section class="sec"><h2>Logged</h2><div class="card rows">${log}</div></section>
+  ${nutrientCard()}
   <section class="sec"><h2>Add food</h2>
     <div class="seg" role="group" aria-label="Food source">
       <button data-act="foodAdd" data-v="plan" aria-pressed="${S.foodAdd !== 'custom' && S.foodAdd !== 'scan'}">Meal plan</button>
@@ -1203,7 +1204,7 @@ async function lookupBarcode(code) {
     const p = j.product, n = p.nutriments || {};
     const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] != null ? n['energy_100g'] / 4.184 : null);
     if (kcal == null) { S.scan = { code, status: 'notfound', partial: p.product_name }; render(); return; }
-    const prod = { name: (p.product_name_en || p.product_name || 'Unnamed product').trim(), brand: (p.brands || '').split(',')[0].trim(), kcal: +kcal, p: +(n.proteins_100g || 0), c: +(n.carbohydrates_100g || 0), f: +(n.fat_100g || 0), serving: +p.serving_quantity || null, servingLabel: p.serving_size || '', size: p.quantity || '' };
+    const prod = { name: (p.product_name_en || p.product_name || 'Unnamed product').trim(), brand: (p.brands || '').split(',')[0].trim(), kcal: +kcal, p: +(n.proteins_100g || 0), c: +(n.carbohydrates_100g || 0), f: +(n.fat_100g || 0), nut: offNut(n), serving: +p.serving_quantity || null, servingLabel: p.serving_size || '', size: p.quantity || '' };
     lsSet('rl:off:' + code, prod);
     S.scan = { code, status: 'found', product: prod, grams: prod.serving || 100 }; render();
   } catch (e) { console.error(e); S.scan = { code, status: 'error', msg: 'Couldn\'t reach the food database. Check your signal and try again.' }; render(); }
@@ -1432,6 +1433,135 @@ function suppCard() {
   const taken = new Set(S.days[S.date]?.supps || []);
   return `<section class="sec"><h2>Supplements <span class="aside">${list.filter(s => taken.has(s.id)).length}/${list.length} today</span></h2>
     <div class="card supp-row">${list.map(s => `<button class="supp${taken.has(s.id) ? ' on' : ''}" data-act="suppTick" data-v="${s.id}" aria-pressed="${taken.has(s.id)}"><span class="tick" aria-hidden="true"></span>${esc(s.name)}</button>`).join('')}</div></section>`;
+}
+
+/* ---------- nutrients (micros) ---------- */
+// Per 100 g (or ml): fibre g, sugars g, sat fat g, sodium mg, potassium mg, calcium mg, iron mg, magnesium mg, zinc mg,
+// vit C mg, vit A µg RAE, folate µg DFE, B12 µg, vit D µg. Approximate values from USDA FoodData Central / AUSNUT;
+// bread folate reflects Australia's mandatory folic acid fortification.
+const NK = ['fib', 'sug', 'sat', 'na', 'k', 'ca', 'fe', 'mg', 'zn', 'vc', 'va', 'fol', 'b12', 'vd'];
+const NUTR_DB = {
+  egg_white: [0, 0.7, 0, 166, 163, 7, 0.1, 11, 0, 0, 0, 4, 0.1, 0], egg: [0, 0.4, 3.1, 142, 138, 56, 1.75, 12, 1.3, 0, 160, 47, 0.9, 2],
+  greek_yog_0: [0, 3.2, 0.1, 36, 141, 110, 0.1, 11, 0.5, 0, 1, 7, 0.75, 0], skim_milk: [0, 5, 0.1, 42, 156, 122, 0, 11, 0.4, 0, 10, 5, 0.5, 0],
+  cottage_cheese: [0, 2.7, 1.2, 330, 86, 61, 0.15, 7, 0.4, 0, 12, 13, 0.6, 0], parmesan: [0, 0.9, 19, 1600, 92, 1180, 0.8, 44, 2.75, 0, 207, 7, 1.2, 0.5],
+  light_mozz: [0, 1, 10, 620, 85, 780, 0.2, 23, 2.9, 0, 120, 9, 0.8, 0.3], light_cheese: [0, 0.5, 15, 650, 80, 800, 0.2, 28, 3.5, 0, 200, 15, 0.9, 0.3],
+  almond_milk: [0.2, 0, 0, 60, 70, 120, 0.3, 7, 0.1, 0, 0, 0, 0.2, 0],
+  chicken_breast: [0, 0, 0.6, 45, 370, 5, 0.4, 28, 0.7, 0, 9, 4, 0.2, 0.1], chicken_thigh: [0, 0, 1.1, 95, 240, 9, 0.8, 23, 1.6, 0, 8, 6, 0.6, 0.1],
+  lean_beef: [0, 0, 2, 55, 340, 6, 2, 22, 4, 0, 0, 7, 1.6, 0.1], turkey_mince: [0, 0, 2, 70, 290, 15, 1, 25, 2.4, 0, 0, 8, 1.1, 0.2],
+  salmon: [0, 0, 3.1, 59, 363, 9, 0.3, 27, 0.4, 0, 58, 26, 3.2, 11],
+  banana: [2.6, 12.2, 0.1, 1, 358, 5, 0.3, 27, 0.15, 8.7, 3, 20, 0, 0], berries: [4, 6, 0, 1, 120, 20, 0.6, 15, 0.3, 15, 2, 15, 0, 0],
+  strawberries: [2, 4.9, 0, 1, 153, 16, 0.4, 13, 0.1, 59, 1, 24, 0, 0], avocado: [6.7, 0.7, 2.1, 7, 485, 12, 0.55, 29, 0.6, 10, 7, 81, 0, 0],
+  spinach: [2.2, 0.4, 0.1, 79, 558, 99, 2.7, 79, 0.5, 28, 469, 194, 0, 0], tomato: [1.2, 2.6, 0, 5, 237, 10, 0.3, 11, 0.2, 14, 42, 15, 0, 0],
+  capsicum: [2.1, 4.2, 0, 4, 211, 7, 0.4, 12, 0.25, 128, 157, 46, 0, 0], cucumber: [0.5, 1.7, 0, 2, 147, 16, 0.3, 13, 0.2, 2.8, 5, 7, 0, 0],
+  carrot: [2.8, 4.7, 0, 69, 320, 33, 0.3, 12, 0.24, 5.9, 835, 19, 0, 0], cabbage: [2.1, 3.8, 0, 27, 243, 45, 0.8, 16, 0.2, 57, 56, 18, 0, 0],
+  broccoli: [2.6, 1.7, 0, 33, 316, 47, 0.7, 21, 0.4, 89, 31, 63, 0, 0], broccolini: [2.5, 1.5, 0, 30, 300, 50, 0.8, 20, 0.4, 80, 60, 60, 0, 0],
+  sweet_potato: [3, 4.2, 0, 55, 337, 30, 0.6, 25, 0.3, 2.4, 709, 11, 0, 0], onion: [1.7, 4.2, 0, 4, 146, 23, 0.2, 10, 0.2, 7.4, 0, 19, 0, 0],
+  lettuce: [2.1, 1.2, 0, 8, 247, 33, 1, 14, 0.2, 4, 436, 136, 0, 0], lime: [0.4, 1.7, 0, 2, 117, 14, 0.1, 8, 0.1, 30, 2, 10, 0, 0],
+  corn: [2, 3.2, 0.2, 15, 270, 2, 0.5, 37, 0.5, 6.8, 9, 46, 0, 0], edamame: [5.2, 2.2, 0.7, 6, 436, 63, 2.3, 64, 1.4, 6.1, 9, 311, 0, 0],
+  sourdough: [2.4, 2.5, 0.3, 510, 120, 20, 2.5, 25, 0.8, 0, 0, 120, 0, 0], tortilla: [3, 2.5, 2, 600, 160, 100, 3, 25, 0.6, 0, 0, 100, 0, 0],
+  oats: [10.1, 1, 1.2, 2, 362, 54, 4.7, 177, 4, 0, 0, 32, 0, 0], whey: [0, 5, 1.5, 200, 500, 450, 1, 80, 2, 0, 0, 10, 1, 0],
+  white_rice_cooked: [0.4, 0.1, 0.1, 1, 35, 10, 0.2, 12, 0.5, 0, 0, 3, 0, 0], brown_rice_cooked: [1.6, 0.4, 0.2, 4, 86, 10, 0.6, 39, 0.7, 0, 0, 4, 0, 0],
+  orzo_dry: [3, 2.7, 0.3, 6, 220, 21, 1.3, 53, 1.4, 0, 0, 18, 0, 0], penne_dry: [9, 3, 0.3, 8, 330, 40, 3.6, 140, 3, 0, 0, 40, 0, 0],
+  flour: [2.7, 0.3, 0.2, 2, 107, 15, 1.2, 22, 0.7, 0, 0, 26, 0, 0], cornflour: [0.9, 0, 0, 9, 3, 2, 0.5, 3, 0.1, 0, 0, 0, 0, 0],
+  black_beans: [6.9, 0.3, 0.1, 240, 370, 35, 1.9, 42, 0.7, 0, 0, 90, 0, 0], passata: [1.5, 4, 0, 30, 400, 15, 1, 18, 0.3, 10, 30, 10, 0, 0],
+  broth: [0, 0.4, 0.1, 380, 40, 2, 0.1, 1, 0, 0, 0, 0, 0, 0], chia: [34.4, 0, 3.3, 16, 407, 631, 7.7, 335, 4.6, 1.6, 0, 49, 0, 0],
+  granola: [6, 20, 1.5, 30, 400, 50, 3, 110, 2.5, 0, 0, 20, 0, 0], almonds: [12.5, 4.4, 3.8, 1, 733, 269, 3.7, 270, 3.1, 0, 0, 44, 0, 0],
+  choc_chips: [7, 48, 18, 10, 560, 60, 8, 170, 2.5, 0, 2, 0, 0, 0], rice_cake: [4.2, 0.9, 0.6, 30, 290, 11, 1.5, 131, 2.9, 0, 0, 21, 0, 0],
+  nori: [36, 0.5, 0.3, 300, 2000, 250, 11, 300, 3, 40, 500, 500, 0, 0], taco_season: [13, 10, 0.5, 6500, 1000, 150, 10, 100, 1, 2, 300, 20, 0, 0],
+  olive_oil: [0, 0, 14, 2, 1, 1, 0.6, 0, 0, 0, 0, 0, 0, 0], peanut_butter: [6, 9, 10, 400, 650, 45, 1.9, 170, 2.9, 0, 0, 87, 0, 0],
+  maple: [0, 60, 0, 12, 212, 102, 0.1, 21, 1.5, 0, 0, 0, 0, 0], honey: [0.2, 82, 0, 4, 52, 6, 0.4, 2, 0.2, 0.5, 0, 2, 0, 0],
+  mayo: [0, 1, 11, 600, 20, 8, 0.2, 1, 0.1, 0, 20, 5, 0.1, 0.2], kewpie: [0, 1.5, 10, 700, 20, 10, 0.5, 1, 0.2, 0, 50, 5, 0.2, 0.5],
+  sweet_chilli: [1, 50, 0, 1400, 70, 10, 0.5, 5, 0.1, 5, 30, 2, 0, 0], sriracha: [2, 22, 0, 2100, 320, 18, 1.6, 15, 0.2, 27, 120, 10, 0, 0],
+  soy: [0.8, 0.4, 0, 5500, 435, 33, 1.5, 43, 0.4, 0, 0, 14, 0, 0], salsa: [1.8, 4, 0, 700, 280, 30, 0.4, 15, 0.3, 4, 25, 15, 0, 0],
+  rice_vinegar: [0, 10, 0, 1000, 10, 5, 0.1, 1, 0, 0, 0, 0, 0, 0], kimchi: [1.6, 1.1, 0, 500, 150, 33, 2.5, 14, 0.2, 18, 50, 50, 0, 0],
+};
+const EACH_G = { egg: 55, banana: 110, avocado: 150, lime: 30, tortilla: 30, rice_cake: 7.5, nori: 2.6, egg_white: 33, carrot: 70, onion: 110, sweet_potato: 200, tomato: 15, chicken_breast: 200, salmon: 140, capsicum: 150, cucumber: 200 };
+const ING_WORDS = [['egg white', 'egg_white'], ['chicken thigh', 'chicken_thigh'], ['chicken', 'chicken_breast'], ['eggs', 'egg'], ['egg', 'egg'],
+  ['almond milk', 'almond_milk'], ['milk', 'skim_milk'], ['yoghurt', 'greek_yog_0'], ['yogurt', 'greek_yog_0'], ['cottage', 'cottage_cheese'], ['parmesan', 'parmesan'],
+  ['mozzarella', 'light_mozz'], ['cheese', 'light_cheese'], ['turkey', 'turkey_mince'], ['beef', 'lean_beef'], ['steak', 'lean_beef'], ['mince', 'lean_beef'], ['salmon', 'salmon'],
+  ['banana', 'banana'], ['strawberr', 'strawberries'], ['berr', 'berries'], ['avocado', 'avocado'], ['spinach', 'spinach'], ['tomato', 'tomato'], ['capsicum', 'capsicum'],
+  ['cucumber', 'cucumber'], ['carrot', 'carrot'], ['cabbage', 'cabbage'], ['broccolini', 'broccolini'], ['broccoli', 'broccoli'], ['sweet potato', 'sweet_potato'],
+  ['onion', 'onion'], ['lettuce', 'lettuce'], ['lime', 'lime'], ['lemon', 'lime'], ['corn', 'corn'], ['edamame', 'edamame'], ['sourdough', 'sourdough'], ['bread', 'sourdough'],
+  ['toast', 'sourdough'], ['tortilla', 'tortilla'], ['wrap', 'tortilla'], ['oat', 'oats'], ['whey', 'whey'], ['protein powder', 'whey'], ['brown rice', 'brown_rice_cooked'],
+  ['rice cake', 'rice_cake'], ['rice', 'white_rice_cooked'], ['orzo', 'orzo_dry'], ['pasta', 'penne_dry'], ['penne', 'penne_dry'], ['flour', 'flour'], ['bean', 'black_beans'],
+  ['passata', 'passata'], ['stock', 'broth'], ['broth', 'broth'], ['chia', 'chia'], ['granola', 'granola'], ['almond', 'almonds'], ['choc', 'choc_chips'], ['nori', 'nori'],
+  ['olive oil', 'olive_oil'], ['oil', 'olive_oil'], ['peanut butter', 'peanut_butter'], ['maple', 'maple'], ['honey', 'honey'], ['kewpie', 'kewpie'], ['mayo', 'mayo'],
+  ['sweet chilli', 'sweet_chilli'], ['sriracha', 'sriracha'], ['soy', 'soy'], ['salsa', 'salsa'], ['kimchi', 'kimchi']];
+function parseIng(line) { // -> [key, grams] or null
+  const t = line.trim().toLowerCase(); if (!t) return null;
+  const hit = ING_WORDS.find(([w]) => t.includes(w)); if (!hit) return null; const key = hit[1];
+  let m = t.match(/^(\d+(?:[.,]\d+)?)\s*(kg|g|ml|l|tbsp|tsp)\b/);
+  if (m) { const q = parseFloat(m[1].replace(',', '.')); return [key, q * ({ kg: 1000, l: 1000, tbsp: 15, tsp: 5 }[m[2]] || 1)]; }
+  m = t.match(/^(\d+(?:[.,]\d+)?|half|½)\s/); const n = m ? (/half|½/.test(m[1]) ? 0.5 : parseFloat(m[1].replace(',', '.'))) : 1;
+  return EACH_G[key] ? [key, n * EACH_G[key]] : null;
+}
+function addNut(acc, key, grams) { const v = NUTR_DB[key]; if (!v) return; NK.forEach((k, i) => { acc[k] = (acc[k] || 0) + v[i] * grams / 100; }); }
+function mealNutrients(m) { // -> {nut, partial} or null when no data
+  const s = m.servings ?? 1; const acc = {};
+  if (m.nut) { for (const k of NK) if (m.nut[k] != null) acc[k] = m.nut[k] * s; return { nut: acc, partial: NK.some(k => m.nut[k] == null) }; }
+  if (m.recipe && RECIPE_GROCERY[m.recipe]) { for (const [ing, g] of RECIPE_GROCERY[m.recipe]) addNut(acc, ing, (ing === 'nori' ? g * EACH_G.nori : g) * s); return { nut: acc, partial: false }; }
+  const ing = m.ing || (m.food && (S.config?.foods || []).find(f => f.id === m.food)?.ing);
+  if (ing?.length) { let miss = 0; for (const l of ing) { const p = parseIng(l); if (p) addNut(acc, p[0], p[1] * s); else miss++; } if (miss === ing.length) return null; return { nut: acc, partial: miss > 0 }; }
+  return null;
+}
+function offNut(n) { // Open Food Facts nutriments (grams per 100 g) -> our units per 100 g
+  const f = (k, mul) => (n[k + '_100g'] != null && n[k + '_100g'] !== '' ? +n[k + '_100g'] * mul : undefined);
+  const o = { fib: f('fiber', 1), sug: f('sugars', 1), sat: f('saturated-fat', 1), na: f('sodium', 1000), k: f('potassium', 1000), ca: f('calcium', 1000), fe: f('iron', 1000),
+    mg: f('magnesium', 1000), zn: f('zinc', 1000), vc: f('vitamin-c', 1000), va: f('vitamin-a', 1e6), fol: f('folates', 1e6) ?? f('vitamin-b9', 1e6), b12: f('vitamin-b12', 1e6), vd: f('vitamin-d', 1e6) };
+  for (const k of NK) if (o[k] == null || isNaN(o[k])) delete o[k];
+  return Object.keys(o).length ? o : null;
+}
+// Australian NRVs (NHMRC). Sodium is the suggested dietary target; sat fat is <10% of energy.
+function nutrientTargets() {
+  const pr = S.config?.profile || {}; const fem = pr.sex === 'female'; const age = +pr.age || 25; const T = targets();
+  return [
+    { k: 'fib', name: 'Fibre', u: 'g', min: fem ? 25 : 30, grp: 'Everyday' },
+    { k: 'sat', name: 'Saturated fat', u: 'g', max: Math.round(T.kcal * 0.1 / 9), grp: 'Everyday' },
+    { k: 'sug', name: 'Sugars', u: 'g', info: 'Total sugars, including fruit and dairy', grp: 'Everyday' },
+    { k: 'na', name: 'Sodium', u: 'mg', max: 2000, grp: 'Everyday' },
+    { k: 'ca', name: 'Calcium', u: 'mg', min: (fem && age > 50) || age > 70 ? 1300 : 1000, grp: 'Minerals' },
+    { k: 'fe', name: 'Iron', u: 'mg', min: fem && age <= 50 ? 18 : 8, grp: 'Minerals' },
+    { k: 'mg', name: 'Magnesium', u: 'mg', min: fem ? (age > 30 ? 320 : 310) : (age > 30 ? 420 : 400), grp: 'Minerals' },
+    { k: 'k', name: 'Potassium', u: 'mg', min: fem ? 2800 : 3800, grp: 'Minerals' },
+    { k: 'zn', name: 'Zinc', u: 'mg', min: fem ? 8 : 14, grp: 'Minerals' },
+    { k: 'va', name: 'Vitamin A', u: 'µg', min: fem ? 700 : 900, grp: 'Vitamins' },
+    { k: 'vc', name: 'Vitamin C', u: 'mg', min: 45, grp: 'Vitamins' },
+    { k: 'fol', name: 'Folate', u: 'µg', min: 400, grp: 'Vitamins' },
+    { k: 'b12', name: 'Vitamin B12', u: 'µg', min: 2.4, grp: 'Vitamins' },
+    { k: 'vd', name: 'Vitamin D', u: 'µg', min: age > 70 ? 15 : age > 50 ? 10 : 5, grp: 'Vitamins', note: 'Mostly made from sunlight, so food alone rarely gets there' },
+  ];
+}
+function dayNutrients(day) {
+  const tot = {}; let counted = 0, partial = 0; const meals = day?.meals || [];
+  for (const m of meals) { const r = mealNutrients(m); if (!r) continue; counted++; if (r.partial) partial++; for (const k of NK) if (r.nut[k] != null) tot[k] = (tot[k] || 0) + r.nut[k]; }
+  return { tot, counted, partial, total: meals.length };
+}
+const fmtN = (v, u) => u === 'µg' && v < 10 ? r1(v) : u === 'g' && v < 10 ? r1(v) : r0(v).toLocaleString();
+function nutrientCard() {
+  const day = S.days[S.date]; const { tot, counted, partial, total } = dayNutrients(day);
+  if (!total) return '';
+  const list = nutrientTargets(); const open = S.nutOpen ?? (lsGet('rl:nutOpen') !== false);
+  const row = n => {
+    const v = tot[n.k] || 0; const tgt = n.min || n.max;
+    if (n.info) return `<div class="nrow"><span class="k">${n.name}</span><span class="nnote">${n.info}</span><span class="v"><b>${fmtN(v, n.u)}</b> ${n.u}</span></div>`;
+    const pct = Math.min(100, v / tgt * 100); const over = n.max && v > n.max; const hit = n.min && v >= n.min;
+    return `<div class="nrow${over ? ' over' : ''}${hit ? ' hit' : ''}"><span class="k">${n.name}</span>
+      <div class="bar${over ? ' over' : ''}" role="img" aria-label="${n.name} ${fmtN(v, n.u)} ${n.u} of ${n.max ? 'limit ' : ''}${tgt} ${n.u}"><i style="width:${pct}%"></i>${n.max ? '' : ''}</div>
+      <span class="v"><b>${fmtN(v, n.u)}</b> / ${n.max ? '≤' : ''}${fmtN(tgt, n.u)} ${n.u}</span>${n.note && !hit ? `<span class="nnote">${n.note}</span>` : ''}</div>`;
+  };
+  const grp = g => list.filter(n => n.grp === g).map(row).join('');
+  const low = list.filter(n => n.min && n.k !== 'vd' && (tot[n.k] || 0) < n.min * 0.5).map(n => n.name);
+  const pr = S.config?.profile || {};
+  return `<section class="sec"><h2>Nutrients <span class="aside">${counted ? `from ${counted} of ${total} meal${total > 1 ? 's' : ''}` : 'no data yet'}</span></h2>
+    <div class="card nutr">
+      ${counted ? `<div class="ngrp">${grp('Everyday')}</div>
+      <details class="nmore"${open ? ' open' : ''}><summary data-act="nutToggle">Vitamins and minerals</summary>
+        <div class="slotlabel">Vitamins</div><div class="ngrp">${grp('Vitamins')}</div>
+        <div class="slotlabel">Minerals</div><div class="ngrp">${grp('Minerals')}</div>
+      </details>
+      ${low.length && S.date === todayISO() && new Date().getHours() >= 18 ? `<div class="small nlow">Still low today: ${low.slice(0, 4).join(', ')}.</div>` : ''}` : ''}
+      <div class="small muted">${counted < total ? `${total - counted} meal${total - counted > 1 ? 's' : ''} logged with only calories and macros ${total - counted > 1 ? "aren't" : "isn't"} counted. Add ingredients to your own meals to include them. ` : ''}${partial ? 'Some scanned foods only list a few nutrients. ' : ''}Estimates from standard food data. Targets are Australian daily recommendations for ${pr.sex === 'female' ? 'women' : 'men'}${pr.age ? ' aged ' + pr.age : ''}.</div>
+    </div></section>`;
 }
 
 /* ---------- water ---------- */
@@ -1770,7 +1900,7 @@ document.addEventListener('click', async e => {
     }
     case 'addMine': {
       const f = (S.config?.foods || []).find(x => x.id === b.dataset.id); if (!f) break; const day = localDay(S.date);
-      day.meals.push({ id: uid(), name: f.name, slot: f.slot || 'Snack', servings: 1, kcal: f.kcal, p: f.p, c: f.c, f: f.f });
+      day.meals.push({ id: uid(), name: f.name, slot: f.slot || 'Snack', servings: 1, kcal: f.kcal, p: f.p, c: f.c, f: f.f, food: f.id, ...(f.ing?.length ? { ing: f.ing } : {}), ...(f.nut ? { nut: f.nut } : {}) });
       saveDay(S.date, day); toast(`Added ${f.name}`); break;
     }
     case 'hideRecipe': {
@@ -1859,6 +1989,7 @@ document.addEventListener('click', async e => {
       const p = S.scan.product; if (!p) break;
       const g = numOrNull(document.getElementById('sc_g')?.value) || S.scan.grams || 100; const k = g / 100;
       const item = { name: `${p.name}${p.brand ? ' (' + p.brand + ')' : ''}, ${r0(g)} g`, kcal: r0(p.kcal * k), p: r1(p.p * k), c: r1(p.c * k), f: r1(p.f * k), slot: document.getElementById('sc_slot')?.value || guessSlot() };
+      if (p.nut) { item.nut = {}; for (const [kk, vv] of Object.entries(p.nut)) item.nut[kk] = Math.round(vv * k * 100) / 100; }
       const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, barcode: S.scan.code, ...item }); saveDay(S.date, day);
       if (document.getElementById('sc_save')?.checked) { const cfg = cfgCopy(); cfg.foods = [...(cfg.foods || []), { id: uid(), barcode: S.scan.code, ...item }]; saveConfig(cfg); }
       S.scan = { code: '', status: 'idle', product: null }; S.foodAdd = 'plan'; render(); toast(`Added ${p.name}`); break;
@@ -1873,6 +2004,7 @@ document.addEventListener('click', async e => {
     case 'closeCelebrate': { const r = document.getElementById('celebrateRoot'); r.hidden = true; r.innerHTML = ''; break; }
     case 'weekNav': S.weekOff = Math.max(0, (S.weekOff || 0) + Number(b.dataset.d)); render(); break;
     case 'measure': S.measure = b.dataset.v; render(); break;
+    case 'nutToggle': { e.preventDefault(); S.nutOpen = !(S.nutOpen ?? (lsGet('rl:nutOpen') !== false)); lsSet('rl:nutOpen', S.nutOpen); render(); break; }
     case 'water': {
       const day = localDay(S.date); const before = day.water || 0; const g = waterGoal();
       day.water = Math.max(0, before + Number(b.dataset.d)); saveDay(S.date, day);
@@ -1952,7 +2084,7 @@ document.addEventListener('submit', async e => {
     const item = { name: v('cf_name').trim(), kcal: +v('cf_kcal') || 0, p: +v('cf_p') || 0, c: +v('cf_c') || 0, f: +v('cf_f') || 0, slot: v('cf_slot') };
     const ing = (v('cf_ing') || '').split('\n').map(x => x.trim()).filter(Boolean);
     if (!item.name) return;
-    const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, ...item }); saveDay(S.date, day);
+    const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, ...item, ...(ing.length ? { ing } : {}) }); saveDay(S.date, day);
     if (document.getElementById('cf_save').checked) {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.foods = [...(cfg.foods || []), { id: uid(), ...item, ...(ing.length ? { ing } : {}) }]; saveConfig(cfg);
     }
