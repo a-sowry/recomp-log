@@ -1,6 +1,6 @@
 // Recomp Log service worker: the app opens instantly and works offline.
 // Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = 'recomp-v8';
+const VERSION = 'recomp-v9';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'vendor/supabase.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 

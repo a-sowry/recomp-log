@@ -383,3 +383,106 @@ input[type=file] { max-width: 100%; font-size: 14px; }
 .fp-name { font-size: 11px; line-height: 1.15; text-align: center; font-weight: 600; }
 [data-style="soft"] .fp { border: 0; box-shadow: var(--shadow); }
 [data-style="soft"] .fp[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--btn), var(--shadow); }
+
+/* ===================== new features ===================== */
+nav.tabs .in { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+nav.tabs button { min-width: 0; }
+@media (max-width: 400px) { nav.tabs button { font-size: 11.5px; letter-spacing: .02em; } }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.iconbtn.sm { width: 28px; height: 28px; }
+.iconbtn:disabled { opacity: .35; }
+
+/* onboarding */
+.sheet.ob { align-items: stretch; }
+.sheet.ob .panel { max-height: none; height: 100%; border-radius: 0; padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
+.ob-wrap { max-width: 520px; }
+.ob-wrap h3 { font-size: 26px; }
+.ob-wrap p { margin: 0; }
+.ob-wrap .f > span:first-child { font-weight: 600; color: var(--ink); font-size: 14px; }
+.ob-wrap .f { display: grid; gap: 8px; }
+.ob-dots { display: flex; gap: 6px; }
+.ob-dot { width: 26px; height: 5px; border-radius: 999px; background: var(--sunk); }
+.ob-dot.on { background: var(--btn); } .ob-dot.done { background: color-mix(in srgb, var(--btn) 45%, var(--sunk)); }
+.ob-list { display: grid; gap: 8px; }
+.ob-opt { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-weight: 600; }
+.ob-opt[aria-pressed="true"] { border-color: var(--btn); box-shadow: inset 0 0 0 1.5px var(--btn); }
+.ob-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-top: 6px; }
+.ob-targets { display: grid; gap: 12px; }
+.ob-big { display: flex; align-items: baseline; gap: 8px; }
+.ob-big b { font-family: var(--font-display); font-size: 46px; line-height: 1; }
+[data-style="soft"] .ob-opt { border: 0; box-shadow: var(--shadow); border-radius: 18px; }
+[data-style="soft"] .ob-opt[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--btn), var(--shadow); }
+
+/* streak chips on the garden card */
+.streaks { display: flex; gap: 6px; flex-wrap: wrap; }
+.streak-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--sunk); color: var(--ink); }
+.streak-chip svg { width: 14px; height: 14px; fill: none; stroke: #E8743B; stroke-width: 2; }
+
+/* supplements */
+.supp-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.supp { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px 7px 8px; font-weight: 600; }
+.supp .tick { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; }
+.supp.on { background: color-mix(in srgb, var(--green) 14%, var(--surface)); border-color: var(--green); }
+.supp.on .tick { background: var(--green); border-color: var(--green); }
+.supp.on .tick::after { content: ""; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
+.chipbtn { border: 0; cursor: pointer; }
+[data-style="soft"] .supp { border: 0; box-shadow: var(--shadow); }
+[data-style="soft"] .supp.on { box-shadow: inset 0 0 0 2px var(--green), var(--shadow); }
+
+/* food tab: scan + grocery */
+.groc-btn { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.groc-btn svg, .scan-cta svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+.scan-panel { display: grid; gap: 12px; padding-block: 4px; }
+.scan-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; font-size: 16px; }
+.scan-result { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
+.scan-overlay { position: fixed; inset: 0; z-index: 60; background: #000; display: grid; }
+.scan-overlay video { width: 100%; height: 100%; object-fit: cover; grid-area: 1 / 1; }
+.scan-frame { grid-area: 1 / 1; place-self: center; width: min(78vw, 320px); aspect-ratio: 16 / 10; border: 3px solid rgb(255 255 255 / .9); border-radius: 16px; box-shadow: 0 0 0 100vmax rgb(0 0 0 / .45); }
+.scan-ui { grid-area: 1 / 1; align-self: end; display: grid; gap: 12px; justify-items: center; padding: 20px 16px calc(28px + env(safe-area-inset-bottom, 0px)); color: #fff; text-align: center; }
+.scan-tip { font-weight: 600; max-width: 320px; }
+.groc { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px dashed var(--line); cursor: pointer; }
+.groc input { width: 20px; height: 20px; accent-color: var(--btn); }
+.groc .gq { color: var(--muted); font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.groc.done .gn { text-decoration: line-through; color: var(--muted); }
+.xbtn.sm { width: 24px; height: 24px; font-size: 14px; }
+
+/* PB / bloom celebration */
+.confetti { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 80; pointer-events: none; }
+.celebrate { position: fixed; inset: 0; z-index: 70; background: rgb(0 0 0 / .35); display: grid; place-items: center; padding: 20px; }
+.cele-card { width: min(100%, 380px); display: grid; gap: 12px; text-align: center; padding: 22px 20px; }
+.cele-title { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.1; }
+.cele-line { display: grid; gap: 2px; }
+.cele-line b { font-size: 16px; }
+.cele-line span { color: var(--muted); font-size: 14px; }
+.cele-flower { width: 110px; justify-self: center; }
+@media (prefers-reduced-motion: no-preference) { .cele-card { animation: pop .35s ease-out; } @keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } } }
+
+/* weekly summary */
+.wk-nav { display: inline-flex; align-items: center; gap: 6px; }
+.wk { display: grid; gap: 12px; }
+.wk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.wk-tile { background: var(--sunk); border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; min-width: 0; }
+.wk-k { font-size: 12px; font-weight: 700; color: var(--muted); }
+.wk-tile b { font-family: var(--font-display); font-size: 24px; line-height: 1.1; }
+.wk-sub { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.wk-pbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip.pb { background: color-mix(in srgb, var(--btn) 15%, var(--surface)); color: var(--btn); }
+[data-style="soft"] .wk-tile { border-radius: 16px; background: color-mix(in srgb, var(--btn) 7%, var(--surface)); }
+
+/* measurements */
+.more-meas summary, .pw summary { cursor: pointer; font-weight: 600; color: var(--btn); padding: 2px 0; }
+.more-meas[open], .pw[open] { display: grid; gap: 10px; }
+
+/* garden tab */
+.garden-scene { width: 100%; height: auto; display: block; border-radius: 18px; box-shadow: var(--shadow, none); }
+.g-label { font-size: 10px; font-weight: 700; fill: #FFF6EC; font-family: var(--font-body); }
+.weekdots { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+.wd { display: grid; justify-items: center; gap: 4px; }
+.wd i { width: 26px; height: 26px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); }
+.wd.l i { background: var(--sunk); }
+.wd.w i { background: var(--btn); border-color: var(--btn); }
+.wd.today { color: var(--ink); }
+.wd.today i { outline: 2px solid var(--btn); outline-offset: 2px; }
+:root[data-style="soft"] { --g-sky-top: color-mix(in srgb, var(--btn) 18%, #FFFFFF); --g-sky-bot: #FFF8FB; }
+:root[data-theme="dark"] { --g-sky-top: #24324A; --g-sky-bot: #3B4A63; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --g-sky-top: #24324A; --g-sky-bot: #3B4A63; } }
