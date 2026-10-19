@@ -59,7 +59,18 @@
 <script src="app.js"></script>
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(err => console.error('service worker', err)));
+  // A new version takes over as soon as it's downloaded; reload once so it shows straight away.
+  const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded) return;
+    const busy = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+    if (busy) return; // don't wipe something mid-typing; it'll show next open
+    reloaded = true; location.reload();
+  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(reg => {
+    // check for updates whenever the app comes back to the foreground
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(err => console.error('service worker', err)));
 }
 </script>
 </body>

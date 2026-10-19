@@ -81,6 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
+const APP_VERSION = 15; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'chalk', name: 'Chalk', bg: '#F1F1EC', surface: '#FFFFFF', sunk: '#E7E8E2', line: '#D6D8D1' },
@@ -2053,6 +2054,7 @@ function openSettings() {
     </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Account</div>
       <div class="small">Signed in as <b>${esc(S.user?.email || '')}</b></div>
+      <div class="small muted">App version ${APP_VERSION}</div>
       <details class="pw"><summary>Change password</summary>
         <div class="grid2" style="margin-top:8px">
           <label class="f">New password<input type="password" id="pw1" autocomplete="new-password" minlength="8"></label>
