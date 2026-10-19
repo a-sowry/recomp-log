@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 15; // keep in step with VERSION in sw.js
+const APP_VERSION = 16; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'chalk', name: 'Chalk', bg: '#F1F1EC', surface: '#FFFFFF', sunk: '#E7E8E2', line: '#D6D8D1' },
@@ -1800,12 +1800,13 @@ function plainBottleSVG(f) {
   </svg>`;
 }
 function waterCard() {
+  if (S.config?.water?.hidden) return `<section class="sec"><h2>Water <button class="linkbtn h2btn push" data-act="waterHide" data-v="0" aria-expanded="false">Show</button></h2></section>`;
   const ml = S.days[S.date]?.water || 0; const goal = waterGoal(); const f = Math.min(1, ml / goal);
   const soft = softTheme(); const bs = bottleSize(); const left = Math.max(0, goal - ml);
   const msg = ml >= goal ? 'Goal hit. Nicely done.'
     : ml === 0 ? `Start with a glass. Your goal is ${fmtL(goal)} L.`
     : `${fmtL(left)} L to go, about ${Math.max(1, Math.round(left / bs * 2) / 2)} ${soft ? 'Stanley' : 'bottle'}${left / bs > 1 ? 's' : ''}.`;
-  return `<section class="sec"><h2>Water <span class="aside">${fmtL(ml)} / ${fmtL(goal)} L</span></h2>
+  return `<section class="sec"><h2>Water <span class="aside">${fmtL(ml)} / ${fmtL(goal)} L</span><button class="linkbtn h2btn" data-act="waterHide" data-v="1" aria-expanded="true">Hide</button></h2>
     <div class="card water${ml >= goal ? ' done' : ''}">
       <div class="water-art">${soft ? stanleySVG(f, stanleyColour()) : plainBottleSVG(f)}</div>
       <div class="water-side">
@@ -2212,6 +2213,7 @@ document.addEventListener('click', async e => {
     case 'weekNav': S.weekOff = Math.max(0, (S.weekOff || 0) + Number(b.dataset.d)); render(); break;
     case 'measure': S.measure = b.dataset.v; render(); break;
     case 'openNutrients': openNutrients(); break;
+    case 'waterHide': { const cfg = cfgCopy(); cfg.water = { ...(cfg.water || {}), hidden: b.dataset.v === '1' }; saveConfig(cfg); break; }
     case 'water': {
       const day = localDay(S.date); const before = day.water || 0; const g = waterGoal();
       day.water = Math.max(0, before + Number(b.dataset.d)); saveDay(S.date, day);

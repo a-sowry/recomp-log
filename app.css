@@ -569,3 +569,7 @@ nav.tabs button { min-width: 0; }
 .car-pick { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .car-pick .fp-art { max-width: 92px; }
 .mini-bloom.mini-car { width: 28px; }
+.sec > h2 .h2btn { font-family: var(--font-body); font-weight: 600; letter-spacing: 0; text-transform: none; font-size: 13px; padding: 4px 0 4px 12px; font-style: normal; }
+.sec > h2 .aside + .h2btn { margin-left: 0; }
+.sec > h2 .h2btn.push { margin-left: auto; }
+[data-style="soft"] .sec > h2 .h2btn { color: var(--btn); }
