@@ -89,6 +89,7 @@ const THEMES = [
   { id: 'mint', name: 'Mint', bg: '#E4EFE8', surface: '#FAFDFB', sunk: '#D5E5DA', line: '#C1D6C8' },
   { id: 'sky', name: 'Sky', bg: '#E3ECF6', surface: '#FAFCFF', sunk: '#D3E0EE', line: '#BFD0E3' },
   { id: 'blush', name: 'Blush', bg: '#F6E5E3', surface: '#FFFAF9', sunk: '#ECD4D1', line: '#DEC1BD' },
+  { id: 'pink', name: 'Pink', bg: '#FCDDEA', surface: '#FFF4F8', sunk: '#F7C9DC', line: '#EFB2CB', ink: '#3D1830', muted: '#8A4A6E', btn: '#C2306F', 'btn-ink': '#FFFFFF', blue: '#7B4FD0' },
   { id: 'night', name: 'Night', dark: true, bg: '#11151A', surface: '#1A2027', sunk: '#232A33', line: '#2E3640' },
   { id: 'navy', name: 'Navy', dark: true, bg: '#0E1A2B', surface: '#162437', sunk: '#1F2F46', line: '#2A3D56' },
   { id: 'black', name: 'Black', dark: true, bg: '#000000', surface: '#121212', sunk: '#1C1C1C', line: '#2A2A2A' },
@@ -99,7 +100,7 @@ function applyTheme(id) {
   if (appliedTheme === t.id) return;
   appliedTheme = t.id; lsSet('rl:theme', t.id);
   const root = document.documentElement;
-  for (const k of ['bg', 'surface', 'sunk', 'line']) {
+  for (const k of ['bg', 'surface', 'sunk', 'line', 'ink', 'muted', 'btn', 'btn-ink', 'blue']) {
     if (t[k]) root.style.setProperty('--' + k, t[k]); else root.style.removeProperty('--' + k);
   }
   if (t.id === 'auto') delete root.dataset.theme; else root.dataset.theme = t.dark ? 'dark' : 'light';
