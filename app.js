@@ -88,8 +88,9 @@ const THEMES = [
   { id: 'sand', name: 'Sand', bg: '#F3EBDD', surface: '#FFFBF3', sunk: '#E8DDC9', line: '#D9CBB2' },
   { id: 'mint', name: 'Mint', bg: '#E4EFE8', surface: '#FAFDFB', sunk: '#D5E5DA', line: '#C1D6C8' },
   { id: 'sky', name: 'Sky', bg: '#E3ECF6', surface: '#FAFCFF', sunk: '#D3E0EE', line: '#BFD0E3' },
-  { id: 'blush', name: 'Blush', bg: '#F6E5E3', surface: '#FFFAF9', sunk: '#ECD4D1', line: '#DEC1BD' },
-  { id: 'pink', name: 'Pink', bg: '#FCDDEA', surface: '#FFF4F8', sunk: '#F7C9DC', line: '#EFB2CB', ink: '#3D1830', muted: '#8A4A6E', btn: '#C2306F', 'btn-ink': '#FFFFFF', blue: '#7B4FD0' },
+  { id: 'blush', name: 'Blush', style: 'soft', bg: '#F6E5E3', surface: '#FFFAF9', sunk: '#ECD4D1', line: '#DEC1BD', ink: '#3A2226', muted: '#86595F', btn: '#B4546A', 'btn-ink': '#FFFFFF' },
+  { id: 'pink', name: 'Pink', style: 'soft', bg: '#FCDDEA', surface: '#FFF4F8', sunk: '#F7C9DC', line: '#EFB2CB', ink: '#3D1830', muted: '#8A4A6E', btn: '#C2306F', 'btn-ink': '#FFFFFF', blue: '#7B4FD0' },
+  { id: 'lilac', name: 'Lilac', style: 'soft', bg: '#ECE3F7', surface: '#FCF9FF', sunk: '#DED0F0', line: '#CCB8E6', ink: '#2B1D3D', muted: '#6E5A8A', btn: '#8A4FD0', 'btn-ink': '#FFFFFF', blue: '#4F78D8', red: '#D2386E' },
   { id: 'night', name: 'Night', dark: true, bg: '#11151A', surface: '#1A2027', sunk: '#232A33', line: '#2E3640' },
   { id: 'navy', name: 'Navy', dark: true, bg: '#0E1A2B', surface: '#162437', sunk: '#1F2F46', line: '#2A3D56' },
   { id: 'black', name: 'Black', dark: true, bg: '#000000', surface: '#121212', sunk: '#1C1C1C', line: '#2A2A2A' },
@@ -100,9 +101,10 @@ function applyTheme(id) {
   if (appliedTheme === t.id) return;
   appliedTheme = t.id; lsSet('rl:theme', t.id);
   const root = document.documentElement;
-  for (const k of ['bg', 'surface', 'sunk', 'line', 'ink', 'muted', 'btn', 'btn-ink', 'blue']) {
+  for (const k of ['bg', 'surface', 'sunk', 'line', 'ink', 'muted', 'btn', 'btn-ink', 'blue', 'red']) {
     if (t[k]) root.style.setProperty('--' + k, t[k]); else root.style.removeProperty('--' + k);
   }
+  if (t.style) root.dataset.style = t.style; else delete root.dataset.style;
   if (t.id === 'auto') delete root.dataset.theme; else root.dataset.theme = t.dark ? 'dark' : 'light';
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
     if (t.bg) m.setAttribute('content', t.bg);
@@ -413,6 +415,86 @@ function weekStrip() {
   }
   return out;
 }
+/* ---------- flower garden: grows with logging, most with workouts ---------- */
+const GARDEN = { PER_BLOOM: 40, WORKOUT: 5, FOOD_DAY: 1, PROTEIN_DAY: 1, WEIGH_IN: 1, CARDIO: 2, WILT_DAYS: 4 };
+function gardenOn() {
+  const g = S.config?.garden;
+  if (g === true || g === false) return g;
+  const t = THEMES.find(x => x.id === (S.config?.theme || lsGet('rl:theme') || 'auto'));
+  return !!(t && t.style === 'soft');
+}
+function gardenStats() {
+  const T = targets(); const today = todayISO();
+  let pts = 0, todayPts = 0, lastWorkout = null;
+  const add = (n, date) => { pts += n; if (date === today) todayPts += n; };
+  for (const s of Object.values(S.sessions)) {
+    if (s.source === 'spreadsheet' || !s.exercises?.length) continue;
+    add(GARDEN.WORKOUT, s.date);
+    if (!lastWorkout || s.date > lastWorkout) lastWorkout = s.date;
+  }
+  for (const d of Object.values(S.days)) {
+    if (d.meals?.length) {
+      add(GARDEN.FOOD_DAY, d.date);
+      if (dayTotals(d).p >= T.p - 10) add(GARDEN.PROTEIN_DAY, d.date);
+    }
+    if (d.cardio?.length) add(GARDEN.CARDIO * Math.min(d.cardio.length, 2), d.date);
+  }
+  for (const w of Object.values(S.weights)) if (w.kg) add(GARDEN.WEIGH_IN, w.date);
+  const bloomed = Math.floor(pts / GARDEN.PER_BLOOM);
+  const inBloom = pts % GARDEN.PER_BLOOM;
+  const daysSince = lastWorkout ? Math.round((fromISO(today) - fromISO(lastWorkout)) / 864e5) : null;
+  return { pts, todayPts, bloomed, inBloom, toNext: GARDEN.PER_BLOOM - inBloom, stage: Math.min(5, Math.floor((inBloom / GARDEN.PER_BLOOM) * 6)), daysSince, wilting: daysSince != null && daysSince >= GARDEN.WILT_DAYS };
+}
+function flowerSVG(stage, wilting, opts = {}) {
+  // stage 0 seed, 1 sprout, 2 leaves, 3 tall, 4 bud, 5 bloom
+  const H = [4, 20, 36, 54, 70, 78][stage];
+  const top = 112 - H;
+  const lean = wilting ? 1 : 0;
+  const tipX = 60 + lean * 16, tipY = top + lean * 10;
+  const stem = stage === 0 ? '' : `<path class="fl-stem" d="M60 112 Q ${60 - 6 + lean * 4} ${112 - H * 0.55} ${tipX} ${tipY}" />`;
+  const leaf = (y, dir, s = 1) => `<path class="fl-leaf" d="M60 ${y} q ${dir * 14 * s} ${-10 * s} ${dir * 24 * s} ${-2 * s} q ${-dir * 10 * s} ${10 * s} ${-dir * 24 * s} ${2 * s} z" />`;
+  let leaves = '';
+  if (stage >= 1) leaves += leaf(108 - Math.min(H, 20) * 0.6, 1, stage === 1 ? 0.6 : 1);
+  if (stage >= 2) leaves += leaf(100 - H * 0.25, -1);
+  if (stage >= 3) leaves += leaf(96 - H * 0.45, 1, 0.85);
+  let head = '';
+  if (stage === 4) {
+    head = `<g transform="translate(${tipX} ${tipY}) rotate(${lean * 35})"><ellipse class="fl-bud" cx="0" cy="-7" rx="7" ry="10"/><path class="fl-leaf" d="M-7 -2 q 7 6 14 0 q -7 3 -14 0z"/></g>`;
+  } else if (stage === 5) {
+    const petals = Array.from({ length: 6 }, (_, i) => `<ellipse class="fl-petal" cx="0" cy="-13" rx="8" ry="13" transform="rotate(${i * 60})"/>`).join('');
+    head = `<g transform="translate(${tipX} ${tipY - 4}) rotate(${lean * 40})">${petals}<circle class="fl-eye" r="7"/></g>`;
+  }
+  const seed = stage === 0 ? `<path class="fl-soil" d="M44 107 q 16 -9 32 0 z"/><ellipse class="fl-seed" cx="60" cy="101.5" rx="4.5" ry="3.2" transform="rotate(-20 60 101.5)"/>` : '';
+  const pot = `<path class="fl-pot" d="M34 112 h52 l-6 30 h-40 z"/><rect class="fl-rim" x="30" y="106" width="60" height="9" rx="4"/>`;
+  return `<svg class="flower${wilting ? ' wilt' : ''}" viewBox="0 0 120 150" role="img" aria-label="${opts.label || 'Your flower'}"><g class="fl-sway">${stem}${leaves}${head}</g>${seed}${pot}</svg>`;
+}
+function miniBloomSVG() {
+  const petals = Array.from({ length: 5 }, (_, i) => `<ellipse class="fl-petal" cx="0" cy="-6" rx="4" ry="6.5" transform="rotate(${i * 72})"/>`).join('');
+  return `<svg class="mini-bloom" viewBox="-12 -12 24 24" aria-hidden="true">${petals}<circle class="fl-eye" r="3.2"/></svg>`;
+}
+function gardenCard() {
+  if (!gardenOn() || S.date !== todayISO()) return '';
+  const g = gardenStats();
+  const names = ['A seed, waiting', 'A little sprout', 'Two new leaves', 'Growing tall', 'A bud is forming', 'Almost in full bloom'];
+  let msg;
+  if (g.wilting) msg = `Your flower's drooping. It's been ${g.daysSince} days since your last workout. One session today perks it right up.`;
+  else if (g.pts === 0) msg = 'Log a workout or today\'s food to plant your first seed.';
+  else if (g.todayPts === 0) msg = `Nothing logged yet today. A workout gives it the biggest boost (+${GARDEN.WORKOUT}).`;
+  else msg = `+${g.todayPts} today. ${g.toNext} more to bloom, about ${Math.ceil(g.toNext / GARDEN.WORKOUT)} workout${Math.ceil(g.toNext / GARDEN.WORKOUT) > 1 ? 's' : ''}.`;
+  const shown = Math.min(g.bloomed, 14);
+  const bed = g.bloomed ? `<div class="bed" aria-label="${g.bloomed} flower${g.bloomed > 1 ? 's' : ''} grown">${Array.from({ length: shown }, miniBloomSVG).join('')}${g.bloomed > shown ? `<span class="small muted">+${g.bloomed - shown}</span>` : ''}</div>` : '';
+  return `<section class="card garden" aria-label="Your flower">
+    <div class="garden-plant">${flowerSVG(g.stage, g.wilting, { label: names[g.stage] })}</div>
+    <div class="garden-text">
+      <div class="garden-title">${g.wilting ? 'Needs a workout' : names[g.stage]}</div>
+      <div class="garden-bar" role="img" aria-label="${g.inBloom} of ${GARDEN.PER_BLOOM} towards the next bloom"><i style="width:${(g.inBloom / GARDEN.PER_BLOOM) * 100}%"></i></div>
+      <div class="small">${msg}</div>
+      ${bed}
+      <details class="small muted garden-how"><summary>How it grows</summary>Workout +${GARDEN.WORKOUT} · Cardio +${GARDEN.CARDIO} · Food logged +${GARDEN.FOOD_DAY} · Protein hit +${GARDEN.PROTEIN_DAY} · Weigh-in +${GARDEN.WEIGH_IN}. Every ${GARDEN.PER_BLOOM} points it blooms and gets planted in your garden. Miss workouts for ${GARDEN.WILT_DAYS}+ days and it droops (you never lose progress).</details>
+    </div>
+  </section>`;
+}
+
 function viewToday() {
   const T = targets(); const day = S.days[S.date]; const t = dayTotals(day);
   const left = T.kcal - t.kcal; const pLeft = T.p - t.p;
@@ -471,7 +553,7 @@ function viewToday() {
       </div></form>`;
   }
   const cardio = day?.cardio || [];
-  return `
+  return `${gardenCard()}
   <section class="sec">
     <div class="card" style="display:grid;gap:14px">
       <div class="kcal-big"><span class="n">${r0(t.kcal).toLocaleString()}</span><span class="of">/ ${T.kcal.toLocaleString()} kcal</span>
@@ -659,7 +741,7 @@ async function saveSession() {
   if (!exercises.length) { toast('Log reps on at least one set first.'); return; }
   const doc = { date: S.date, day: S.trainDay, exercises, note: d.note || '' };
   S.sessions[key] = doc; lsSet('draft:' + key, null); delete S.drafts[key];
-  render(); toast('Session saved');
+  render(); toast(gardenOn() ? `Session saved. Your flower grew (+${GARDEN.WORKOUT})` : 'Session saved');
   store.set('sessions', key, doc);
 }
 
@@ -882,6 +964,13 @@ function openSettings() {
       <div class="swatches" role="group" aria-label="Background colour">${THEMES.map(t => `<button type="button" class="swatch" data-act="theme" data-v="${t.id}" aria-pressed="${(S.config?.theme || 'auto') === t.id}" title="${t.name}">
         <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div>
     </div>
+    <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Flower garden</div>
+      <div class="small muted">A flower on the Food tab that grows as you log, and fastest when you work out. On by default for Pink, Blush and Lilac.</div>
+      <div class="seg" role="group" aria-label="Flower garden">
+        <button type="button" data-act="garden" data-v="on" aria-pressed="${gardenOn()}">Show</button>
+        <button type="button" data-act="garden" data-v="off" aria-pressed="${!gardenOn()}">Hide</button>
+      </div>
+    </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Meal plan</div>
       <div class="small muted">${(S.config?.hiddenRecipes || []).length ? `${(S.config.hiddenRecipes).length} of ${RECIPES.length} starter meals removed.` : `Showing all ${RECIPES.length} starter meals.`} Your own meals: ${(S.config?.foods || []).length}. Tap × on any meal to remove it.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -963,6 +1052,9 @@ document.addEventListener('click', async e => {
     }
     case 'hideAllRecipes': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.hiddenRecipes = RECIPES.map(r => r.id); saveConfig(cfg); openSettings(); toast('Starter meals removed. Your own meals stay.'); break;
+    }
+    case 'garden': {
+      const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.garden = b.dataset.v === 'on'; saveConfig(cfg); openSettings(); break;
     }
     case 'theme': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.theme = b.dataset.v; applyTheme(cfg.theme); saveConfig(cfg); openSettings(); break;
