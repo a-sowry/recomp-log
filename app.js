@@ -81,6 +81,35 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
+const THEMES = [
+  { id: 'auto', name: 'Chalk (follows phone)' },
+  { id: 'chalk', name: 'Chalk', bg: '#F1F1EC', surface: '#FFFFFF', sunk: '#E7E8E2', line: '#D6D8D1' },
+  { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
+  { id: 'sand', name: 'Sand', bg: '#F3EBDD', surface: '#FFFBF3', sunk: '#E8DDC9', line: '#D9CBB2' },
+  { id: 'mint', name: 'Mint', bg: '#E4EFE8', surface: '#FAFDFB', sunk: '#D5E5DA', line: '#C1D6C8' },
+  { id: 'sky', name: 'Sky', bg: '#E3ECF6', surface: '#FAFCFF', sunk: '#D3E0EE', line: '#BFD0E3' },
+  { id: 'blush', name: 'Blush', bg: '#F6E5E3', surface: '#FFFAF9', sunk: '#ECD4D1', line: '#DEC1BD' },
+  { id: 'night', name: 'Night', dark: true, bg: '#11151A', surface: '#1A2027', sunk: '#232A33', line: '#2E3640' },
+  { id: 'navy', name: 'Navy', dark: true, bg: '#0E1A2B', surface: '#162437', sunk: '#1F2F46', line: '#2A3D56' },
+  { id: 'black', name: 'Black', dark: true, bg: '#000000', surface: '#121212', sunk: '#1C1C1C', line: '#2A2A2A' },
+];
+let appliedTheme = null;
+function applyTheme(id) {
+  const t = THEMES.find(x => x.id === id) || THEMES[0];
+  if (appliedTheme === t.id) return;
+  appliedTheme = t.id; lsSet('rl:theme', t.id);
+  const root = document.documentElement;
+  for (const k of ['bg', 'surface', 'sunk', 'line']) {
+    if (t[k]) root.style.setProperty('--' + k, t[k]); else root.style.removeProperty('--' + k);
+  }
+  if (t.id === 'auto') delete root.dataset.theme; else root.dataset.theme = t.dark ? 'dark' : 'light';
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
+    if (t.bg) m.setAttribute('content', t.bg);
+    else m.setAttribute('content', m.media && m.media.includes('dark') ? '#11151A' : '#F1F1EC');
+  });
+}
+applyTheme(lsGet('rl:theme') || 'auto');
+
 function targets() { return Object.assign({}, DEFAULT_TARGETS, S.config?.targets || {}); }
 function program() {
   const p = S.config?.program;
@@ -348,6 +377,7 @@ function render() {
   const dated = S.tab === 'today' || S.tab === 'train';
   document.getElementById('datenav').hidden = !dated;
   document.getElementById('dateLabel').textContent = S.date === todayISO() ? 'Today' : fmtDay(S.date);
+  applyTheme(S.config?.theme || lsGet('rl:theme') || 'auto');
   const banner = S.syncError ? `<div class="banner">Some changes haven't reached your Supabase database yet (${esc(S.syncError)}). They're kept on this phone and retry automatically.</div>` : '';
   const html = { today: viewToday, train: viewTrain, progress: viewProgress, body: viewBody, photos: viewPhotos }[S.tab]();
   view.innerHTML = banner + html;
@@ -404,20 +434,26 @@ function viewToday() {
   }
   const myFoods = S.config?.foods || [];
   let add = '';
-  if (S.foodAdd === 'plan') {
+  if (S.foodAdd !== 'custom') {
+    const hidden = new Set(S.config?.hiddenRecipes || []);
+    const chipRow = m => `<div class="chips"><span class="chip k">${r0(m.kcal)} kcal</span><span class="chip p">P ${r0(m.p)}</span><span class="chip c">C ${r0(m.c)}</span><span class="chip f">F ${r0(m.f)}</span></div>`;
+    let any = false;
     for (const slot of SLOTS) {
+      const starters = RECIPES.filter(x => x.slot === slot && !hidden.has(x.id));
+      const mine = myFoods.filter(f => (f.slot || 'Snack') === slot);
+      if (!starters.length && !mine.length) continue;
+      any = true;
       add += `<div class="slotlabel">${slot}</div>`;
-      for (const r of RECIPES.filter(x => x.slot === slot)) {
-        add += `<div class="row"><div style="min-width:0"><div class="t">${esc(r.name)}</div>
-          <div class="chips"><span class="chip k">${r.kcal} kcal</span><span class="chip p">P ${r.p}</span><span class="chip c">C ${r.c}</span><span class="chip f">F ${r.f}</span></div></div>
-          <button class="btn sm" data-act="addRecipe" data-id="${r.id}">Add</button></div>`;
+      for (const f of mine) {
+        add += `<div class="row"><div style="min-width:0"><div class="t">${esc(f.name)}</div>${chipRow(f)}</div>
+          <span class="rowbtns"><button class="xbtn" data-act="forgetFood" data-id="${f.id}" aria-label="Delete ${esc(f.name)} from your meal plan" title="Delete">×</button><button class="btn sm" data-act="addMine" data-id="${f.id}">Add</button></span></div>`;
+      }
+      for (const r of starters) {
+        add += `<div class="row"><div style="min-width:0"><div class="t">${esc(r.name)}</div>${chipRow(r)}</div>
+          <span class="rowbtns"><button class="xbtn" data-act="hideRecipe" data-id="${r.id}" aria-label="Remove ${esc(r.name)} from your meal plan" title="Remove">×</button><button class="btn sm" data-act="addRecipe" data-id="${r.id}">Add</button></span></div>`;
       }
     }
-  } else if (S.foodAdd === 'mine') {
-    add = myFoods.length ? myFoods.map(f => `<div class="row"><div style="min-width:0"><div class="t">${esc(f.name)}</div>
-      <div class="chips"><span class="chip k">${r0(f.kcal)} kcal</span><span class="chip p">P ${r0(f.p)}</span><span class="chip c">C ${r0(f.c)}</span><span class="chip f">F ${r0(f.f)}</span></div></div>
-      <span style="display:flex;gap:6px"><button class="btn sm ghost" data-act="forgetFood" data-id="${f.id}" aria-label="Remove ${esc(f.name)} from my foods">Remove</button><button class="btn sm" data-act="addMine" data-id="${f.id}">Add</button></span></div>`).join('')
-      : `<div class="empty"><b>No saved foods yet.</b>Use "Custom" and tick "Save to my foods" for things you eat often.</div>`;
+    if (!any) add = `<div class="empty"><b>Your meal plan is empty.</b>Tap "Add a meal" to create your own. Removed starter meals can be brought back in Settings.</div>`;
   } else {
     add = `<form id="customForm" class="sec" style="gap:10px">
       <label class="f">Food<input type="text" id="cf_name" required placeholder="e.g. Chobani Fit yoghurt 170 g"></label>
@@ -429,7 +465,7 @@ function viewToday() {
       </div>
       <div class="formrow">
         <label class="f">Meal<select id="cf_slot">${SLOTS.map(s => `<option>${s}</option>`).join('')}</select></label>
-        <label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="cf_save"> Save to my foods</label>
+        <label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="cf_save" checked> Save to my meal plan</label>
         <button class="btn" type="submit">Add to log</button>
       </div></form>`;
   }
@@ -453,9 +489,8 @@ function viewToday() {
   <section class="sec"><h2>Logged</h2><div class="card rows">${log}</div></section>
   <section class="sec"><h2>Add food</h2>
     <div class="seg" role="group" aria-label="Food source">
-      <button data-act="foodAdd" data-v="plan" aria-pressed="${S.foodAdd === 'plan'}">Meal plan</button>
-      <button data-act="foodAdd" data-v="mine" aria-pressed="${S.foodAdd === 'mine'}">My foods</button>
-      <button data-act="foodAdd" data-v="custom" aria-pressed="${S.foodAdd === 'custom'}">Custom</button>
+      <button data-act="foodAdd" data-v="plan" aria-pressed="${S.foodAdd !== 'custom'}">Meal plan</button>
+      <button data-act="foodAdd" data-v="custom" aria-pressed="${S.foodAdd === 'custom'}">Add a meal</button>
     </div>
     <div class="card rows">${add}</div>
   </section>
@@ -841,7 +876,18 @@ function openSettings() {
       <button type="button" class="del" data-act="pgDel" aria-label="Remove">×</button></div>`).join('')}
     <div><button type="button" class="linkbtn" data-act="pgAdd" data-day="${d}">+ Exercise</button></div></div>`).join('');
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet" id="sheet"><div class="panel"><form class="wrap" id="settingsForm">
-    <div style="display:flex;align-items:center;gap:10px"><h3>Targets &amp; program</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSettings">Close</button></div>
+    <div style="display:flex;align-items:center;gap:10px"><h3>Settings</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSettings">Close</button></div>
+    <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Background colour</div>
+      <div class="swatches" role="group" aria-label="Background colour">${THEMES.map(t => `<button type="button" class="swatch" data-act="theme" data-v="${t.id}" aria-pressed="${(S.config?.theme || 'auto') === t.id}" title="${t.name}">
+        <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div>
+    </div>
+    <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Meal plan</div>
+      <div class="small muted">${(S.config?.hiddenRecipes || []).length ? `${(S.config.hiddenRecipes).length} of ${RECIPES.length} starter meals removed.` : `Showing all ${RECIPES.length} starter meals.`} Your own meals: ${(S.config?.foods || []).length}. Tap × on any meal to remove it.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${(S.config?.hiddenRecipes || []).length ? '<button type="button" class="btn ghost sm" data-act="restoreRecipes">Bring back starter meals</button>' : ''}
+        ${(S.config?.hiddenRecipes || []).length < RECIPES.length ? '<button type="button" class="btn ghost sm" data-act="hideAllRecipes">Remove all starter meals</button>' : ''}
+      </div>
+    </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Daily targets</div>
       <div class="grid4">
         <label class="f">kcal<input type="number" id="t_kcal" value="${T.kcal}" min="1000" max="5000"></label>
@@ -904,6 +950,21 @@ document.addEventListener('click', async e => {
       const f = (S.config?.foods || []).find(x => x.id === b.dataset.id); if (!f) break; const day = localDay(S.date);
       day.meals.push({ id: uid(), name: f.name, slot: f.slot || 'Snack', servings: 1, kcal: f.kcal, p: f.p, c: f.c, f: f.f });
       saveDay(S.date, day); toast(`Added ${f.name}`); break;
+    }
+    case 'hideRecipe': {
+      const r = RECIPES.find(x => x.id === b.dataset.id); if (!r) break;
+      const cfg = JSON.parse(JSON.stringify(S.config || {}));
+      cfg.hiddenRecipes = [...new Set([...(cfg.hiddenRecipes || []), r.id])];
+      saveConfig(cfg); toast(`Removed ${r.name}. Bring it back in Settings.`); break;
+    }
+    case 'restoreRecipes': {
+      const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.hiddenRecipes = []; saveConfig(cfg); openSettings(); toast('Starter meals restored'); break;
+    }
+    case 'hideAllRecipes': {
+      const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.hiddenRecipes = RECIPES.map(r => r.id); saveConfig(cfg); openSettings(); toast('Starter meals removed. Your own meals stay.'); break;
+    }
+    case 'theme': {
+      const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.theme = b.dataset.v; applyTheme(cfg.theme); saveConfig(cfg); openSettings(); break;
     }
     case 'forgetFood': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.foods = (cfg.foods || []).filter(x => x.id !== b.dataset.id); saveConfig(cfg); break;
