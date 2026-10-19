@@ -603,7 +603,7 @@ function viewToday() {
   const cardio = day?.cardio || [];
   return `${gardenCard()}
   <section class="sec">
-    <div class="card" style="display:grid;gap:14px">
+    <div class="card tapcard" style="display:grid;gap:14px" data-act="openNutrients" role="button" tabindex="0" aria-label="Show all nutrients for this day">
       <div class="kcal-big"><span class="n">${r0(t.kcal).toLocaleString()}</span><span class="of">/ ${T.kcal.toLocaleString()} kcal</span>
         <span class="left ${left < -150 ? 'down-txt' : ''}">${left >= 0 ? `${r0(left)} kcal left` : `${r0(-left)} kcal over`}${pLeft > 0 ? ` · ${r0(pLeft)} g protein to go` : ' · protein hit'}</span></div>
       <div class="macros">
@@ -611,6 +611,7 @@ function viewToday() {
         ${macroRow('Carbs', t.c, T.c, '--blue', ' g')}
         ${macroRow('Fat', t.f, T.f, '--yellow', ' g')}
       </div>
+      <div class="tap-hint"><span>Fibre, vitamins, minerals and more</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></div>
     </div>
   </section>
   ${waterCard()}
@@ -620,7 +621,6 @@ function viewToday() {
     <div class="legend"><span><i style="background:var(--green)"></i>On target</span><span><i style="background:var(--yellow)"></i>Under, or protein short</span><span><i style="background:var(--red)"></i>Over by 150+</span></div>
   </section>
   <section class="sec"><h2>Logged</h2><div class="card rows">${log}</div></section>
-  ${nutrientCard()}
   <section class="sec"><h2>Add food</h2>
     <div class="seg" role="group" aria-label="Food source">
       <button data-act="foodAdd" data-v="plan" aria-pressed="${S.foodAdd !== 'custom' && S.foodAdd !== 'scan'}">Meal plan</button>
@@ -1537,33 +1537,33 @@ function dayNutrients(day) {
   return { tot, counted, partial, total: meals.length };
 }
 const fmtN = (v, u) => u === 'µg' && v < 10 ? r1(v) : u === 'g' && v < 10 ? r1(v) : r0(v).toLocaleString();
-function nutrientCard() {
-  const day = S.days[S.date]; const { tot, counted, partial, total } = dayNutrients(day);
-  if (!total) return '';
-  const list = nutrientTargets(); const open = S.nutOpen ?? (lsGet('rl:nutOpen') !== false);
+function openNutrients() {
+  const day = S.days[S.date]; const { tot, counted, partial, total } = dayNutrients(day); const t = dayTotals(day);
+  const list = nutrientTargets(); const pr = S.config?.profile || {};
   const row = n => {
     const v = tot[n.k] || 0; const tgt = n.min || n.max;
     if (n.info) return `<div class="nrow"><span class="k">${n.name}</span><span class="nnote">${n.info}</span><span class="v"><b>${fmtN(v, n.u)}</b> ${n.u}</span></div>`;
     const pct = Math.min(100, v / tgt * 100); const over = n.max && v > n.max; const hit = n.min && v >= n.min;
     return `<div class="nrow${over ? ' over' : ''}${hit ? ' hit' : ''}"><span class="k">${n.name}</span>
-      <div class="bar${over ? ' over' : ''}" role="img" aria-label="${n.name} ${fmtN(v, n.u)} ${n.u} of ${n.max ? 'limit ' : ''}${tgt} ${n.u}"><i style="width:${pct}%"></i>${n.max ? '' : ''}</div>
+      <div class="bar${over ? ' over' : ''}" role="img" aria-label="${n.name} ${fmtN(v, n.u)} ${n.u} of ${n.max ? 'limit ' : ''}${tgt} ${n.u}"><i style="width:${pct}%"></i></div>
       <span class="v"><b>${fmtN(v, n.u)}</b> / ${n.max ? '≤' : ''}${fmtN(tgt, n.u)} ${n.u}</span>${n.note && !hit ? `<span class="nnote">${n.note}</span>` : ''}</div>`;
   };
-  const grp = g => list.filter(n => n.grp === g).map(row).join('');
+  const grp = g => `<div class="ngrp">${list.filter(n => n.grp === g).map(row).join('')}</div>`;
   const low = list.filter(n => n.min && n.k !== 'vd' && (tot[n.k] || 0) < n.min * 0.5).map(n => n.name);
-  const pr = S.config?.profile || {};
-  return `<section class="sec"><h2>Nutrients <span class="aside">${counted ? `from ${counted} of ${total} meal${total > 1 ? 's' : ''}` : 'no data yet'}</span></h2>
-    <div class="card nutr">
-      ${counted ? `<div class="ngrp">${grp('Everyday')}</div>
-      <details class="nmore"${open ? ' open' : ''}><summary data-act="nutToggle">Vitamins and minerals</summary>
-        <div class="slotlabel">Vitamins</div><div class="ngrp">${grp('Vitamins')}</div>
-        <div class="slotlabel">Minerals</div><div class="ngrp">${grp('Minerals')}</div>
-      </details>
-      ${low.length && S.date === todayISO() && new Date().getHours() >= 18 ? `<div class="small nlow">Still low today: ${low.slice(0, 4).join(', ')}.</div>` : ''}` : ''}
-      <div class="small muted">${counted < total ? `${total - counted} meal${total - counted > 1 ? 's' : ''} logged with only calories and macros ${total - counted > 1 ? "aren't" : "isn't"} counted. Add ingredients to your own meals to include them. ` : ''}${partial ? 'Some scanned foods only list a few nutrients. ' : ''}Estimates from standard food data. Targets are Australian daily recommendations for ${pr.sex === 'female' ? 'women' : 'men'}${pr.age ? ' aged ' + pr.age : ''}.</div>
-    </div></section>`;
+  const body = !total ? `<div class="empty"><b>Nothing logged yet.</b>Log a meal and its nutrients show up here.</div>`
+    : !counted ? `<div class="empty"><b>No nutrient data for these meals yet.</b>Meals from your plan, scanned foods and your own meals with ingredients are counted.</div>`
+    : `<div class="card nutr">${grp('Everyday')}</div>
+      <div class="slotlabel">Vitamins</div><div class="card nutr">${grp('Vitamins')}</div>
+      <div class="slotlabel">Minerals</div><div class="card nutr">${grp('Minerals')}</div>
+      ${low.length && S.date === todayISO() && new Date().getHours() >= 18 ? `<div class="small nlow">Still low today: ${low.slice(0, 4).join(', ')}.</div>` : ''}`;
+  document.getElementById('sheetRoot').innerHTML = `<div class="sheet" id="sheet"><div class="panel"><div class="wrap nsheet">
+    <div style="display:flex;align-items:center;gap:10px"><h3>Nutrients</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSheet">Close</button></div>
+    <div class="small muted">${S.date === todayISO() ? 'Today' : fmtDay(S.date)}${total ? ` · from ${counted} of ${total} meal${total > 1 ? 's' : ''}` : ''}</div>
+    <div class="chips"><span class="chip k">${r0(t.kcal).toLocaleString()} kcal</span><span class="chip p">P ${r0(t.p)} g</span><span class="chip c">C ${r0(t.c)} g</span><span class="chip f">F ${r0(t.f)} g</span></div>
+    ${body}
+    <div class="small muted">${total && counted < total ? `${total - counted} meal${total - counted > 1 ? 's' : ''} logged with only calories and macros ${total - counted > 1 ? "aren't" : "isn't"} counted. Add ingredients to your own meals to include them. ` : ''}${partial ? 'Some scanned foods only list a few nutrients. ' : ''}Estimates from standard food data. Targets are Australian daily recommendations for ${pr.sex === 'female' ? 'women' : 'men'}${pr.age ? ' aged ' + pr.age : ''}.</div>
+  </div></div></div>`;
 }
-
 /* ---------- water ---------- */
 const STANLEY_COLOURS = [
   ['rose', 'Rose Quartz', '#E7A1B4'], ['fuchsia', 'Fuchsia', '#D8457F'], ['blush', 'Blush', '#F1C3C0'], ['lilac', 'Lilac', '#B89BE2'],
@@ -2004,7 +2004,7 @@ document.addEventListener('click', async e => {
     case 'closeCelebrate': { const r = document.getElementById('celebrateRoot'); r.hidden = true; r.innerHTML = ''; break; }
     case 'weekNav': S.weekOff = Math.max(0, (S.weekOff || 0) + Number(b.dataset.d)); render(); break;
     case 'measure': S.measure = b.dataset.v; render(); break;
-    case 'nutToggle': { e.preventDefault(); S.nutOpen = !(S.nutOpen ?? (lsGet('rl:nutOpen') !== false)); lsSet('rl:nutOpen', S.nutOpen); render(); break; }
+    case 'openNutrients': openNutrients(); break;
     case 'water': {
       const day = localDay(S.date); const before = day.water || 0; const g = waterGoal();
       day.water = Math.max(0, before + Number(b.dataset.d)); saveDay(S.date, day);
@@ -2076,7 +2076,7 @@ document.addEventListener('change', e => {
     const day = localDay(S.date); const v = numOrNull(el.value); if (day.steps === v) return; day.steps = v; saveDay(S.date, day); toast('Steps saved');
   }
 });
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'sc_code') { e.preventDefault(); lookupBarcode(e.target.value); } if (e.key === 'Escape' && !document.getElementById('scanRoot').hidden) closeScanner(); });
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('tapcard')) { e.preventDefault(); openNutrients(); return; } if (e.key === 'Enter' && e.target.id === 'sc_code') { e.preventDefault(); lookupBarcode(e.target.value); } if (e.key === 'Escape' && !document.getElementById('scanRoot').hidden) closeScanner(); });
 document.addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target; const v = id => document.getElementById(id)?.value;

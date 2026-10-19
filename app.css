@@ -532,7 +532,7 @@ nav.tabs button { min-width: 0; }
 .nrow.hit { --c: var(--green); }
 .nrow.over { --c: var(--red); }
 .nrow.over .v b { color: var(--red); }
-.nmore { border-top: 1px solid var(--line); padding-top: 10px; }
+/* removed details */ .nmore-unused { border-top: 1px solid var(--line); padding-top: 10px; }
 .nmore summary { cursor: pointer; font-weight: 600; color: var(--muted); list-style: none; display: flex; align-items: center; gap: 8px; }
 .nmore summary::-webkit-details-marker { display: none; }
 .nmore summary::before { content: ''; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .2s; }
@@ -544,3 +544,13 @@ nav.tabs button { min-width: 0; }
 [data-style="soft"] .nrow.over { --c: var(--red); }
 [data-style="soft"] .nrow .v b { font-family: var(--font-display); }
 [data-style="soft"] .nlow { background: color-mix(in srgb, var(--btn) 10%, var(--surface)); border-radius: 14px; }
+
+.tapcard { cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .12s ease; }
+.tapcard:active { transform: scale(.985); }
+.tapcard:focus-visible { outline: 2px solid var(--btn); outline-offset: 2px; }
+.tap-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.tap-hint svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+[data-style="soft"] .tap-hint { color: var(--btn); border-top-style: dashed; }
+.nsheet { display: grid; gap: 12px; }
+.nsheet .slotlabel { padding-top: 4px; }
+.nsheet .nutr { gap: 10px; }
