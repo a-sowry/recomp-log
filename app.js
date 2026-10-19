@@ -445,8 +445,52 @@ function gardenStats() {
   const daysSince = lastWorkout ? Math.round((fromISO(today) - fromISO(lastWorkout)) / 864e5) : null;
   return { pts, todayPts, bloomed, inBloom, toNext: GARDEN.PER_BLOOM - inBloom, stage: Math.min(5, Math.floor((inBloom / GARDEN.PER_BLOOM) * 6)), daysSince, wilting: daysSince != null && daysSince >= GARDEN.WILT_DAYS };
 }
+/* Flower types. Heads are drawn around (0,0) = top of the stem, growing upwards (negative y). */
+const FLOWERS = {
+  tulip: {
+    name: 'Pink tulip',
+    bud: () => `<path fill="#F07AA6" d="M-6 0 C -8 -10 -4 -18 0 -22 C 4 -18 8 -10 6 0 C 3 3 -3 3 -6 0Z"/><path fill="#D94E84" d="M0 -22 C 2 -14 2 -6 0 1 C 3 1 5 0 6 0 C 8 -10 4 -18 0 -22Z"/>`,
+    bloom: () => `<path fill="#E2588F" d="M-11 -6 C -13 -16 -10 -26 -5 -31 C -2 -24 2 -24 5 -31 C 10 -26 13 -16 11 -6Z"/>
+      <path fill="#F07AA6" d="M-12 -8 C -14 -20 -10 -27 -7 -29 C -3 -22 -2 -12 -1 1 C -7 2 -11 -2 -12 -8Z"/>
+      <path fill="#F7A3C2" d="M12 -8 C 14 -20 10 -27 7 -29 C 3 -22 2 -12 1 1 C 7 2 11 -2 12 -8Z"/>
+      <path fill="#F48FB5" d="M-6 -2 C -8 -12 -5 -24 0 -30 C 5 -24 8 -12 6 -2 C 3 2 -3 2 -6 -2Z"/>
+      <path d="M0 -26 C -2 -18 -2 -8 0 0" fill="none" stroke="#E2588F" stroke-width=".9" opacity=".6"/>`,
+    mini: () => `<g transform="translate(0 8.5) scale(.55)">${FLOWERS.tulip.bloom()}</g>`,
+  },
+  daisy: {
+    name: 'Daisy',
+    bud: () => `<circle cy="-6" r="6.5" fill="#8DBF6B"/><path d="M-4 -11 l4 -4 l4 4" fill="#FFFFFF" stroke="#E9E4DA" stroke-width=".8"/>`,
+    bloom: () => Array.from({ length: 16 }, (_, i) => `<ellipse cx="0" cy="-22" rx="3.4" ry="9" transform="rotate(${i * 22.5} 0 -13)" fill="#FFFFFF" stroke="#E2DBCF" stroke-width=".7"/>`).join('') + `<circle cy="-13" r="5.5" fill="#F6C445" stroke="#E0A92A" stroke-width="1"/>`,
+    mini: () => Array.from({ length: 10 }, (_, i) => `<ellipse cx="0" cy="-5.5" rx="2" ry="5" transform="rotate(${i * 36})" fill="#FFFFFF" stroke="#DDD6CA" stroke-width=".5"/>`).join('') + `<circle r="3" fill="#F6C445"/>`,
+  },
+  rose: {
+    name: 'Rose', scale: 1.3,
+    bud: () => `<ellipse cy="-8" rx="6.5" ry="9" fill="#D7354A"/><path d="M-7 -1 q 3 -8 7 -4 q 4 -4 7 4 q -7 4 -14 0z" fill="#4E9A6B"/>`,
+    bloom: () => `<path d="M-13 -4 q 13 10 26 0 q -3 6 -13 7 q -10 -1 -13 -7z" fill="#4E9A6B"/>
+      <circle cy="-13" r="13" fill="#D7354A"/><circle cy="-14" r="9.5" fill="#E2495E"/>
+      <path d="M-6 -14 a6 6 0 1 1 6 6 a4 4 0 1 1 -4 -4 a2 2 0 1 1 2 2" fill="none" stroke="#A9233A" stroke-width="1.8" stroke-linecap="round" transform="translate(0 -1)"/>
+      <path d="M-12 -9 q 4 7 12 7" fill="none" stroke="#A9233A" stroke-width="1.4"/><path d="M12 -9 q -4 7 -12 7" fill="none" stroke="#A9233A" stroke-width="1.4"/>`,
+    mini: () => `<circle r="7.5" fill="#D7354A"/><circle r="5.2" fill="#E2495E"/><path d="M-3 0 a3 3 0 1 1 3 3 a2 2 0 1 1 -2 -2" fill="none" stroke="#A9233A" stroke-width="1.1"/>`,
+  },
+  sunflower: {
+    name: 'Sunflower',
+    bud: () => `<circle cy="-7" r="7.5" fill="#6FA35A"/>` + Array.from({ length: 6 }, (_, i) => `<path d="M0 -14 l2 -4 l2 4z" fill="#F2B90F" transform="rotate(${-50 + i * 20} 0 -7)"/>`).join(''),
+    bloom: () => Array.from({ length: 18 }, (_, i) => `<ellipse cx="0" cy="-25" rx="3.6" ry="8.5" transform="rotate(${i * 20} 0 -15)" fill="${i % 2 ? '#F7C531' : '#F2B10C'}"/>`).join('')
+      + `<circle cy="-15" r="8.5" fill="#6B4226"/>` + Array.from({ length: 9 }, (_, i) => `<circle cx="${Math.cos(i * 0.7) * (i % 3 + 2.5)}" cy="${-15 + Math.sin(i * 0.7) * (i % 3 + 2.5)}" r="1" fill="#3E2614"/>`).join(''),
+    mini: () => Array.from({ length: 12 }, (_, i) => `<ellipse cx="0" cy="-6.3" rx="2.2" ry="5" transform="rotate(${i * 30})" fill="#F2B90F"/>`).join('') + `<circle r="4" fill="#6B4226"/>`,
+  },
+  lavender: {
+    name: 'Lavender', scale: 1.15,
+    bud: () => Array.from({ length: 5 }, (_, i) => `<ellipse cx="${i % 2 ? 2.2 : -2.2}" cy="${-3 - i * 4}" rx="2.6" ry="3.4" fill="${i > 2 ? '#B9A3D9' : '#9C82C9'}"/>`).join(''),
+    bloom: () => `<path d="M0 0 L0 -36" style="stroke:var(--green)" stroke-width="2.5"/>` + Array.from({ length: 11 }, (_, i) => `<ellipse cx="${i % 2 ? 3.2 : -3.2}" cy="${-3 - i * 3.4}" rx="${3.8 - i * 0.15}" ry="${4.4 - i * 0.15}" fill="${['#8A63C7', '#9B76D3', '#7C55BA'][i % 3]}"/>`).join('') + `<ellipse cy="-40" rx="2.2" ry="3" fill="#A88BDB"/>`,
+    mini: () => `<g transform="translate(0 8)">` + Array.from({ length: 6 }, (_, i) => `<ellipse cx="${i % 2 ? 2 : -2}" cy="${-2 - i * 2.6}" rx="2.4" ry="2.8" fill="${['#8A63C7', '#9B76D3', '#7C55BA'][i % 3]}"/>`).join('') + `</g>`,
+  },
+};
+const DEFAULT_FLOWER = 'tulip';
+function flowerType() { const t = S.config?.flower; return FLOWERS[t] ? t : DEFAULT_FLOWER; }
 function flowerSVG(stage, wilting, opts = {}) {
   // stage 0 seed, 1 sprout, 2 leaves, 3 tall, 4 bud, 5 bloom
+  const F = FLOWERS[opts.type] || FLOWERS[DEFAULT_FLOWER];
   const H = [4, 20, 36, 54, 70, 78][stage];
   const top = 112 - H;
   const lean = wilting ? 1 : 0;
@@ -458,19 +502,15 @@ function flowerSVG(stage, wilting, opts = {}) {
   if (stage >= 2) leaves += leaf(100 - H * 0.25, -1);
   if (stage >= 3) leaves += leaf(96 - H * 0.45, 1, 0.85);
   let head = '';
-  if (stage === 4) {
-    head = `<g transform="translate(${tipX} ${tipY}) rotate(${lean * 35})"><ellipse class="fl-bud" cx="0" cy="-7" rx="7" ry="10"/><path class="fl-leaf" d="M-7 -2 q 7 6 14 0 q -7 3 -14 0z"/></g>`;
-  } else if (stage === 5) {
-    const petals = Array.from({ length: 6 }, (_, i) => `<ellipse class="fl-petal" cx="0" cy="-13" rx="8" ry="13" transform="rotate(${i * 60})"/>`).join('');
-    head = `<g transform="translate(${tipX} ${tipY - 4}) rotate(${lean * 40})">${petals}<circle class="fl-eye" r="7"/></g>`;
-  }
+  if (stage === 4) head = `<g class="fl-head" transform="translate(${tipX} ${tipY + 1}) rotate(${lean * 35}) scale(1.2)">${F.bud()}</g>`;
+  else if (stage === 5) head = `<g class="fl-head" transform="translate(${tipX} ${tipY + 2}) rotate(${lean * 40}) scale(${F.scale || 1.45})">${F.bloom()}</g>`;
   const seed = stage === 0 ? `<path class="fl-soil" d="M44 107 q 16 -9 32 0 z"/><ellipse class="fl-seed" cx="60" cy="101.5" rx="4.5" ry="3.2" transform="rotate(-20 60 101.5)"/>` : '';
   const pot = `<path class="fl-pot" d="M34 112 h52 l-6 30 h-40 z"/><rect class="fl-rim" x="30" y="106" width="60" height="9" rx="4"/>`;
-  return `<svg class="flower${wilting ? ' wilt' : ''}" viewBox="0 0 120 150" role="img" aria-label="${opts.label || 'Your flower'}"><g class="fl-sway">${stem}${leaves}${head}</g>${seed}${pot}</svg>`;
+  return `<svg class="flower${wilting ? ' wilt' : ''}" viewBox="0 -16 120 166" role="img" aria-label="${opts.label || 'Your flower'}"><g class="fl-sway">${stem}${leaves}${head}</g>${seed}${pot}</svg>`;
 }
-function miniBloomSVG() {
-  const petals = Array.from({ length: 5 }, (_, i) => `<ellipse class="fl-petal" cx="0" cy="-6" rx="4" ry="6.5" transform="rotate(${i * 72})"/>`).join('');
-  return `<svg class="mini-bloom" viewBox="-12 -12 24 24" aria-hidden="true">${petals}<circle class="fl-eye" r="3.2"/></svg>`;
+function miniBloomSVG(type) {
+  const F = FLOWERS[type] || FLOWERS[DEFAULT_FLOWER];
+  return `<svg class="mini-bloom" viewBox="-12 -12 24 24" aria-hidden="true">${F.mini()}</svg>`;
 }
 function gardenCard() {
   if (!gardenOn() || S.date !== todayISO()) return '';
@@ -482,9 +522,9 @@ function gardenCard() {
   else if (g.todayPts === 0) msg = `Nothing logged yet today. A workout gives it the biggest boost (+${GARDEN.WORKOUT}).`;
   else msg = `+${g.todayPts} today. ${g.toNext} more to bloom, about ${Math.ceil(g.toNext / GARDEN.WORKOUT)} workout${Math.ceil(g.toNext / GARDEN.WORKOUT) > 1 ? 's' : ''}.`;
   const shown = Math.min(g.bloomed, 14);
-  const bed = g.bloomed ? `<div class="bed" aria-label="${g.bloomed} flower${g.bloomed > 1 ? 's' : ''} grown">${Array.from({ length: shown }, miniBloomSVG).join('')}${g.bloomed > shown ? `<span class="small muted">+${g.bloomed - shown}</span>` : ''}</div>` : '';
+  const bed = g.bloomed ? `<div class="bed" aria-label="${g.bloomed} flower${g.bloomed > 1 ? 's' : ''} grown">${Array.from({ length: shown }, () => miniBloomSVG(flowerType())).join('')}${g.bloomed > shown ? `<span class="small muted">+${g.bloomed - shown}</span>` : ''}</div>` : '';
   return `<section class="card garden" aria-label="Your flower">
-    <div class="garden-plant">${flowerSVG(g.stage, g.wilting, { label: names[g.stage] })}</div>
+    <div class="garden-plant">${flowerSVG(g.stage, g.wilting, { label: names[g.stage], type: flowerType() })}</div>
     <div class="garden-text">
       <div class="garden-title">${g.wilting ? 'Needs a workout' : names[g.stage]}</div>
       <div class="garden-bar" role="img" aria-label="${g.inBloom} of ${GARDEN.PER_BLOOM} towards the next bloom"><i style="width:${(g.inBloom / GARDEN.PER_BLOOM) * 100}%"></i></div>
@@ -970,6 +1010,9 @@ function openSettings() {
         <button type="button" data-act="garden" data-v="on" aria-pressed="${gardenOn()}">Show</button>
         <button type="button" data-act="garden" data-v="off" aria-pressed="${!gardenOn()}">Hide</button>
       </div>
+      <div class="small muted">Your flower</div>
+      <div class="flower-pick" role="group" aria-label="Choose your flower">${Object.entries(FLOWERS).map(([id, f]) => `<button type="button" class="fp" data-act="flower" data-v="${id}" aria-pressed="${flowerType() === id}">
+        <span class="fp-art">${flowerSVG(5, false, { type: id, label: f.name })}</span><span class="fp-name">${f.name}</span></button>`).join('')}</div>
     </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Meal plan</div>
       <div class="small muted">${(S.config?.hiddenRecipes || []).length ? `${(S.config.hiddenRecipes).length} of ${RECIPES.length} starter meals removed.` : `Showing all ${RECIPES.length} starter meals.`} Your own meals: ${(S.config?.foods || []).length}. Tap × on any meal to remove it.</div>
@@ -1052,6 +1095,9 @@ document.addEventListener('click', async e => {
     }
     case 'hideAllRecipes': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.hiddenRecipes = RECIPES.map(r => r.id); saveConfig(cfg); openSettings(); toast('Starter meals removed. Your own meals stay.'); break;
+    }
+    case 'flower': {
+      const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.flower = b.dataset.v; saveConfig(cfg); openSettings(); toast(`${FLOWERS[b.dataset.v].name} planted`); break;
     }
     case 'garden': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.garden = b.dataset.v === 'on'; saveConfig(cfg); openSettings(); break;
