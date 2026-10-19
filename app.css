@@ -554,3 +554,15 @@ nav.tabs button { min-width: 0; }
 .nsheet { display: grid; gap: 12px; }
 .nsheet .slotlabel { padding-top: 4px; }
 .nsheet .nutr { gap: 10px; }
+
+/* bonsai / car */
+.garden.is-car .garden-plant { align-self: center; }
+.flower.car .car-g { transition: filter .3s; }
+.flower.car.wilt .car-g, .car-dusty { filter: saturate(.35) brightness(.92); }
+.grow-pick { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grow-pick .fp-art { max-width: 76px; }
+:root[data-theme="dark"] { --gar-top: #2B3038; --gar-bot: #1E2228; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --gar-top: #2B3038; --gar-bot: #1E2228; } }
+.gar-glow { opacity: .35; }
+:root[data-theme="dark"] .gar-glow { opacity: .08; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gar-glow { opacity: .08; } }

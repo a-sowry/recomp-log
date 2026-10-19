@@ -384,6 +384,7 @@ function render() {
   const banner = S.syncError ? `<div class="banner">Some changes haven't reached your Supabase database yet (${esc(S.syncError)}). They're kept on this phone and retry automatically.</div>` : '';
   const gOn = gardenOn();
   const gBtn = document.querySelector('nav.tabs button[data-tab="garden"]'); if (gBtn) gBtn.hidden = !gOn;
+  if (gBtn && gBtn.dataset.kind !== growKind()) { gBtn.dataset.kind = growKind(); gBtn.innerHTML = `<svg viewBox="0 0 24 24">${gm().icon}</svg>${gm().tab}`; }
   if (S.tab === 'garden' && !gOn) S.tab = 'today';
   const html = { today: viewToday, train: viewTrain, progress: viewProgress, body: viewBody, photos: viewPhotos, garden: viewGarden }[S.tab]();
   view.innerHTML = banner + html;
@@ -424,8 +425,7 @@ const GARDEN = { PER_BLOOM: 40, WORKOUT: 5, FOOD_DAY: 1, PROTEIN_DAY: 1, WEIGH_I
 function gardenOn() {
   const g = S.config?.garden;
   if (g === true || g === false) return g;
-  const t = THEMES.find(x => x.id === (S.config?.theme || lsGet('rl:theme') || 'auto'));
-  return !!(t && t.style === 'soft');
+  return true;
 }
 function gardenStats() {
   const T = targets(); const today = todayISO();
@@ -516,26 +516,143 @@ function miniBloomSVG(type) {
   const F = FLOWERS[type] || FLOWERS[DEFAULT_FLOWER];
   return `<svg class="mini-bloom" viewBox="-12 -12 24 24" aria-hidden="true">${F.mini()}</svg>`;
 }
+/* ---------- what you grow: flowers on the soft themes, a bonsai or a car build on the others ---------- */
+const CAR_COLOURS = ['#D2342B', '#2F6FD6', '#EDEDE8', '#1F2226', '#F2B705', '#2E8B57', '#7B3FC4', '#E5732A'];
+const GROWS = {
+  flower: {
+    label: 'Flower', tab: 'Garden', section: 'Your garden', next: 'to the next bloom', grownLabel: 'Flowers grown', growing: 'Growing',
+    names: ['A seed, waiting', 'A little sprout', 'Two new leaves', 'Growing tall', 'A bud is forming', 'Almost in full bloom'],
+    wilt: d => `Your flower's drooping. It's been ${d} days since your last workout. One session today perks it right up.`,
+    grew: 'Your flower grew', done: () => `Your ${FLOWERS[flowerType()].name.toLowerCase()} bloomed!`, doneText: 'It\'s been planted in your garden. A new seed is already in the pot.',
+    how: 'it blooms and gets planted in your garden', wiltHow: 'it droops', footer: 'Each flower is planted on the day it bloomed. Change your flower in Settings and new blooms grow as that flower.',
+    icon: '<path d="M12 21v-8"/><path d="M12 13c-3 0-5-2-5-5 3 0 5 2 5 5zM12 13c3 0 5-2 5-5-3 0-5 2-5 5z"/><path d="M5 21h14"/><circle cx="12" cy="6" r="2.5"/>',
+  },
+  bonsai: {
+    label: 'Bonsai', tab: 'Forest', section: 'Your forest', next: 'to the next tree', grownLabel: 'Trees grown', growing: 'Growing',
+    names: ['A seed, waiting', 'A little sprout', 'A young sapling', 'The trunk is thickening', 'Branches filling out', 'Almost fully grown'],
+    wilt: d => `Your bonsai's leaves are browning. It's been ${d} days since your last workout. One session today brings it back.`,
+    grew: 'Your bonsai grew', done: () => 'Your bonsai is fully grown!', doneText: 'It\'s been planted in your forest. A new seed is already in the pot.',
+    how: 'it becomes a full-grown tree and gets planted in your forest', wiltHow: 'its leaves turn brown', footer: 'Each tree is planted on the day it finished growing. Change what you grow in Settings.',
+    icon: '<path d="M12 21v-7"/><path d="M12 15l-3-2M12 13l3-2"/><path d="M7 21h10"/><path d="M5 9.5a3 3 0 0 1 3-3 4 4 0 0 1 8 0 3 3 0 0 1 0 6H8a3 3 0 0 1-3-3z"/>',
+  },
+  car: {
+    label: 'Car build', tab: 'Garage', section: 'Your garage', next: 'to the next finished car', grownLabel: 'Cars built', growing: 'In the workshop',
+    names: ['A bare chassis', 'Wheels are on', 'Body shell fitted', 'Doors and glass in', 'Fresh paint', 'Almost ready to drive'],
+    wilt: d => `Your build's gathering dust. It's been ${d} days since your last workout. One session today gets it moving again.`,
+    grew: 'Your car build moved forward', done: () => 'Your car is finished!', doneText: 'It\'s parked in your garage. A new chassis just rolled in.',
+    how: 'the car is finished and parked in your garage', wiltHow: 'it gathers dust', footer: 'Each car is parked on the day it was finished. Change what you build in Settings.',
+    icon: '<path d="M3 16.5v-3.5l2.2-5h13.6l2.2 5v3.5z"/><path d="M3 13h18"/><circle cx="7.5" cy="17" r="1.8"/><circle cx="16.5" cy="17" r="1.8"/>',
+  },
+};
+function isSoftId(id) { const t = THEMES.find(x => x.id === (id || 'auto')); return !!(t && t.style === 'soft'); }
+function growKind(themeId, pref) {
+  themeId = themeId ?? (S.config?.theme || lsGet('rl:theme') || 'auto'); pref = pref ?? S.config?.grow;
+  if (isSoftId(themeId)) return 'flower';
+  return GROWS[pref] ? pref : 'bonsai';
+}
+function gm() { return GROWS[growKind()]; }
+function growType() { const k = growKind(); return k === 'flower' ? flowerType() : k; }
+function kindOf(type) { return type === 'bonsai' || type === 'car' ? type : 'flower'; }
+
+function bonsaiTree(stage, wilt) {
+  const dark = wilt ? '#9C8F4A' : '#3F7D45', light = wilt ? '#BCA95E' : '#62A85A', bark = '#6E4B30';
+  const pad = (cx, cy, s) => `<g><circle cx="${cx - 9 * s}" cy="${cy + 2 * s}" r="${7 * s}" fill="${dark}"/><circle cx="${cx + 9 * s}" cy="${cy + 2 * s}" r="${7 * s}" fill="${dark}"/><circle cx="${cx}" cy="${cy - 2 * s}" r="${9.5 * s}" fill="${dark}"/>
+    <circle cx="${cx - 7 * s}" cy="${cy - 1 * s}" r="${4.5 * s}" fill="${light}"/><circle cx="${cx + 2 * s}" cy="${cy - 6 * s}" r="${5 * s}" fill="${light}"/></g>`;
+  if (stage === 0) return `<path d="M48 119 q12 -8 24 0z" fill="#6B4226"/><ellipse cx="60" cy="114" rx="4" ry="3" fill="#8B5E3C" transform="rotate(-20 60 114)"/>`;
+  if (stage === 1) return `<path d="M60 119 Q58 111 61 104" fill="none" stroke="#5E9A4E" stroke-width="2.5" stroke-linecap="round"/><path d="M61 105 q-8 -6 -11 0 q5 4 11 0z" fill="${light}"/><path d="M61 104 q7 -7 11 -1 q-5 4 -11 1z" fill="${dark}"/>`;
+  if (stage === 2) return `<path d="M60 119 C56 109 66 100 60 90" fill="none" stroke="${bark}" stroke-width="5" stroke-linecap="round"/>${pad(60, 82, 0.9)}`;
+  const s = stage === 5 ? 1.2 : 1;
+  let t = `<path d="M60 119 C52 106 72 96 62 82 C56 74 64 66 60 58" fill="none" stroke="${bark}" stroke-width="${stage === 5 ? 9 : 7}" stroke-linecap="round"/>
+    <path d="M60 119 C52 106 72 96 62 82" fill="none" stroke="#8A6242" stroke-width="2" stroke-linecap="round" opacity=".5" transform="translate(-2 0)"/>
+    <path d="M61 88 Q50 86 40 80" fill="none" stroke="${bark}" stroke-width="4" stroke-linecap="round"/>`;
+  if (stage >= 4) t += `<path d="M61 70 Q72 70 82 64" fill="none" stroke="${bark}" stroke-width="3.5" stroke-linecap="round"/>`;
+  t += pad(36, 76, 0.9 * s);
+  if (stage >= 4) t += pad(86, 60, 0.85 * s);
+  t += pad(60, 50, s);
+  return t;
+}
+function bonsaiSVG(stage, wilting, label) {
+  const moss = stage === 5 ? `<path d="M30 119 q5 -4 10 0 q4 -3 8 0" fill="#7DB46A"/><path d="M74 119 q5 -4 10 0 q4 -3 8 0" fill="#7DB46A"/>` : '';
+  const pot = `<ellipse cx="60" cy="119" rx="36" ry="3.5" fill="#5A3A24"/>${moss}<rect x="18" y="119" width="84" height="7" rx="3" fill="#5E7F8C"/><path d="M23 126 H97 L92 138 H28 Z" fill="#4C6A77"/><rect x="31" y="138" width="8" height="4" rx="1" fill="#3E5762"/><rect x="81" y="138" width="8" height="4" rx="1" fill="#3E5762"/>`;
+  return `<svg class="flower${wilting ? ' wilt' : ''}" viewBox="0 -16 120 166" role="img" aria-label="${label || 'Your bonsai'}"><g class="fl-sway">${bonsaiTree(stage, wilting)}</g>${pot}</svg>`;
+}
+function carBody(stage, colour, wilting) {
+  // side view, front on the right, wheels at x 32 / 88, tyres touch the ground at y 129
+  const tyre = cx => `<circle cx="${cx}" cy="118" r="11" fill="#1E2023"/><circle cx="${cx}" cy="118" r="6.5" fill="#C9CDD2"/><circle cx="${cx}" cy="118" r="2" fill="#7E858C"/>`
+    + [0, 72, 144, 216, 288].map(a => `<path d="M${cx} 118 l0 -5.5" stroke="#9EA4AA" stroke-width="1.4" transform="rotate(${a} ${cx} 118)"/>`).join('');
+  let g = `<ellipse cx="60" cy="130" rx="54" ry="3.5" fill="#000" opacity=".18"/>`;
+  if (stage <= 1) {
+    g += `<rect x="14" y="113" width="94" height="4.5" rx="2" fill="#5B6168"/><rect x="86" y="102" width="17" height="11" rx="2" fill="#7A8088"/><rect x="90" y="99" width="9" height="3" rx="1" fill="#5B6168"/>
+      <rect x="55" y="103" width="9" height="10" rx="2" fill="#3E444B"/><rect x="53" y="98" width="3" height="15" rx="1.5" fill="#3E444B"/>`;
+    if (stage === 0) g += [32, 88].map(cx => `<circle cx="${cx}" cy="118" r="3" fill="#3A3F45"/><path d="M${cx - 6} 129 L${cx - 3} 121 H${cx + 3} L${cx + 6} 129 Z" fill="#C0392B"/>`).join('');
+    else g += tyre(32) + tyre(88);
+    return g;
+  }
+  const paint = stage >= 4 ? colour : '#A7ACB2';
+  const edge = hexMix(paint, '#000000', 0.28);
+  const body = 'M10 118 V107 Q10 100 18 99 L38 97 L50 84 Q53 80 58 80 H79 Q85 80 89 85 L98 96 L106 98 Q111 99 111 105 V118 Z';
+  const glass = stage >= 3 ? '#A8D0EE' : '#3C4148';
+  if (stage === 5) g += `<path d="M13 98 V93 M21 98 V93" stroke="${edge}" stroke-width="2"/><rect x="5" y="90.5" width="21" height="3.5" rx="1.5" fill="${edge}"/>`;
+  g += `<path d="${body}" fill="${paint}" stroke="${edge}" stroke-width="1"/>
+    <path d="M53 96 L60 86 Q62 84 65 84 H69 V96 Z" fill="${glass}"/><path d="M72 84 H79 Q83 84 86 88 L93 96 H72 Z" fill="${glass}"/>
+    <circle cx="32" cy="118" r="13.5" fill="#26292D"/><circle cx="88" cy="118" r="13.5" fill="#26292D"/>`;
+  if (stage >= 3) g += `<path d="M70.5 97 V116 M48 99 Q47 108 48 116" stroke="${edge}" stroke-width="1" fill="none" opacity=".7"/><rect x="60" y="101" width="6" height="1.8" rx=".9" fill="${edge}"/><rect x="77" y="101" width="6" height="1.8" rx=".9" fill="${edge}"/><path d="M89 91 h5 v3 h-4z" fill="${edge}"/>`;
+  if (stage >= 4) g += `<path d="M16 105 H104" stroke="#FFFFFF" stroke-width="2" opacity=".3"/><path d="M58 83 H78" stroke="#FFFFFF" stroke-width="1.5" opacity=".35"/>`;
+  if (stage === 5) g += `<path d="M104 101 h6 v4 h-7z" fill="#FFE59A"/><path d="M111 102 l9 -2 v7 l-9 -2z" fill="#FFE59A" opacity=".45"/><rect x="10" y="102" width="4" height="4" rx="1" fill="#E23B3B"/><rect x="8" y="114" width="7" height="2.4" rx="1.2" fill="#9EA4AA"/>`;
+  g += tyre(32) + tyre(88);
+  if (wilting) g += `<g fill="#8A7A5C" opacity=".5"><circle cx="30" cy="104" r="1.2"/><circle cx="45" cy="110" r="1"/><circle cx="66" cy="92" r="1.1"/><circle cx="80" cy="108" r="1.3"/><circle cx="96" cy="103" r="1"/><circle cx="58" cy="112" r=".9"/></g>`;
+  return g;
+}
+function carSVG(stage, wilting, colour, label) {
+  return `<svg class="flower car${wilting ? ' wilt' : ''}" viewBox="0 64 120 84" role="img" aria-label="${label || 'Your car build'}">
+    <rect x="0" y="66" width="120" height="80" rx="12" fill="var(--sunk)"/><rect x="0" y="130" width="120" height="16" rx="0" fill="#000" opacity=".08"/><path d="M0 130 H120" stroke="#000" opacity=".12"/>
+    <path d="M60 66 V71" stroke="var(--muted)" stroke-width="1"/><path d="M50 71 h20 l-3 4 h-14z" fill="var(--muted)"/><ellipse cx="60" cy="78" rx="16" ry="4" fill="#FFF3C4" opacity=".35"/>
+    <g class="car-g">${carBody(stage, colour, wilting)}</g></svg>`;
+}
+function carColour(i) { return CAR_COLOURS[i % CAR_COLOURS.length]; }
+function growSVG(type, stage, wilting, opts = {}) {
+  if (type === 'bonsai') return bonsaiSVG(stage, wilting, opts.label);
+  if (type === 'car') return carSVG(stage, wilting, carColour(opts.i || 0), opts.label);
+  return flowerSVG(stage, wilting, { type, label: opts.label });
+}
+function miniSVG(type, i) {
+  if (type === 'bonsai') return `<svg class="mini-bloom" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 11 V2" stroke="#6E4B30" stroke-width="2.6" stroke-linecap="round"/><circle cx="-5.5" cy="0" r="5" fill="#3F7D45"/><circle cx="5.5" cy="0" r="5" fill="#3F7D45"/><circle cx="0" cy="-5" r="6" fill="#62A85A"/></svg>`;
+  if (type === 'car') { const c = carColour(i); return `<svg class="mini-bloom" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-11.5 5 V1 Q-11.5 -1.5 -8.5 -1.5 L-5 -2 L-2 -7 H4 L8 -2 Q11.5 -1.5 11.5 1.5 V5 Z" fill="${c}" stroke="${hexMix(c, '#000000', 0.3)}" stroke-width=".8"/><path d="M-1.4 -6 H3.6 L6.6 -2.4 H-3.8 Z" fill="#A8D0EE"/><circle cx="-6" cy="5" r="3.2" fill="#1E2023"/><circle cx="6" cy="5" r="3.2" fill="#1E2023"/></svg>`; }
+  return miniBloomSVG(type);
+}
+function groundTree(x, gy, i, stage, wilting) {
+  const flip = i % 2 ? -1 : 1; const s = stage === 5 ? 1 : 0.95;
+  return `<g transform="translate(${x} ${gy}) scale(${flip * s} ${s}) translate(-60 -119)"${wilting ? ' opacity=".85"' : ''}>${bonsaiTree(stage, wilting)}</g>`;
+}
+function groundCar(x, gy, i, stage, wilting) {
+  const s = 0.92;
+  return `<g transform="translate(${x - 60 * s} ${gy - 129 * s}) scale(${s})"${wilting ? ' class="car-dusty"' : ''}>${carBody(stage, carColour(i), wilting)}</g>`;
+}
+function groundItem(x, gy, i, type, stage, wilting) {
+  if (type === 'bonsai') return groundTree(x, gy, i, stage, wilting);
+  if (type === 'car') return groundCar(x, gy, i, stage, wilting);
+  return groundFlower(x, gy, i, type, stage, wilting);
+}
 function gardenCard() {
   if (!gardenOn() || S.date !== todayISO()) return '';
-  const g = gardenStats();
-  const names = ['A seed, waiting', 'A little sprout', 'Two new leaves', 'Growing tall', 'A bud is forming', 'Almost in full bloom'];
+  const g = gardenStats(); const M = gm(); const type = growType(); const blooms = S.config?.blooms || [];
+  const names = M.names;
   let msg;
-  if (g.wilting) msg = `Your flower's drooping. It's been ${g.daysSince} days since your last workout. One session today perks it right up.`;
-  else if (g.pts === 0) msg = 'Log a workout or today\'s food to plant your first seed.';
+  if (g.wilting) msg = M.wilt(g.daysSince);
+  else if (g.pts === 0) msg = `Log a workout or today's food to get started.`;
   else if (g.todayPts === 0) msg = `Nothing logged yet today. A workout gives it the biggest boost (+${GARDEN.WORKOUT}).`;
-  else msg = `+${g.todayPts} today. ${g.toNext} more to bloom, about ${Math.ceil(g.toNext / GARDEN.WORKOUT)} workout${Math.ceil(g.toNext / GARDEN.WORKOUT) > 1 ? 's' : ''}.`;
+  else msg = `+${g.todayPts} today. ${g.toNext} more to go, about ${Math.ceil(g.toNext / GARDEN.WORKOUT)} workout${Math.ceil(g.toNext / GARDEN.WORKOUT) > 1 ? 's' : ''}.`;
   const shown = Math.min(g.bloomed, 14);
-  const bed = g.bloomed ? `<div class="bed" aria-label="${g.bloomed} flower${g.bloomed > 1 ? 's' : ''} grown">${Array.from({ length: shown }, () => miniBloomSVG(flowerType())).join('')}${g.bloomed > shown ? `<span class="small muted">+${g.bloomed - shown}</span>` : ''}</div>` : '';
-  return `<section class="card garden" aria-label="Your flower">
-    <div class="garden-plant">${flowerSVG(g.stage, g.wilting, { label: names[g.stage], type: flowerType() })}</div>
+  const bed = g.bloomed ? `<div class="bed" aria-label="${g.bloomed} ${M.grownLabel.toLowerCase()}">${Array.from({ length: shown }, (_, k) => miniSVG(blooms[k]?.type || type, k)).join('')}${g.bloomed > shown ? `<span class="small muted">+${g.bloomed - shown}</span>` : ''}</div>` : '';
+  return `<section class="card garden${type === 'car' ? ' is-car' : ''}" aria-label="${M.label}">
+    <div class="garden-plant">${growSVG(type, g.stage, g.wilting, { label: names[g.stage], i: blooms.length })}</div>
     <div class="garden-text">
       <div class="garden-title">${g.wilting ? 'Needs a workout' : names[g.stage]}</div>
       ${streakChips()}
-      <div class="garden-bar" role="img" aria-label="${g.inBloom} of ${GARDEN.PER_BLOOM} towards the next bloom"><i style="width:${(g.inBloom / GARDEN.PER_BLOOM) * 100}%"></i></div>
+      <div class="garden-bar" role="img" aria-label="${g.inBloom} of ${GARDEN.PER_BLOOM} ${M.next}"><i style="width:${(g.inBloom / GARDEN.PER_BLOOM) * 100}%"></i></div>
       <div class="small">${msg}</div>
       ${bed}
-      <details class="small muted garden-how"><summary>How it grows</summary>Workout +${GARDEN.WORKOUT} · Cardio +${GARDEN.CARDIO} · Food logged +${GARDEN.FOOD_DAY} · Protein hit +${GARDEN.PROTEIN_DAY} · Weigh-in +${GARDEN.WEIGH_IN}. Every ${GARDEN.PER_BLOOM} points it blooms and gets planted in your garden. Miss workouts for ${GARDEN.WILT_DAYS}+ days and it droops (you never lose progress).</details>
+      <details class="small muted garden-how"><summary>How it grows</summary>Workout +${GARDEN.WORKOUT} · Cardio +${GARDEN.CARDIO} · Food logged +${GARDEN.FOOD_DAY} · Protein hit +${GARDEN.PROTEIN_DAY} · Weigh-in +${GARDEN.WEIGH_IN}. Every ${GARDEN.PER_BLOOM} points ${M.how}. Miss workouts for ${GARDEN.WILT_DAYS}+ days and ${M.wiltHow} (you never lose progress).</details>
     </div>
   </section>`;
 }
@@ -797,8 +914,8 @@ async function saveSession() {
   if (pbs.length) doc.pbs = pbs.map(x => x.name);
   S.sessions[key] = doc; lsSet('draft:' + key, null); delete S.drafts[key];
   render();
-  if (pbs.length) celebrate(pbs.length > 1 ? `${pbs.length} new personal bests!` : 'New personal best!', pbs, gardenOn() ? `<div class="small muted">Your flower grew too (+${GARDEN.WORKOUT}).</div>` : '');
-  else toast(gardenOn() ? `Session saved. Your flower grew (+${GARDEN.WORKOUT})` : 'Session saved');
+  if (pbs.length) celebrate(pbs.length > 1 ? `${pbs.length} new personal bests!` : 'New personal best!', pbs, gardenOn() ? `<div class="small muted">${gm().grew} too (+${GARDEN.WORKOUT}).</div>` : '');
+  else toast(gardenOn() ? `Session saved. ${gm().grew} (+${GARDEN.WORKOUT})` : 'Session saved');
   store.set('sessions', key, doc);
 }
 
@@ -1108,8 +1225,8 @@ function openOnboarding(step) {
     body = `<h3>Make it yours</h3>
       <div class="f"><span>Colour</span><div class="swatches">${THEMES.map(t => `<button type="button" class="swatch" data-act="ob-theme" data-v="${t.id}" aria-pressed="${d.theme === t.id}" title="${t.name}">
         <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div></div>
-      <div class="f"><span>Your flower. It grows every time you log, and fastest when you work out.</span>
-        <div class="flower-pick">${Object.entries(FLOWERS).map(([id, f]) => `<button type="button" class="fp" data-act="ob-flower" data-v="${id}" aria-pressed="${d.flower === id}"><span class="fp-art">${flowerSVG(5, false, { type: id, label: f.name })}</span><span class="fp-name">${f.name}</span></button>`).join('')}</div></div>
+      ${isSoftId(d.theme) ? '' : `<div class="f"><span>What you grow. It grows every time you log, and fastest when you work out.</span>${growPicker(d.grow || 'bonsai', 'ob-grow', d.grow || 'bonsai')}</div>`}
+      ${isSoftId(d.theme) || d.grow === 'flower' ? `<div class="f"><span>${isSoftId(d.theme) ? 'Your flower. It grows every time you log, and fastest when you work out.' : 'Your flower'}</span>${flowerPicker('ob-flower', d.flower)}</div>` : ''}
       <div class="ob-actions"><button type="button" class="btn ghost" data-act="ob-back">Back</button><button type="button" class="btn" data-act="ob-finish">Start logging</button></div>`;
   }
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet ob"><div class="panel"><div class="wrap ob-wrap"><div class="ob-dots" aria-label="Step ${st} of 4">${dots}</div>${body}</div></div></div>`;
@@ -1136,7 +1253,7 @@ function obFinish(skip) {
     const d = S.ob.d; const t = d.targets || calcTargets(d);
     cfg.targets = { kcal: t.kcal, p: t.p, c: t.c, f: t.f };
     cfg.profile = { name: d.name || '', sex: d.sex, age: d.age, height: d.height, weight: d.weight, activity: d.activity, goal: d.goal };
-    cfg.theme = d.theme; cfg.flower = d.flower;
+    cfg.theme = d.theme; cfg.flower = d.flower; if (d.grow) cfg.grow = d.grow;
     if (d.weight && !S.weights[todayISO()]) store.set('weights', todayISO(), { date: todayISO(), kg: d.weight });
   }
   S.ob = null; document.getElementById('sheetRoot').innerHTML = '';
@@ -1419,7 +1536,7 @@ function weeklyCard() {
       </div>
       ${w.pbs.length ? `<div class="wk-pbs"><span class="wk-k">Personal bests</span>${w.pbs.map(p => `<span class="chip pb">${esc(p.name)}</span>`).join('')}</div>` : ''}
       ${w.suppPossible ? `<div class="small muted">Supplements taken: ${w.suppTaken} of ${w.suppPossible}</div>` : ''}
-      ${gardenOn() && w.gpts ? `<div class="small muted">Your flower grew +${w.gpts} this week.</div>` : ''}
+      ${gardenOn() && w.gpts ? `<div class="small muted">${gm().grew} +${w.gpts} this week.</div>` : ''}
     </div></section>`;
 }
 
@@ -1711,12 +1828,12 @@ function syncBlooms() {
   bloomSyncArmed = true;
   setTimeout(() => {
     bloomSyncArmed = false;
-    const cfg = cfgCopy(); const prev = cfg.blooms || []; const type = flowerType();
+    const cfg = cfgCopy(); const prev = cfg.blooms || []; const type = growType();
     const firstTime = !cfg.bloomsInit;
     const added = dates.slice(prev.length).map(date => ({ date, type }));
     cfg.blooms = [...prev, ...added]; cfg.bloomsInit = true;
     saveConfig(cfg);
-    if (!firstTime && added.length) celebrate(`Your ${FLOWERS[type].name.toLowerCase()} bloomed!`, [{ text: 'It\'s been planted in your garden. A new seed is already in the pot.' }], `<div class="cele-flower">${flowerSVG(5, false, { type })}</div>`);
+    if (added.some(x => x.date === todayISO()) && (!firstTime || added.length === 1)) { const M = gm(); celebrate(M.done(), [{ text: M.doneText }], `<div class="cele-flower">${growSVG(type, 5, false, { i: prev.length + added.length - 1 })}</div>`); }
   }, 0);
 }
 function groundFlower(x, gy, i, type, stage = 5, wilting = false) {
@@ -1737,30 +1854,40 @@ function gardenScene() {
   const PER = 3, W = 360, ROW = 132, TOP = 70;
   const rows = Math.ceil(items.length / PER);
   const Hh = TOP + rows * ROW + 10;
-  let svg = `<defs><linearGradient id="gsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--g-sky-top, #DCEBFA)"/><stop offset="1" style="stop-color:var(--g-sky-bot, #F7FBFF)"/></linearGradient>
+  const garage = growKind() === 'car';
+  let svg = garage ? `<defs><linearGradient id="gwall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gar-top, #E6E8EB)"/><stop offset="1" style="stop-color:var(--gar-bot, #CDD1D6)"/></linearGradient></defs>
+    <rect width="${W}" height="${Hh}" rx="18" fill="url(#gwall)"/>
+    ${[60, 180, 300].map(cx => `<ellipse class="gar-glow" cx="${cx}" cy="24" rx="40" ry="12" fill="#FFF3C4"/><rect x="${cx - 30}" y="12" width="60" height="6" rx="3" fill="#FFF7D6" stroke="#B8BCC2"/>`).join('')}
+    <g stroke="#000" opacity=".06">${Array.from({ length: Math.floor(Hh / 22) }, (_, k) => `<path d="M0 ${40 + k * 22} H${W}"/>`).join('')}</g>`
+  : `<defs><linearGradient id="gsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--g-sky-top, #DCEBFA)"/><stop offset="1" style="stop-color:var(--g-sky-bot, #F7FBFF)"/></linearGradient>
     <linearGradient id="gsoil" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8A5A3B"/><stop offset="1" stop-color="#6E452C"/></linearGradient></defs>
     <rect width="${W}" height="${Hh}" rx="18" fill="url(#gsky)"/>
     <circle cx="${W - 46}" cy="40" r="20" fill="#FFD66B"/><circle cx="${W - 46}" cy="40" r="28" fill="#FFD66B" opacity=".25"/>
     <g fill="#FFFFFF" opacity=".9"><ellipse cx="70" cy="38" rx="26" ry="10"/><ellipse cx="90" cy="31" rx="18" ry="11"/><ellipse cx="190" cy="52" rx="20" ry="7"/></g>`;
   for (let r = 0; r < rows; r++) {
     const gy = TOP + (r + 1) * ROW - 34;
+    if (garage) {
+      svg += `<rect x="0" y="${gy - 2}" width="${W}" height="36" fill="#8E949B"/><rect x="0" y="${gy - 2}" width="${W}" height="3" fill="#A9AEB4"/>
+        ${[120, 240].map(bx => `<path d="M${bx - 2} ${gy + 2} h4 l3 30 h-4z" fill="#E9C46A" opacity=".85"/>`).join('')}
+        <g fill="#6F757C">${Array.from({ length: 6 }, (_, k) => `<circle cx="${20 + k * 64 + ((r * 13) % 20)}" cy="${gy + 26}" r="1.5"/>`).join('')}</g>`;
+    } else
     svg += `<path d="M0 ${gy} Q ${W / 2} ${gy - 8} ${W} ${gy} V ${gy + 34} H 0 Z" fill="url(#gsoil)"/>
       <path d="M0 ${gy + 1} Q ${W / 2} ${gy - 7} ${W} ${gy + 1} V ${gy - 6} Q ${W / 2} ${gy - 14} 0 ${gy - 6} Z" fill="#7CBF6E"/>`;
-    for (let k = 0; k < 9; k++) { const gx = 14 + k * 42 + ((r * 17 + k * 11) % 14); svg += `<path d="M${gx} ${gy - 4} l3 -9 l2 9 l3 -7 l1 7" fill="#6BB05E"/>`; }
-    for (let k = 0; k < 5; k++) { const sx = 30 + k * 70 + ((r * 23 + k * 7) % 20); svg += `<circle cx="${sx}" cy="${gy + 18 + (k % 3) * 4}" r="2" fill="#5A3A24"/>`; }
+    if (!garage) for (let k = 0; k < 9; k++) { const gx = 14 + k * 42 + ((r * 17 + k * 11) % 14); svg += `<path d="M${gx} ${gy - 4} l3 -9 l2 9 l3 -7 l1 7" fill="#6BB05E"/>`; }
+    if (!garage) for (let k = 0; k < 5; k++) { const sx = 30 + k * 70 + ((r * 23 + k * 7) % 20); svg += `<circle cx="${sx}" cy="${gy + 18 + (k % 3) * 4}" r="2" fill="#5A3A24"/>`; }
     for (let c = 0; c < PER; c++) {
       const it = items[r * PER + c]; if (!it) continue;
       const x = 60 + c * 120;
       if (it.kind === 'bloom') {
-        svg += groundFlower(x, gy - 4, it.i, it.type || flowerType(), 5);
+        svg += groundItem(x, gy - 4, it.i, it.type || growType(), 5);
         svg += `<text x="${x}" y="${gy + 22}" text-anchor="middle" class="g-label">${fmtDay(it.date, { day: 'numeric', month: 'short' })}</text>`;
       } else {
-        svg += groundFlower(x, gy - 4, it.i, flowerType(), g.stage, g.wilting);
-        svg += `<text x="${x}" y="${gy + 22}" text-anchor="middle" class="g-label">${g.wilting ? 'Needs a workout' : 'Growing'}</text>`;
+        svg += groundItem(x, gy - 4, it.i, growType(), g.stage, g.wilting);
+        svg += `<text x="${x}" y="${gy + 22}" text-anchor="middle" class="g-label">${g.wilting ? 'Needs a workout' : gm().growing}</text>`;
       }
     }
   }
-  return `<svg class="garden-scene" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Your garden: ${blooms.length} flower${blooms.length === 1 ? '' : 's'} grown">${svg}</svg>`;
+  return `<svg class="garden-scene" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${gm().section}: ${blooms.length} ${gm().grownLabel.toLowerCase()}">${svg}</svg>`;
 }
 function viewGarden() {
   const s = streakStats(); const g = gardenStats(); const blooms = S.config?.blooms || [];
@@ -1774,7 +1901,7 @@ function viewGarden() {
       <div class="stat3">
         <div class="s"><span>Day streak</span><b>${s.cur}</b></div>
         <div class="s"><span>Best streak</span><b>${s.best}</b></div>
-        <div class="s"><span>Flowers grown</span><b>${blooms.length}</b></div>
+        <div class="s"><span>${gm().grownLabel}</span><b>${blooms.length}</b></div>
       </div>
       <div class="small">${s.cur === 0 ? 'Log anything today to start a streak.' : s.todayLogged ? `You've logged today. Come back tomorrow for day ${s.cur + 1}.` : `Log something today to keep your ${s.cur}-day streak going.`}</div>
     </section>
@@ -1784,13 +1911,34 @@ function viewGarden() {
         <div class="legend"><span><i style="background:var(--btn)"></i>Workout</span><span><i style="background:var(--sunk);border:1px solid var(--line)"></i>Logged</span></div>
         <div class="small">${s.weeks ? `${s.weeks} week${s.weeks > 1 ? 's' : ''} in a row with ${WEEK_GOAL}+ workouts.` : `Hit ${WEEK_GOAL} workouts in a week to start a weekly streak.`}</div>
       </div></section>
-    <section class="sec"><h2>Your garden <span class="aside">${g.toNext} points to the next bloom</span></h2>
+    <section class="sec"><h2>${gm().section} <span class="aside">${g.toNext} points ${gm().next}</span></h2>
       ${gardenScene()}
-      <div class="small muted">Each flower is planted on the day it bloomed. Change your flower in Settings and new blooms grow as that flower.</div>
+      <div class="small muted">${gm().footer}</div>
     </section>`;
 }
 
 /* ---------- SETTINGS ---------- */
+function growPicker(kind, act, cur) { // non-soft themes: bonsai / car / flower
+  return `<div class="flower-pick grow-pick" role="group" aria-label="What you grow">${['bonsai', 'car', 'flower'].map(k => `<button type="button" class="fp" data-act="${act}" data-v="${k}" aria-pressed="${cur === k}">
+    <span class="fp-art">${k === 'flower' ? flowerSVG(5, false, { type: flowerType(), label: 'Flower' }) : growSVG(k, 5, false, { i: 0, label: GROWS[k].label })}</span><span class="fp-name">${GROWS[k].label}</span></button>`).join('')}</div>`;
+}
+function flowerPicker(act, cur) {
+  return `<div class="flower-pick" role="group" aria-label="Choose your flower">${Object.entries(FLOWERS).map(([id, f]) => `<button type="button" class="fp" data-act="${act}" data-v="${id}" aria-pressed="${cur === id}">
+    <span class="fp-art">${flowerSVG(5, false, { type: id, label: f.name })}</span><span class="fp-name">${f.name}</span></button>`).join('')}</div>`;
+}
+function growSettings() {
+  const soft = softTheme(); const kind = growKind(); const M = gm();
+  return `<div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">${soft ? 'Flower garden' : 'Grow something'}</div>
+      <div class="small muted">${soft ? 'A flower on the Food tab that grows as you log, and fastest when you work out.' : 'Something on the Food tab that grows as you log, and fastest when you work out. Finished ones go to their own tab.'}</div>
+      <div class="seg" role="group" aria-label="Show it">
+        <button type="button" data-act="garden" data-v="on" aria-pressed="${gardenOn()}">Show</button>
+        <button type="button" data-act="garden" data-v="off" aria-pressed="${!gardenOn()}">Hide</button>
+      </div>
+      ${soft ? '' : `<div class="small muted">What you grow</div>${growPicker(kind, 'grow', kind)}`}
+      ${kind === 'flower' ? `<div class="small muted">Your flower</div>${flowerPicker('flower', flowerType())}` : `<div class="small muted">${kind === 'car' ? 'Each finished car gets a new colour and is parked in your Garage tab.' : 'Each finished bonsai is planted as a tree in your Forest tab.'}</div>`}
+      ${soft ? '<div class="small muted">On the other colours you can grow a bonsai or build a car instead.</div>' : ''}
+    </div>`;
+}
 function openSettings() {
   const T = targets(); const prog = program();
   const ed = DAYS.map(d => `<div class="card" style="display:grid;gap:6px"><div class="slotlabel" style="padding-top:0">${d}</div>
@@ -1808,16 +1956,7 @@ function openSettings() {
       <div class="swatches" role="group" aria-label="Background colour">${THEMES.map(t => `<button type="button" class="swatch" data-act="theme" data-v="${t.id}" aria-pressed="${(S.config?.theme || 'auto') === t.id}" title="${t.name}">
         <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div>
     </div>
-    <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Flower garden</div>
-      <div class="small muted">A flower on the Food tab that grows as you log, and fastest when you work out. On by default for Pink, Blush and Lilac.</div>
-      <div class="seg" role="group" aria-label="Flower garden">
-        <button type="button" data-act="garden" data-v="on" aria-pressed="${gardenOn()}">Show</button>
-        <button type="button" data-act="garden" data-v="off" aria-pressed="${!gardenOn()}">Hide</button>
-      </div>
-      <div class="small muted">Your flower</div>
-      <div class="flower-pick" role="group" aria-label="Choose your flower">${Object.entries(FLOWERS).map(([id, f]) => `<button type="button" class="fp" data-act="flower" data-v="${id}" aria-pressed="${flowerType() === id}">
-        <span class="fp-art">${flowerSVG(5, false, { type: id, label: f.name })}</span><span class="fp-name">${f.name}</span></button>`).join('')}</div>
-    </div>
+    ${growSettings()}
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Meal plan</div>
       <div class="small muted">${(S.config?.hiddenRecipes || []).length ? `${(S.config.hiddenRecipes).length} of ${RECIPES.length} starter meals removed.` : `Showing all ${RECIPES.length} starter meals.`} Your own meals: ${(S.config?.foods || []).length}. Tap × on any meal to remove it.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1918,6 +2057,7 @@ document.addEventListener('click', async e => {
     case 'flower': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.flower = b.dataset.v; saveConfig(cfg); openSettings(); toast(`${FLOWERS[b.dataset.v].name} planted`); break;
     }
+    case 'grow': { const cfg = cfgCopy(); cfg.grow = b.dataset.v; saveConfig(cfg); openSettings(); toast(b.dataset.v === 'car' ? 'New build started in the garage' : b.dataset.v === 'bonsai' ? 'Bonsai planted' : 'Flower planted'); break; }
     case 'garden': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.garden = b.dataset.v === 'on'; saveConfig(cfg); openSettings(); break;
     }
@@ -1979,7 +2119,8 @@ document.addEventListener('click', async e => {
     case 'ob-finish': obFinish(false); break;
     case 'ob-theme': { S.ob.d.theme = b.dataset.v; appliedTheme = null; applyTheme(b.dataset.v); openOnboarding(); break; }
     case 'ob-flower': { S.ob.d.flower = b.dataset.v; openOnboarding(); break; }
-    case 'redoSetup': { const pr = S.config?.profile || {}; S.ob = { step: 1, d: { sex: pr.sex || 'female', age: pr.age, height: pr.height, weight: weightList().slice(-1)[0]?.kg || pr.weight, name: pr.name, activity: pr.activity || 'light', goal: pr.goal || 'recomp', theme: S.config?.theme || 'auto', flower: flowerType() } }; openOnboarding(); break; }
+    case 'ob-grow': { S.ob.d.grow = b.dataset.v; openOnboarding(); break; }
+    case 'redoSetup': { const pr = S.config?.profile || {}; S.ob = { step: 1, d: { sex: pr.sex || 'female', age: pr.age, height: pr.height, weight: weightList().slice(-1)[0]?.kg || pr.weight, name: pr.name, activity: pr.activity || 'light', goal: pr.goal || 'recomp', theme: S.config?.theme || 'auto', flower: flowerType(), grow: S.config?.grow } }; openOnboarding(); break; }
     case 'changePw': changePassword(); break;
     case 'openScanner': openScanner(); break;
     case 'closeScanner': closeScanner(); break;
