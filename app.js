@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 17; // keep in step with VERSION in sw.js
+const APP_VERSION = 18; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'chalk', name: 'Chalk', bg: '#F1F1EC', surface: '#FFFFFF', sunk: '#E7E8E2', line: '#D6D8D1' },
@@ -89,16 +89,16 @@ const THEMES = [
   { id: 'sand', name: 'Sand', bg: '#F3EBDD', surface: '#FFFBF3', sunk: '#E8DDC9', line: '#D9CBB2' },
   { id: 'mint', name: 'Mint', bg: '#E4EFE8', surface: '#FAFDFB', sunk: '#D5E5DA', line: '#C1D6C8' },
   { id: 'sky', name: 'Sky', bg: '#E3ECF6', surface: '#FAFCFF', sunk: '#D3E0EE', line: '#BFD0E3' },
-  { id: 'blush', name: 'Blush', style: 'soft', bg: '#F6E5E3', surface: '#FFFAF9', sunk: '#ECD4D1', line: '#DEC1BD', ink: '#3A2226', muted: '#86595F', btn: '#B4546A', 'btn-ink': '#FFFFFF' },
   { id: 'pink', name: 'Pink', style: 'soft', bg: '#FCDDEA', surface: '#FFF4F8', sunk: '#F7C9DC', line: '#EFB2CB', ink: '#3D1830', muted: '#8A4A6E', btn: '#C2306F', 'btn-ink': '#FFFFFF', blue: '#7B4FD0' },
   { id: 'lilac', name: 'Lilac', style: 'soft', bg: '#ECE3F7', surface: '#FCF9FF', sunk: '#DED0F0', line: '#CCB8E6', ink: '#2B1D3D', muted: '#6E5A8A', btn: '#8A4FD0', 'btn-ink': '#FFFFFF', blue: '#4F78D8', red: '#D2386E' },
-  { id: 'night', name: 'Night', dark: true, bg: '#11151A', surface: '#1A2027', sunk: '#232A33', line: '#2E3640' },
   { id: 'navy', name: 'Navy', dark: true, bg: '#0E1A2B', surface: '#162437', sunk: '#1F2F46', line: '#2A3D56' },
-  { id: 'black', name: 'Black', dark: true, bg: '#000000', surface: '#121212', sunk: '#1C1C1C', line: '#2A2A2A' },
 ];
+// removed themes map to the closest one that's left
+const THEME_ALIAS = { blush: 'pink', night: 'navy', black: 'navy' };
+function findTheme(id) { id = THEME_ALIAS[id] || id || 'auto'; return THEMES.find(x => x.id === id); }
 let appliedTheme = null;
 function applyTheme(id) {
-  const t = THEMES.find(x => x.id === id) || THEMES[0];
+  const t = findTheme(id) || THEMES[0];
   if (appliedTheme === t.id) return;
   appliedTheme = t.id; lsSet('rl:theme', t.id);
   const root = document.documentElement;
@@ -381,6 +381,7 @@ function render() {
   const dated = S.tab === 'today' || S.tab === 'train';
   document.getElementById('datenav').hidden = !dated;
   document.getElementById('dateLabel').textContent = S.date === todayISO() ? 'Today' : fmtDay(S.date);
+  if (S.config?.theme && THEME_ALIAS[S.config.theme]) { const cfg = cfgCopy(); cfg.theme = THEME_ALIAS[cfg.theme]; S.config = cfg; store.set('config', 'settings', cfg); }
   applyTheme(S.config?.theme || lsGet('rl:theme') || 'auto');
   const banner = S.syncError ? `<div class="banner">Some changes haven't reached your Supabase database yet (${esc(S.syncError)}). They're kept on this phone and retry automatically.</div>` : '';
   const gOn = gardenOn();
@@ -545,7 +546,7 @@ const GROWS = {
     icon: '<path d="M3 16.5v-3.5l2.2-5h13.6l2.2 5v3.5z"/><path d="M3 13h18"/><circle cx="7.5" cy="17" r="1.8"/><circle cx="16.5" cy="17" r="1.8"/>',
   },
 };
-function isSoftId(id) { const t = THEMES.find(x => x.id === (id || 'auto')); return !!(t && t.style === 'soft'); }
+function isSoftId(id) { const t = findTheme(id); return !!(t && t.style === 'soft'); }
 function growKind(themeId, pref) {
   themeId = themeId ?? (S.config?.theme || lsGet('rl:theme') || 'auto'); pref = pref ?? S.config?.grow;
   if (isSoftId(themeId)) return 'flower';
@@ -1743,7 +1744,7 @@ const STANLEY_COLOURS = [
   ['peach', 'Peach', '#F3AE85'], ['butter', 'Butter', '#F1D98A'], ['sage', 'Sage', '#9CB89A'], ['sky', 'Sky', '#8DC2E6'],
   ['cream', 'Cream', '#EFE4D2'], ['black', 'Black', '#2C2B30'],
 ];
-function softTheme() { const t = THEMES.find(x => x.id === (S.config?.theme || lsGet('rl:theme') || 'auto')); return !!(t && t.style === 'soft'); }
+function softTheme() { const t = findTheme(S.config?.theme || lsGet('rl:theme')); return !!(t && t.style === 'soft'); }
 function hexMix(a, b, t) {
   const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const x = p(a), y = p(b); return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
