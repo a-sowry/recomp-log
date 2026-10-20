@@ -81,10 +81,9 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 18; // keep in step with VERSION in sw.js
+const APP_VERSION = 19; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
-  { id: 'chalk', name: 'Chalk', bg: '#F1F1EC', surface: '#FFFFFF', sunk: '#E7E8E2', line: '#D6D8D1' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
   { id: 'sand', name: 'Sand', bg: '#F3EBDD', surface: '#FFFBF3', sunk: '#E8DDC9', line: '#D9CBB2' },
   { id: 'mint', name: 'Mint', bg: '#E4EFE8', surface: '#FAFDFB', sunk: '#D5E5DA', line: '#C1D6C8' },
@@ -94,7 +93,7 @@ const THEMES = [
   { id: 'navy', name: 'Navy', dark: true, bg: '#0E1A2B', surface: '#162437', sunk: '#1F2F46', line: '#2A3D56' },
 ];
 // removed themes map to the closest one that's left
-const THEME_ALIAS = { blush: 'pink', night: 'navy', black: 'navy' };
+const THEME_ALIAS = { blush: 'pink', night: 'navy', black: 'navy', chalk: 'auto' };
 function findTheme(id) { id = THEME_ALIAS[id] || id || 'auto'; return THEMES.find(x => x.id === id); }
 let appliedTheme = null;
 function applyTheme(id) {
