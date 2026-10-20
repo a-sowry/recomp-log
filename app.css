@@ -627,3 +627,27 @@ input[type=search] { -webkit-appearance: none; appearance: none; }
 .meal-actions { padding-top: 6px; }
 .meal-page .slotlabel .aside { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--muted); margin-left: 6px; }
 [data-style="soft"] .meal-note { border-radius: 14px; }
+
+/* quick add, favourites, what fits, planner */
+.starbtn { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: transparent; border: 0; padding: 0; color: var(--muted); }
+.starbtn svg, .starbtn-wide svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.starbtn svg .on, .starbtn-wide svg .on { fill: #F2B705; stroke: #D99A00; }
+[data-style="soft"] .starbtn svg .on, [data-style="soft"] .starbtn-wide svg .on { fill: var(--btn); stroke: var(--btn); }
+.starbtn-wide { display: inline-flex; align-items: center; gap: 6px; }
+.meal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.qrow .rowbtns { align-items: center; }
+.done-tick { color: var(--green); font-weight: 700; font-size: 13px; white-space: nowrap; }
+.sec > h2 .groc-btn + .groc-btn { margin-left: 2px; }
+.groc-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; }
+.planner { display: grid; gap: 10px; }
+.plan-day { display: grid; gap: 8px; }
+.plan-day.today { box-shadow: inset 0 0 0 2px var(--btn); }
+.plan-head { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.plan-head .aside { margin-left: auto; font-size: 12px; color: var(--muted); }
+.plan-slot { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; align-items: start; }
+.ps-l { font-size: 12px; font-weight: 700; color: var(--muted); padding-top: 7px; text-transform: uppercase; letter-spacing: .04em; }
+.ps-items { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.plan-chip { display: inline-flex; align-items: center; gap: 2px; background: var(--sunk); border-radius: 999px; padding: 4px 4px 4px 10px; font-size: 13px; font-weight: 600; max-width: 100%; }
+.plan-chip button { border: 0; background: transparent; width: 22px; height: 22px; border-radius: 50%; color: var(--muted); font-size: 16px; line-height: 1; }
+select.plan-add { font-size: 13px; padding: 5px 8px; min-height: 0; width: auto; max-width: 100%; color: var(--muted); }
+[data-style="soft"] .ps-l { text-transform: none; letter-spacing: 0; font-size: 13px; }

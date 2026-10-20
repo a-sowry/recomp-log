@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 23; // keep in step with VERSION in sw.js
+const APP_VERSION = 24; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -782,7 +782,7 @@ function viewToday() {
         const mk = m.recipe ? 'R:' + m.recipe : m.food && (S.config?.foods || []).some(x => x.id === m.food) ? 'F:' + m.food : '';
         log += `<div class="row"><div style="min-width:0"${mk ? ` class="meal-open" data-act="openMeal" data-k="${mk}" role="button" tabindex="0"` : ''}><div class="t">${esc(m.name)}${mk ? ' <span class="open-hint" aria-hidden="true">›</span>' : ''}</div>
           <div class="chips"><span class="chip k">${r0(m.kcal * s)} kcal</span><span class="chip p">P ${r0(m.p * s)}</span><span class="chip c">C ${r0(m.c * s)}</span><span class="chip f">F ${r0(m.f * s)}</span></div></div>
-          <div class="stepper"><button data-act="serv" data-id="${m.id}" data-d="-0.5" aria-label="Less">−</button><span>${s}×</span><button data-act="serv" data-id="${m.id}" data-d="0.5" aria-label="More">+</button></div></div>`;
+          <span class="rowbtns"><button class="starbtn" data-act="favToggle" data-k="L:${m.id}" aria-pressed="${isFav(m.name)}" aria-label="${isFav(m.name) ? 'Remove from' : 'Add to'} favourites">${starSVG(isFav(m.name))}</button><div class="stepper"><button data-act="serv" data-id="${m.id}" data-d="-0.5" aria-label="Less">−</button><span>${s}×</span><button data-act="serv" data-id="${m.id}" data-d="0.5" aria-label="More">+</button></div></span></div>`;
       }
     }
   }
@@ -851,7 +851,9 @@ function viewToday() {
     <div class="legend"><span><i style="background:var(--green)"></i>On target</span><span><i style="background:var(--yellow)"></i>Under, or protein short</span><span><i style="background:var(--red)"></i>Over by 150+</span></div>
   </section>
   <section class="sec"><h2>Logged</h2><div class="card rows">${log}</div></section>
-  <section class="sec"><h2>Add food <button class="linkbtn h2btn push groc-btn" data-act="openGrocery"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h10.2L20 7H7"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>Grocery list</button></h2>
+  ${fitsCard()}
+  ${quickCard()}
+  <section class="sec"><h2>Add food <button class="linkbtn h2btn push groc-btn" data-act="openPlanner"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Plan week</button><button class="linkbtn h2btn groc-btn" data-act="openGrocery"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h10.2L20 7H7"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>Grocery</button></h2>
     <div class="seg" role="group" aria-label="Food source">
       <button data-act="foodAdd" data-v="plan" aria-pressed="${!['custom', 'scan', 'search', 'drinks'].includes(S.foodAdd)}">Meal plan</button>
       <button data-act="foodAdd" data-v="search" aria-pressed="${S.foodAdd === 'search'}">Search</button>
@@ -1724,10 +1726,133 @@ function openMeal(key, editing) {
     <div class="slotlabel">Ingredients${m.kind === 'recipe' && !/batch/i.test(ing.join(' ')) ? ' <span class="aside">1 serve</span>' : ''}</div>
     ${ingHTML}
     ${method}
-    <div class="meal-actions"><button class="btn" ${addAct} data-close="1">Add to today's log</button></div>
+    <div class="meal-actions"><button class="btn" ${addAct} data-close="1">Add to today's log</button><button class="btn ghost starbtn-wide" data-act="favToggle" data-k="${esc(key)}" data-reopen="${esc(key)}" aria-pressed="${isFav(r.name)}">${starSVG(isFav(r.name))}${isFav(r.name) ? 'Favourite' : 'Add to favourites'}</button></div>
   </div></div></div>`;
   if (editing) setTimeout(() => document.getElementById('meal_ing')?.focus(), 50);
 }
+
+/* ---------- favourites, regulars, "what fits", week plan ---------- */
+// A loggable snapshot of a meal: name, slot, macros and links back to where it came from.
+function snapOf(m) {
+  const o = { name: m.name, slot: m.slot || 'Snack', kcal: +m.kcal || 0, p: +m.p || 0, c: +m.c || 0, f: +m.f || 0 };
+  for (const k of ['recipe', 'food', 'ing', 'nut', 'drink', 'barcode']) if (m[k] != null) o[k] = m[k];
+  return o;
+}
+function itemFromKey(key) {
+  const [t, id] = [key.slice(0, 1), key.slice(2)];
+  if (t === 'R') { const r = RECIPES.find(x => x.id === id); return r && { name: r.name, slot: r.slot, kcal: r.kcal, p: r.p, c: r.c, f: r.f, recipe: r.id }; }
+  if (t === 'F') { const f = (S.config?.foods || []).find(x => x.id === id); return f && { ...snapOf(f), food: f.id }; }
+  if (t === 'Q') { const q = favs().find(x => x.id === id); return q && snapOf(q); }
+  return null;
+}
+function logItem(it, slot) {
+  const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, ...snapOf(it), slot: slot || it.slot || guessSlot() });
+  saveDay(S.date, day); toast(`Added ${it.name}`);
+}
+function favs() { return S.config?.favs || []; }
+function isFav(name) { return favs().some(f => f.name === name); }
+function toggleFav(it) {
+  const cfg = cfgCopy(); const list = cfg.favs || [];
+  if (list.some(f => f.name === it.name)) { cfg.favs = list.filter(f => f.name !== it.name); saveConfig(cfg); toast('Removed from favourites'); return false; }
+  cfg.favs = [...list, { id: uid(), ...snapOf(it) }]; saveConfig(cfg); toast('Added to favourites'); return true;
+}
+function regulars() { // logged at least twice in the last 30 days, most-logged first, not already a favourite
+  const since = addDays(todayISO(), -30); const counts = new Map();
+  for (const d of Object.values(S.days)) {
+    if (d.date < since) continue;
+    for (const m of d.meals || []) { const c = counts.get(m.name) || { n: 0, last: null, date: '' }; c.n++; if (d.date >= c.date) { c.last = m; c.date = d.date; } counts.set(m.name, c); }
+  }
+  return [...counts.entries()].filter(([name, c]) => c.n >= 2 && !isFav(name)).sort((a, b) => b[1].n - a[1].n).slice(0, 6).map(([, c]) => ({ ...snapOf(c.last), times: c.n }));
+}
+const starSVG = on => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" ${on ? 'class="on"' : ''}/></svg>`;
+function quickRow(it, btn, extra = '') {
+  return `<div class="row qrow"><div style="min-width:0"><div class="t">${esc(it.name)}</div><div class="small muted">${r0(it.kcal)} kcal · P ${r0(it.p)} g${extra}</div></div><span class="rowbtns">${btn}</span></div>`;
+}
+
+/* week plan: config.weekPlan = { 'YYYY-MM-DD': { Breakfast: [key, ...], ... } }, keys like R:B1, F:<id>, Q:<fav id> */
+const PLAN_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+function planDay(date) { return S.config?.weekPlan?.[date] || {}; }
+function plannedToday() {
+  const pd = planDay(S.date); const logged = {}; for (const m of S.days[S.date]?.meals || []) logged[m.name] = (logged[m.name] || 0) + 1;
+  const out = [];
+  for (const slot of PLAN_SLOTS) for (const key of pd[slot] || []) { const it = itemFromKey(key); if (!it) continue; const done = logged[it.name] > 0; if (done) logged[it.name]--; out.push({ key, slot, it, done }); }
+  return out;
+}
+function savePlan(mut) {
+  const cfg = cfgCopy(); cfg.weekPlan = cfg.weekPlan || {}; mut(cfg.weekPlan);
+  const cut = addDays(todayISO(), -35); for (const d of Object.keys(cfg.weekPlan)) { const v = cfg.weekPlan[d]; if (d < cut || !Object.values(v).some(a => a?.length)) delete cfg.weekPlan[d]; }
+  S.config = cfg; store.set('config', 'settings', cfg);
+}
+function planCounts(ws) { // grocery counts (planMeals keys) from a week of the plan
+  const counts = {};
+  for (let i = 0; i < 7; i++) for (const keys of Object.values(planDay(addDays(ws, i)))) for (const key of keys || []) {
+    let k = null; if (key.startsWith('R:')) k = key.slice(2); else if (key.startsWith('F:')) k = 'f:' + key.slice(2);
+    else if (key.startsWith('Q:')) { const q = itemFromKey(key); if (q?.recipe) k = q.recipe; else if (q?.food) k = 'f:' + q.food; }
+    if (k) counts[k] = (counts[k] || 0) + 1;
+  }
+  return counts;
+}
+function planOptions(slot) {
+  const meals = planMeals(); const opt = m => `<option value="${m.starter ? 'R:' + m.key : 'F:' + m.food.id}">${esc(m.name)} (${r0((m.starter ? RECIPES.find(r => r.id === m.key) : m.food).kcal)} kcal)</option>`;
+  const here = meals.filter(m => m.slot === slot), other = meals.filter(m => m.slot !== slot);
+  return `<option value="">+ Add ${slot.toLowerCase()}</option>${here.length ? `<optgroup label="${slot}">${here.map(opt).join('')}</optgroup>` : ''}${favs().length ? `<optgroup label="Favourites">${favs().map(q => `<option value="Q:${q.id}">${esc(q.name)} (${r0(q.kcal)} kcal)</option>`).join('')}</optgroup>` : ''}${other.length ? `<optgroup label="Other meals">${other.map(opt).join('')}</optgroup>` : ''}`;
+}
+function openPlanner() {
+  const prevScroll = document.querySelector('.sheet .panel')?.scrollTop || 0;
+  const off = S.planWeek || 0; const ws = addDays(weekStart(todayISO()), off * 7); const T = targets();
+  const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i)).map(d => {
+    const pd = planDay(d); let kcal = 0, p = 0;
+    const slots = PLAN_SLOTS.map(slot => {
+      const items = (pd[slot] || []).map((key, i) => { const it = itemFromKey(key); if (!it) return ''; kcal += it.kcal; p += it.p; return `<span class="plan-chip">${esc(it.name)}<button type="button" data-act="planDel" data-d="${d}" data-s="${slot}" data-i="${i}" aria-label="Remove ${esc(it.name)}">×</button></span>`; }).join('');
+      return `<div class="plan-slot"><span class="ps-l">${slot}</span><div class="ps-items">${items}<select class="plan-add" data-plan-d="${d}" data-plan-s="${slot}" aria-label="Add ${slot.toLowerCase()} on ${fmtDay(d)}">${planOptions(slot)}</select></div></div>`;
+    }).join('');
+    const tot = kcal ? `<span class="aside ${kcal > T.kcal + 150 ? 'down-txt' : ''}">${r0(kcal).toLocaleString()} kcal · ${r0(p)} g protein</span>` : '';
+    return `<div class="card plan-day${d === todayISO() ? ' today' : ''}"><div class="plan-head"><b>${fmtDay(d, { weekday: 'long' })}</b> <span class="muted">${fmtDay(d, { day: 'numeric', month: 'short' })}</span>${tot}</div>${slots}</div>`;
+  }).join('');
+  const label = `${fmtDay(ws, { day: 'numeric', month: 'short' })} – ${fmtDay(addDays(ws, 6), { day: 'numeric', month: 'short' })}`;
+  document.getElementById('sheetRoot').innerHTML = `<div class="sheet"><div class="panel"><div class="wrap planner">
+    <div style="display:flex;align-items:center;gap:10px"><h3>Plan the week</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSheet">Close</button></div>
+    <div class="seg" role="group" aria-label="Week"><button type="button" data-act="planWeek" data-v="0" aria-pressed="${off === 0}">This week</button><button type="button" data-act="planWeek" data-v="1" aria-pressed="${off === 1}">Next week</button></div>
+    <div class="small muted">${label}. Pick meals for each day. Today's planned meals show up on the Food tab for one-tap logging, and the grocery list can be built from this plan. Daily target: ${T.kcal.toLocaleString()} kcal, ${T.p} g protein.</div>
+    ${days}
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-act="planGroc">Grocery list for this week</button><button type="button" class="btn ghost sm" data-act="planCopy">Copy last week</button><button type="button" class="btn ghost sm" data-act="planClear">Clear week</button></div>
+  </div></div></div>`;
+  const pn = document.querySelector('.sheet .panel'); if (pn) pn.scrollTop = prevScroll;
+}
+
+/* "What fits?": rank your meals, favourites and regulars against what's left today */
+function fitsCard() {
+  if (S.config?.fitsHidden) return `<section class="sec"><h2>What fits <button class="linkbtn h2btn push" data-act="fitsHide" data-v="0">Show</button></h2></section>`;
+  const T = targets(); const t = dayTotals(S.days[S.date]); const kLeft = T.kcal - t.kcal, pLeft = T.p - t.p;
+  const head = `<h2>What fits <span class="aside">${kLeft > 0 ? `${r0(kLeft).toLocaleString()} kcal${pLeft > 0 ? ` · ${r0(pLeft)} g protein` : ''} left` : ''}</span><button class="linkbtn h2btn" data-act="fitsHide" data-v="1">Hide</button></h2>`;
+  if (kLeft < 120) return `<section class="sec">${head}<div class="card small muted">You're at your calories for ${S.date === todayISO() ? 'today' : 'this day'}${pLeft > 5 ? `, with ${r0(pLeft)} g protein still to go. Something like egg whites, a protein shake with water or 0% Greek yoghurt adds protein for few calories` : '. Water, black coffee and tea are free'}.</div></section>`;
+  const seen = new Set(); const cands = [];
+  const push = (it, key) => { if (!it || seen.has(it.name)) return; seen.add(it.name); cands.push({ it, key }); };
+  for (const m of planMeals()) push(itemFromKey(m.starter ? 'R:' + m.key : 'F:' + m.food.id), m.starter ? 'R:' + m.key : 'F:' + m.food.id);
+  for (const q of favs()) push(snapOf(q), 'Q:' + q.id);
+  regulars().forEach((r, i) => push(r, 'G:' + i));
+  const slot = guessSlot();
+  const fit = cands.filter(c => c.it.kcal > 0 && c.it.kcal <= kLeft + 40 && !c.it.drink).map(c => {
+    const score = pLeft > 10 ? Math.min(c.it.p, pLeft) / Math.max(c.it.kcal, 60) * 100 + c.it.kcal / kLeft * 3 : c.it.kcal / kLeft * 10;
+    return { ...c, score: score + (c.it.slot === slot ? 4 : 0) };
+  }).sort((a, b) => b.score - a.score).slice(0, 4);
+  if (!fit.length) return `<section class="sec">${head}<div class="card small muted">Nothing in your meal plan fits under ${r0(kLeft)} kcal. Try Search for something lighter, like fruit, yoghurt or a protein shake.</div></section>`;
+  const rows = fit.map(({ it, key }) => {
+    const after = kLeft - it.kcal, pAfter = pLeft - it.p;
+    return quickRow(it, `<button class="btn sm" data-act="quickAdd" data-k="${key}">Add</button>`, ` · then ${r0(Math.max(0, after))} kcal${pAfter > 0 ? `, ${r0(pAfter)} g protein` : ', protein hit'} left`);
+  }).join('');
+  return `<section class="sec">${head}<div class="card rows">${rows}</div></section>`;
+}
+function quickCard() {
+  const planned = plannedToday(); const fav = favs(); const reg = regulars();
+  if (!planned.length && !fav.length && !reg.length) return '';
+  let h = '';
+  if (planned.length) h += `<div class="slotlabel">Planned for ${S.date === todayISO() ? 'today' : fmtDay(S.date)}</div>` + planned.map(x => quickRow(x.it, x.done ? `<span class="done-tick" aria-label="Logged">✓ Logged</span>` : `<button class="btn sm" data-act="quickAdd" data-k="${x.key}" data-s="${x.slot}">Add</button>`)).join('');
+  if (fav.length) h += `<div class="slotlabel">Favourites</div>` + fav.map(q => quickRow(q, `<button class="starbtn" data-act="favToggle" data-k="Q:${q.id}" aria-label="Remove ${esc(q.name)} from favourites" aria-pressed="true">${starSVG(true)}</button><button class="btn sm" data-act="quickAdd" data-k="Q:${q.id}">Add</button>`)).join('');
+  if (reg.length) h += `<div class="slotlabel">Your regulars</div>` + reg.map((r, i) => quickRow(r, `<button class="starbtn" data-act="favToggle" data-k="G:${i}" aria-label="Add ${esc(r.name)} to favourites" aria-pressed="false">${starSVG(false)}</button><button class="btn sm" data-act="quickAdd" data-k="G:${i}">Add</button>`, ` · logged ${r.times}× lately`)).join('');
+  return `<section class="sec"><h2>Quick add</h2><div class="card rows">${h}</div></section>`;
+}
+function quickItem(key) { return key.startsWith('G:') ? regulars()[+key.slice(2)] : itemFromKey(key); }
 
 /* ---------- grocery list ---------- */
 const GROCERY_ITEMS = {
@@ -1757,8 +1882,9 @@ function planMeals() {
   return [...RECIPES.filter(r => !hidden.has(r.id)).map(r => ({ key: r.id, name: r.name, slot: r.slot, starter: true })),
     ...(S.config?.foods || []).map(f => ({ key: 'f:' + f.id, name: f.name, slot: f.slot || 'Snack', food: f }))];
 }
+function grocPlanMode() { const g = S.config?.grocery || {}; return g.mode ? g.mode === 'plan' : Object.keys(planCounts(addDays(weekStart(todayISO()), (S.grocWeek || 0) * 7))).length > 0; }
 function groceryItems() {
-  const g = S.config?.grocery || {}; const counts = g.counts || {};
+  const g = S.config?.grocery || {}; const counts = grocPlanMode() ? planCounts(addDays(weekStart(todayISO()), (S.grocWeek || 0) * 7)) : (g.counts || {});
   const sums = {}; const loose = {};
   for (const m of planMeals()) {
     const n = counts[m.key] || 0; if (!n) continue;
@@ -1807,7 +1933,11 @@ function openGrocery() {
   }).join('') : `<div class="empty"><b>Your list is empty.</b>Tap + on the meals you'll make this week and their ingredients add up here.</div>`;
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet"><div class="panel"><div class="wrap">
     <div style="display:flex;align-items:center;gap:10px"><h3>Grocery list</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSheet">Close</button></div>
-    <div class="card" style="display:grid;gap:4px"><div class="small muted">How many times will you have each meal this week?</div><div class="rows">${mealRows || '<div class="empty">Your meal plan is empty.</div>'}</div></div>
+    <div class="seg" role="group" aria-label="Where the list comes from"><button type="button" data-act="grocMode" data-v="plan" aria-pressed="${grocPlanMode()}">From my week plan</button><button type="button" data-act="grocMode" data-v="manual" aria-pressed="${!grocPlanMode()}">Pick meals</button></div>
+    ${grocPlanMode() ? (() => { const off = S.grocWeek || 0; const ws = addDays(weekStart(todayISO()), off * 7); const pc = planCounts(ws); const n = Object.values(pc).reduce((a, b) => a + b, 0);
+      return `<div class="card" style="display:grid;gap:8px"><div class="seg"><button type="button" data-act="grocWeek" data-v="0" aria-pressed="${off === 0}">This week</button><button type="button" data-act="grocWeek" data-v="1" aria-pressed="${off === 1}">Next week</button></div>
+        <div class="small muted">${n ? `Built from the ${n} meal${n > 1 ? 's' : ''} planned for ${fmtDay(ws, { day: 'numeric', month: 'short' })} – ${fmtDay(addDays(ws, 6), { day: 'numeric', month: 'short' })}.` : 'Nothing planned for that week yet.'} </div><div><button type="button" class="btn ghost sm" data-act="openPlanner">Plan the week</button></div></div>`; })()
+    : `<div class="card" style="display:grid;gap:4px"><div class="small muted">How many times will you have each meal this week?</div><div class="rows">${mealRows || '<div class="empty">Your meal plan is empty.</div>'}</div></div>`}
     <section class="sec"><h2>Shopping list <span class="aside">${items.length ? `${left} of ${items.length} left` : ''}</span></h2>
       <div class="card">${list}
         <div class="formrow" style="margin-top:10px"><label class="f">Add something else<input type="text" id="groc_extra" placeholder="e.g. paper towel"></label><button type="button" class="btn ghost" data-act="grocAddExtra">Add</button></div>
@@ -2513,6 +2643,24 @@ document.addEventListener('click', async e => {
     case 'scanLookup': lookupBarcode(document.getElementById('sc_code')?.value); break;
     case 'scanGrams': S.scan.grams = +b.dataset.v; render(); break;
     case 'openMeal': openMeal(b.dataset.k); break;
+    case 'quickAdd': { const it = quickItem(b.dataset.k); if (it) logItem(it, b.dataset.s); break; }
+    case 'favToggle': {
+      const k = b.dataset.k; const it = k.startsWith('L:') ? (S.days[S.date]?.meals || []).find(m => m.id === k.slice(2)) : quickItem(k);
+      if (it) toggleFav(it); if (b.dataset.reopen) openMeal(b.dataset.reopen); break;
+    }
+    case 'fitsHide': { const cfg = cfgCopy(); cfg.fitsHidden = b.dataset.v === '1'; saveConfig(cfg); break; }
+    case 'openPlanner': openPlanner(); break;
+    case 'planWeek': S.planWeek = +b.dataset.v; openPlanner(); break;
+    case 'planDel': savePlan(wp => { const a = wp[b.dataset.d]?.[b.dataset.s]; if (a) a.splice(+b.dataset.i, 1); }); render(); openPlanner(); break;
+    case 'planCopy': {
+      const ws = addDays(weekStart(todayISO()), (S.planWeek || 0) * 7);
+      savePlan(wp => { for (let i = 0; i < 7; i++) { const src = wp[addDays(ws, i - 7)]; if (src) wp[addDays(ws, i)] = JSON.parse(JSON.stringify(src)); } });
+      render(); openPlanner(); toast('Copied last week'); break;
+    }
+    case 'planClear': { const ws = addDays(weekStart(todayISO()), (S.planWeek || 0) * 7); savePlan(wp => { for (let i = 0; i < 7; i++) delete wp[addDays(ws, i)]; }); render(); openPlanner(); break; }
+    case 'planGroc': S.grocWeek = S.planWeek || 0; saveGrocery(gr => { gr.mode = 'plan'; }); break;
+    case 'grocMode': saveGrocery(gr => { gr.mode = b.dataset.v; }); break;
+    case 'grocWeek': S.grocWeek = +b.dataset.v; openGrocery(); break;
     case 'mealIngEdit': openMeal(b.dataset.k, true); break;
     case 'mealIngSave': {
       const id = b.dataset.k.slice(2); const lines = (document.getElementById('meal_ing')?.value || '').split('\n').map(x => x.trim()).filter(Boolean);
@@ -2621,6 +2769,10 @@ document.addEventListener('change', e => {
     restoreBackup(el.files[0]).then(n => { toast(`Restored ${n} records`); document.getElementById('sheetRoot').innerHTML = ''; render(); })
       .catch(err => { console.error(err); toast('That file isn\'t a Recomp Log backup.'); });
     return;
+  }
+  if (el.dataset.planD) {
+    const key = el.value; if (!key) return; const d = el.dataset.planD, sl = el.dataset.planS;
+    savePlan(wp => { wp[d] = wp[d] || {}; wp[d][sl] = [...(wp[d][sl] || []), key]; }); render(); openPlanner(); return;
   }
   if (el.dataset.groc) { const k = el.dataset.groc; const on = el.checked; saveGrocery(gr => { if (on) gr.checked[k] = true; else delete gr.checked[k]; }); return; }
   if (el.id === 'exPick') { S.progressEx = el.value; render(); }
