@@ -3,7 +3,7 @@
 
 /* ---------- static data ---------- */
 const DEFAULT_TARGETS = { kcal: 2250, p: 150, c: 265, f: 65 };
-const SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+const SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Drinks'];
 const RECIPES = [
   { id: 'B1', slot: 'Breakfast', name: 'TikTok protein pancake bowl', kcal: 566, p: 39, c: 69, f: 13 },
   { id: 'B2', slot: 'Breakfast', name: 'Overnight protein oats', kcal: 572, p: 48, c: 62, f: 12 },
@@ -57,7 +57,7 @@ const S = {
   loaded: { days: false, sessions: false, weights: false, photos: false },
   user: null, offlineAuth: false, syncError: null, lastPull: 0,
   drafts: {}, trainDay: null,
-  foodAdd: 'plan', progressEx: null, compare: { a: null, b: null, pose: 'Front' },
+  foodAdd: 'plan', search: { q: '', status: 'idle', off: [], offQ: '', pick: null }, drink: null, progressEx: null, compare: { a: null, b: null, pose: 'Front' },
   confirmPhoto: null, confirmSession: false, uploading: false,
   timer: { end: 0, total: 0, handle: 0 },
 };
@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 21; // keep in step with VERSION in sw.js
+const APP_VERSION = 22; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -789,6 +789,10 @@ function viewToday() {
   let add = '';
   if (S.foodAdd === 'scan') {
     add = scanPanel();
+  } else if (S.foodAdd === 'search') {
+    add = searchPanel();
+  } else if (S.foodAdd === 'drinks') {
+    add = drinksPanel();
   } else if (S.foodAdd !== 'custom') {
     const hidden = new Set(S.config?.hiddenRecipes || []);
     const chipRow = m => `<div class="chips"><span class="chip k">${r0(m.kcal)} kcal</span><span class="chip p">P ${r0(m.p)}</span><span class="chip c">C ${r0(m.c)}</span><span class="chip f">F ${r0(m.f)}</span></div>`;
@@ -846,18 +850,19 @@ function viewToday() {
     <div class="legend"><span><i style="background:var(--green)"></i>On target</span><span><i style="background:var(--yellow)"></i>Under, or protein short</span><span><i style="background:var(--red)"></i>Over by 150+</span></div>
   </section>
   <section class="sec"><h2>Logged</h2><div class="card rows">${log}</div></section>
-  <section class="sec"><h2>Add food</h2>
+  <section class="sec"><h2>Add food <button class="linkbtn h2btn push groc-btn" data-act="openGrocery"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h10.2L20 7H7"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>Grocery list</button></h2>
     <div class="seg" role="group" aria-label="Food source">
-      <button data-act="foodAdd" data-v="plan" aria-pressed="${S.foodAdd !== 'custom' && S.foodAdd !== 'scan'}">Meal plan</button>
+      <button data-act="foodAdd" data-v="plan" aria-pressed="${!['custom', 'scan', 'search', 'drinks'].includes(S.foodAdd)}">Meal plan</button>
+      <button data-act="foodAdd" data-v="search" aria-pressed="${S.foodAdd === 'search'}">Search</button>
+      <button data-act="foodAdd" data-v="drinks" aria-pressed="${S.foodAdd === 'drinks'}">Drinks</button>
       <button data-act="foodAdd" data-v="scan" aria-pressed="${S.foodAdd === 'scan'}">Scan</button>
       <button data-act="foodAdd" data-v="custom" aria-pressed="${S.foodAdd === 'custom'}">Add a meal</button>
-      <button class="groc-btn" data-act="openGrocery"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h10.2L20 7H7"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>Grocery list</button>
     </div>
     <div class="card rows">${add}</div>
   </section>
   <section class="sec"><h2>Steps &amp; cardio</h2>
     <div class="card" style="display:grid;gap:10px">
-      <div class="formrow"><label class="f">Steps<input type="number" id="steps" inputmode="numeric" min="0" placeholder="8,000–10,000 goal" value="${day?.steps ?? ''}"></label></div>
+      ${stepsCard(day)}
       ${cardio.length ? `<div class="rows">${cardio.map(c => `<div class="row"><div><span class="t">${esc(c.type)}</span> <span class="muted">${c.minutes ? c.minutes + ' min' : ''}${c.note ? ' · ' + esc(c.note) : ''}</span></div><button class="btn sm ghost" data-act="delCardio" data-id="${c.id}">Remove</button></div>`).join('')}</div>` : ''}
       <form id="cardioForm" class="formrow">
         <label class="f">Activity<select id="cd_type">${CARDIO_TYPES.map(c => `<option>${c}</option>`).join('')}</select></label>
@@ -1433,28 +1438,250 @@ async function lookupBarcode(code) {
     S.scan = { code, status: 'found', product: prod, grams: prod.serving || 100 }; render();
   } catch (e) { console.error(e); S.scan = { code, status: 'error', msg: 'Couldn\'t reach the food database. Check your signal and try again.' }; render(); }
 }
-function scanPanel() {
-  const s = S.scan;
-  let res = '';
-  if (s.status === 'loading') res = `<div class="empty">Looking up ${esc(s.code)}…</div>`;
-  else if (s.status === 'notfound') res = `<div class="empty"><b>${s.partial ? esc(s.partial) + ' has no nutrition info yet.' : 'Not in the food database yet.'}</b>Add it with "Add a meal" using the numbers on the packet.<div style="margin-top:10px"><button class="btn ghost sm" data-act="foodAdd" data-v="custom">Add a meal</button></div></div>`;
-  else if (s.status === 'error') res = `<div class="empty">${esc(s.msg)}</div>`;
-  else if (s.status === 'found') {
-    const p = s.product; const g = s.grams || 100; const k = g / 100;
-    res = `<div class="scan-result">
+/* ---------- food search: common foods built in + Open Food Facts for packaged foods ---------- */
+// [name, kcal, protein, carbs, fat per 100 g, serve g, serve label, nutrient key, extra search words]
+// Values are typical figures from USDA FoodData Central / AUSNUT; cooked weights unless it says otherwise.
+const COMMON_FOODS = [
+  ['Apple', 52, 0.3, 14, 0.2, 180, '1 medium'], ['Banana', 89, 1.1, 23, 0.3, 120, '1 medium', 'banana'], ['Orange', 47, 0.9, 12, 0.1, 160, '1 medium'],
+  ['Mandarin', 53, 0.8, 13, 0.3, 90, '1 medium'], ['Strawberries', 32, 0.7, 7.7, 0.3, 150, '1 cup', 'strawberries'], ['Blueberries', 57, 0.7, 14.5, 0.3, 150, '1 cup', 'berries', 'berry'],
+  ['Grapes', 69, 0.7, 18, 0.2, 150, '1 cup'], ['Watermelon', 30, 0.6, 7.6, 0.2, 280, '1 wedge', null, 'melon'], ['Mango', 60, 0.8, 15, 0.4, 200, '1 mango'],
+  ['Pineapple', 50, 0.5, 13, 0.1, 165, '1 cup'], ['Kiwifruit', 61, 1.1, 15, 0.5, 75, '1 kiwi'], ['Pear', 57, 0.4, 15, 0.1, 180, '1 medium'],
+  ['Avocado', 160, 2, 8.5, 14.7, 75, '½ avocado', 'avocado'], ['Medjool dates', 277, 1.8, 75, 0.2, 24, '1 date'], ['Sultanas / raisins', 299, 3.1, 79, 0.5, 30, '1 small box'],
+  ['Broccoli', 34, 2.8, 7, 0.4, 100, '1 cup', 'broccoli'], ['Carrot', 41, 0.9, 10, 0.2, 70, '1 medium', 'carrot'], ['Potato (boiled)', 87, 1.9, 20, 0.1, 150, '1 medium', null, 'potatoes spud'],
+  ['Sweet potato (baked)', 90, 2, 21, 0.2, 150, '1 medium', 'sweet_potato'], ['Spinach', 23, 2.9, 3.6, 0.4, 30, '1 cup', 'spinach'], ['Tomato', 18, 0.9, 3.9, 0.2, 120, '1 medium', 'tomato'],
+  ['Cucumber', 15, 0.7, 3.6, 0.1, 100, '½ cucumber', 'cucumber'], ['Capsicum', 31, 1, 6, 0.3, 120, '1 medium', 'capsicum', 'pepper'], ['Corn on the cob', 96, 3.4, 21, 1.5, 100, '1 cob', 'corn'],
+  ['Peas', 81, 5.4, 14, 0.4, 80, '½ cup'], ['Salad leaves', 17, 1.3, 3, 0.2, 50, '1 cup', 'lettuce', 'lettuce'], ['Mushrooms', 22, 3.1, 3.3, 0.3, 70, '1 cup'],
+  ['Onion', 40, 1.1, 9, 0.1, 110, '1 medium', 'onion'], ['Zucchini', 17, 1.2, 3.1, 0.3, 200, '1 medium'], ['Pumpkin (roasted)', 45, 1, 11, 0.1, 150, '1 cup'],
+  ['Green beans', 31, 1.8, 7, 0.2, 100, '1 cup'], ['Cauliflower', 25, 1.9, 5, 0.3, 100, '1 cup'],
+  ['White rice (cooked)', 130, 2.7, 28, 0.3, 180, '1 cup', 'white_rice_cooked', 'jasmine basmati'], ['Brown rice (cooked)', 123, 2.7, 26, 1, 180, '1 cup', 'brown_rice_cooked'],
+  ['Pasta (cooked)', 158, 5.8, 31, 0.9, 180, '1 cup', null, 'spaghetti penne'], ['Rolled oats (dry)', 389, 13, 66, 7, 40, '½ cup', 'oats', 'porridge oatmeal'],
+  ['Quinoa (cooked)', 120, 4.4, 21, 1.9, 185, '1 cup'], ['White bread', 265, 9, 49, 3.2, 35, '1 slice', null, 'toast'], ['Wholemeal bread', 247, 13, 41, 3.4, 40, '1 slice', null, 'toast'],
+  ['Sourdough bread', 270, 10, 51, 1.8, 50, '1 slice', 'sourdough', 'toast'], ['Wrap / tortilla', 300, 8, 50, 7, 60, '1 wrap', 'tortilla'], ['English muffin', 227, 8, 44, 1.7, 65, '1 muffin'],
+  ['Bagel', 257, 10, 50, 1.6, 95, '1 bagel'], ['Wheat biscuit cereal', 358, 12, 67, 1.4, 30, '2 biscuits', null, 'weetbix weet-bix cereal'], ['Muesli', 380, 10, 60, 10, 60, '½ cup', null, 'cereal'],
+  ['Granola', 450, 10, 60, 18, 45, '⅓ cup', 'granola', 'cereal'], ['Rice cakes', 387, 8, 81, 2.8, 8, '1 cake', 'rice_cake'], ['Hot chips / fries', 312, 3.4, 41, 15, 150, 'small serve', null, 'chips fries'],
+  ['Egg noodles (cooked)', 138, 4.5, 25, 2, 200, '1 cup'], ['Instant noodles (dry)', 450, 9, 60, 19, 85, '1 packet', null, 'mi goreng ramen'], ['Couscous (cooked)', 112, 3.8, 23, 0.2, 160, '1 cup'],
+  ['Crumpet', 180, 6, 36, 0.8, 50, '1 crumpet'],
+  ['Chicken breast (cooked)', 165, 31, 0, 3.6, 150, '1 breast', 'chicken_breast'], ['Chicken thigh (cooked)', 180, 25, 0, 8.5, 120, '1 thigh', 'chicken_thigh'],
+  ['Beef mince, lean (cooked)', 217, 26, 0, 12, 100, '100 g', 'lean_beef', 'ground'], ['Steak, rump (cooked)', 190, 30, 0, 7.5, 200, '1 steak', 'lean_beef', 'beef'],
+  ['Lamb chop (cooked)', 260, 25, 0, 17, 100, '1 chop'], ['Pork loin (cooked)', 200, 29, 0, 9, 150, '1 serve'], ['Salmon (cooked)', 206, 22, 0, 12.4, 150, '1 fillet', 'salmon', 'fish'],
+  ['Tuna in springwater', 109, 25, 0, 0.8, 95, '1 small tin', null, 'fish can'], ['Prawns (cooked)', 99, 24, 0.2, 0.3, 100, '100 g', null, 'shrimp seafood'],
+  ['White fish (cooked)', 110, 23, 0, 2, 150, '1 fillet', null, 'barramundi snapper cod'], ['Egg', 143, 12.6, 0.7, 9.5, 50, '1 large egg', 'egg', 'eggs'],
+  ['Egg whites', 52, 11, 0.7, 0.2, 100, '100 ml', 'egg_white'], ['Bacon (cooked)', 280, 28, 1, 18, 30, '1 rasher'], ['Ham', 120, 18, 2, 4, 30, '2 slices', null, 'deli'],
+  ['Turkey breast (deli)', 104, 18, 3, 2, 30, '2 slices'], ['Tofu (firm)', 144, 15, 3, 8.7, 100, '100 g'], ['Sausage (beef, cooked)', 300, 13, 5, 25, 65, '1 sausage', null, 'snag'],
+  ['Chickpeas (tinned)', 139, 7, 22, 2.4, 85, '½ cup'], ['Lentils (cooked)', 116, 9, 20, 0.4, 200, '1 cup'], ['Black beans (tinned)', 132, 8.9, 24, 0.5, 130, '½ cup', 'black_beans'],
+  ['Baked beans', 81, 4.8, 13, 0.3, 220, '½ tin'], ['Whey protein powder', 380, 75, 8, 6, 30, '1 scoop', 'whey', 'protein shake'], ['Beef jerky', 280, 40, 12, 7, 50, '1 packet'],
+  ['Milk, full cream', 66, 3.4, 4.8, 3.6, 250, '1 glass', 'skim_milk'], ['Milk, skim', 35, 3.5, 5, 0.1, 250, '1 glass', 'skim_milk'],
+  ['Greek yoghurt (plain)', 120, 6, 5, 9, 170, '¾ cup', null, 'yogurt'], ['Greek yoghurt, 0% fat', 59, 10, 3.6, 0.4, 170, '¾ cup', 'greek_yog_0', 'yogurt'],
+  ['Cheddar cheese', 403, 25, 1.3, 33, 21, '1 slice', 'light_cheese'], ['Mozzarella', 280, 28, 3, 17, 30, '30 g', 'light_mozz', 'cheese'], ['Cottage cheese', 98, 11, 3.4, 4.3, 100, '100 g', 'cottage_cheese'],
+  ['Feta', 264, 14, 4, 21, 30, '30 g', null, 'cheese'], ['Butter', 717, 0.9, 0.1, 81, 7, '1 tsp'], ['Ice cream (vanilla)', 207, 3.5, 24, 11, 70, '1 scoop'],
+  ['Almonds', 579, 21, 22, 50, 30, '1 handful', 'almonds', 'nuts'], ['Cashews', 553, 18, 30, 44, 30, '1 handful', null, 'nuts'], ['Mixed nuts', 607, 20, 21, 54, 30, '1 handful', null, 'nuts'],
+  ['Peanut butter', 588, 25, 20, 50, 16, '1 tbsp', 'peanut_butter'], ['Dark chocolate (70%)', 598, 7.8, 46, 43, 20, '2 squares', 'choc_chips', 'choc'],
+  ['Milk chocolate', 535, 7.6, 59, 30, 25, '1 row', null, 'choc'], ['Potato chips / crisps', 536, 7, 53, 35, 45, '1 small bag', null, 'chips'],
+  ['Popcorn (lightly salted)', 470, 9, 56, 22, 25, '1 small bag'], ['Muesli bar', 420, 7, 64, 14, 32, '1 bar'], ['Protein bar', 370, 30, 35, 12, 60, '1 bar'],
+  ['Hummus', 166, 7.9, 14, 9.6, 30, '2 tbsp', null, 'dip'], ['Olive oil', 884, 0, 0, 100, 14, '1 tbsp', 'olive_oil', 'oil'], ['Honey', 304, 0.3, 82, 0, 21, '1 tbsp', 'honey'],
+  ['Jam', 250, 0.4, 60, 0.1, 20, '1 tbsp'], ['Yeast extract spread', 190, 25, 20, 0.5, 5, '1 tsp', null, 'vegemite'], ['Mayonnaise', 680, 1, 1, 75, 15, '1 tbsp', 'mayo'],
+  ['Tomato sauce', 110, 1, 25, 0.2, 15, '1 tbsp', null, 'ketchup'], ['Sweet chilli sauce', 220, 0.5, 50, 0.5, 15, '1 tbsp', 'sweet_chilli'], ['Soy sauce', 53, 8, 5, 0.6, 15, '1 tbsp', 'soy'],
+  ['Plain sweet biscuit', 450, 6, 70, 16, 10, '1 biscuit', null, 'cookie'], ['Chocolate biscuit', 500, 5, 63, 25, 18, '1 biscuit', null, 'cookie'],
+  ['Croissant', 406, 8, 46, 21, 60, '1 croissant'], ['Banana bread', 326, 4.3, 55, 10.5, 100, '1 slice'], ['Blueberry muffin', 377, 5, 54, 16, 120, '1 muffin'], ['Donut', 452, 5, 51, 25, 60, '1 donut', null, 'doughnut'],
+  ['Sushi hand roll', 180, 6, 30, 4, 110, '1 hand roll'], ['Pizza slice', 250, 11, 28, 10, 110, '1 slice'], ['Burger (takeaway)', 250, 13, 24, 11, 220, '1 burger', null, 'hamburger cheeseburger'],
+  ['Meat pie', 260, 8, 24, 15, 175, '1 pie'], ['Sausage roll', 300, 8, 25, 19, 150, '1 roll'], ['Fried chicken', 260, 20, 10, 15, 120, '1 piece'],
+  ['Chicken nuggets', 296, 15, 18, 18, 18, '1 nugget'], ['Kebab / wrap (chicken)', 200, 12, 20, 8, 400, '1 kebab', null, 'doner'], ['Poke bowl', 140, 8, 18, 4, 450, '1 bowl'],
+  ['Pad thai', 180, 7, 25, 6, 400, '1 serve', null, 'noodles'], ['Fried rice', 170, 5, 24, 6, 300, '1 serve'], ['Butter chicken (curry only)', 150, 11, 6, 9, 300, '1 serve', null, 'curry'],
+  ['Spaghetti bolognese', 135, 7, 18, 4, 400, '1 serve', null, 'pasta'], ['Caesar salad', 150, 7, 7, 11, 250, '1 serve'],
+].map(([name, kcal, p, c, f, serving, unitLabel, key, words]) => ({ name, kcal, p, c, f, serving, unitLabel, key, words: (name + ' ' + (words || '')).toLowerCase(), common: true }));
+function nutFromKey(key) { const v = NUTR_DB[key]; if (!v) return null; const o = {}; NK.forEach((k, i) => { o[k] = v[i]; }); return o; }
+function searchCommon(q) {
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean); if (!terms.length) return [];
+  return COMMON_FOODS.map(f => {
+    const words = f.words.split(/[^a-z0-9%]+/);
+    if (!terms.every(t => words.some(w => w.startsWith(t)) || f.words.includes(t))) return null;
+    return [f, (f.name.toLowerCase().startsWith(terms[0]) ? 0 : 1) + f.name.length / 100];
+  }).filter(Boolean).sort((a, b) => a[1] - b[1]).slice(0, 8).map(x => x[0]);
+}
+function offProduct(p) {
+  const n = p.nutriments || {};
+  const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] != null ? n['energy_100g'] / 4.184 : null);
+  if (kcal == null || !(p.product_name_en || p.product_name)) return null;
+  return { code: p.code || '', name: (p.product_name_en || p.product_name).trim(), brand: (p.brands || '').split(',')[0].trim(), kcal: +kcal, p: +(n.proteins_100g || 0), c: +(n.carbohydrates_100g || 0), f: +(n.fat_100g || 0),
+    nut: offNut(n), serving: +p.serving_quantity || null, servingLabel: p.serving_size || '', size: p.quantity || '', au: (p.countries_tags || []).includes('en:australia') };
+}
+const offSearchCache = {};
+async function searchOFF(q) {
+  q = q.trim(); if (q.length < 2) return;
+  S.search.status = 'loading'; S.search.offQ = q; renderSearch();
+  if (offSearchCache[q]) { S.search.off = offSearchCache[q]; S.search.status = 'done'; renderSearch(); return; }
+  if (!navigator.onLine) { S.search.status = 'offline'; renderSearch(); return; }
+  try {
+    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=40&fields=code,product_name,product_name_en,brands,nutriments,serving_quantity,serving_size,quantity,countries_tags`;
+    const j = await (await fetch(url)).json();
+    const list = (j.products || []).map(offProduct).filter(Boolean).sort((a, b) => (b.au - a.au)).slice(0, 15);
+    offSearchCache[q] = list; if (S.search.offQ !== q) return;
+    S.search.off = list; S.search.status = 'done';
+  } catch (e) { console.error(e); S.search.status = 'error'; }
+  renderSearch();
+}
+function searchRows() {
+  const s = S.search; const q = (s.q || '').trim();
+  if (!q) return `<div class="empty small">Type a food, like "banana", "rump steak" or a brand name. Common foods show straight away. Press Search for packaged foods.</div>`;
+  const common = searchCommon(q);
+  const row = (f, i, src) => {
+    const g = f.serving || 100; const k = g / 100;
+    return `<div class="row"><div style="min-width:0"><div class="t">${esc(f.name)}</div><div class="small muted">${esc([f.brand, f.unitLabel ? `${f.unitLabel} (${r0(g)} g)` : f.serving ? `1 serve (${r0(g)} g)` : '100 g'].filter(Boolean).join(' · '))}</div>
+      <div class="chips"><span class="chip k">${r0(f.kcal * k)} kcal</span><span class="chip p">P ${r0(f.p * k)}</span><span class="chip c">C ${r0(f.c * k)}</span><span class="chip f">F ${r0(f.f * k)}</span></div></div>
+      <button class="btn sm" data-act="searchPick" data-src="${src}" data-i="${i}">Add</button></div>`;
+  };
+  let h = common.length ? `<div class="slotlabel">Common foods</div>${common.map((f, i) => row(f, i, 'common')).join('')}` : '';
+  const offHead = `<div class="slotlabel">Packaged foods</div>`;
+  if (s.status === 'loading') h += offHead + `<div class="empty small">Searching Open Food Facts…</div>`;
+  else if (s.status === 'offline') h += offHead + `<div class="empty small">You're offline, so only common foods can be searched.</div>`;
+  else if (s.status === 'error') h += offHead + `<div class="empty small">Couldn't reach the food database. Try again in a moment.</div>`;
+  else if (s.status === 'done' && s.offQ === q) h += offHead + (s.off.length ? s.off.map((f, i) => row(f, i, 'off')).join('') : `<div class="empty small">No packaged foods found for "${esc(q)}". Try fewer words or the brand name.</div>`);
+  else h += `<div class="row"><span class="small muted">Looking for a brand or packaged food?</span><button class="btn ghost sm" data-act="searchGo">Search packaged foods</button></div>`;
+  if (!common.length && s.status === 'idle') h = `<div class="empty small">No common foods match "${esc(q)}".</div>` + h;
+  return h;
+}
+function renderSearch() { const el = document.getElementById('fs_res'); if (el) el.innerHTML = searchRows(); }
+function searchPanel() {
+  const s = S.search;
+  if (s.pick) return `<div class="search-panel"><div><button class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${productPanel(S.scan, s.pick.common ? 'common' : 'off')}</div>`;
+  return `<div class="search-panel">
+    <div class="formrow"><label class="f">Search foods<input type="search" id="fs_q" enterkeyhint="search" autocomplete="off" value="${esc(s.q || '')}" placeholder="e.g. banana, sourdough, Chobani"></label><button class="btn ghost" data-act="searchGo">Search</button></div>
+    <div class="rows" id="fs_res">${searchRows()}</div></div>`;
+}
+function productPanel(s, src) {
+  const p = s.product; const g = s.grams || 100; const k = g / 100;
+  const note = src === 'common' ? 'Typical values for this food. Brands and recipes vary.' : 'Nutrition from Open Food Facts. Check it against the packet if it looks off.';
+  return `<div class="scan-result">
       <div><div class="t">${esc(p.name)}</div><div class="small muted">${esc([p.brand, p.size].filter(Boolean).join(' · '))}</div></div>
       <div class="small muted">Per 100 g: ${r0(p.kcal)} kcal · P ${r1(p.p)} · C ${r1(p.c)} · F ${r1(p.f)}</div>
       <div class="formrow">
         <label class="f">Amount eaten (g or ml)<input type="number" id="sc_g" inputmode="decimal" min="1" value="${g}"></label>
         <label class="f">Meal<select id="sc_slot">${SLOTS.map(x => `<option ${x === guessSlot() ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
       </div>
-      <div class="seg">${p.serving ? `<button type="button" data-act="scanGrams" data-v="${p.serving}" aria-pressed="${g === p.serving}">1 serve (${r0(p.serving)} g)</button>` : ''}<button type="button" data-act="scanGrams" data-v="100" aria-pressed="${g === 100}">100 g</button></div>
+      <div class="seg">${p.serving ? `<button type="button" data-act="scanGrams" data-v="${p.serving}" aria-pressed="${g === p.serving}">${esc(p.unitLabel || '1 serve')} (${r0(p.serving)} g)</button>` : ''}${p.serving && p.unitLabel && !/^\d/.test(p.unitLabel) ? `<button type="button" data-act="scanGrams" data-v="${p.serving * 2}" aria-pressed="${g === p.serving * 2}">×2</button>` : ''}<button type="button" data-act="scanGrams" data-v="100" aria-pressed="${g === 100}">100 g</button></div>
       <div class="chips" id="sc_macros"><span class="chip k">${r0(p.kcal * k)} kcal</span><span class="chip p">P ${r0(p.p * k)}</span><span class="chip c">C ${r0(p.c * k)}</span><span class="chip f">F ${r0(p.f * k)}</span></div>
       <label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="sc_save"> Save to my meal plan</label>
       <div><button class="btn" data-act="scanAdd">Add to log</button></div>
-      <div class="small muted">Nutrition from Open Food Facts. Check it against the packet if it looks off.</div>
+      <div class="small muted">${note}</div>
     </div>`;
+}
+
+/* ---------- drinks ---------- */
+const MILKS = { full: ['Full cream', 64, 3.4, 4.8, 3.6], lite: ['Lite', 46, 3.6, 5, 1.4], skim: ['Skim', 35, 3.5, 5, 0.1], oat: ['Oat', 59, 1, 6.6, 3], almond: ['Almond', 30, 1, 1.5, 2.4], soy: ['Soy', 50, 3.2, 4, 2.4], lf: ['Lactose free', 62, 3.3, 4.6, 3.4] };
+const CUPS = { small: ['Small', 220], regular: ['Regular', 330], large: ['Large', 450] };
+// [name, share of the cup that's milk, extras [kcal, p, c, f], fixed size ml]
+const CAFE = {
+  flatwhite: ['Flat white', 0.8], latte: ['Latte', 0.85], cappuccino: ['Cappuccino', 0.65], longblack: ['Long black', 0], espresso: ['Espresso', 0, null, 30],
+  piccolo: ['Piccolo', 0.7, null, 90], macchiato: ['Macchiato', 0.25, null, 60], mocha: ['Mocha', 0.75, [70, 1, 15, 1]], icedlatte: ['Iced latte', 0.6],
+  icedcoffee: ['Iced coffee (ice cream)', 0.6, [140, 2.5, 16, 7.5]], chai: ['Chai latte', 0.85, [60, 0, 15, 0]], dirtychai: ['Dirty chai', 0.8, [60, 0, 15, 0]],
+  matcha: ['Matcha latte', 0.85, [20, 1, 3, 0]], hotchoc: ['Hot chocolate', 0.9, [95, 1.5, 21, 1]], tea: ['Tea with milk', 0.12], plaintea: ['Tea / herbal tea', 0],
+};
+// Ready-made drinks: per 100 ml with sizes, or fixed serves.
+const DRINK_CATS = [
+  ['soft', 'Soft drinks'], ['energy', 'Energy & sports'], ['juice', 'Juice & milk'], ['alcohol', 'Alcohol'], ['other', 'Other'],
+];
+const CAN = [['Can', 375], ['Bottle', 600], ['Glass', 250]];
+const DRINKS = [
+  { cat: 'soft', name: 'Cola', per: [42, 0, 10.6, 0], sizes: CAN }, { cat: 'soft', name: 'Cola, no sugar', per: [0.4, 0, 0, 0], sizes: CAN },
+  { cat: 'soft', name: 'Lemonade', per: [38, 0, 9.5, 0], sizes: CAN }, { cat: 'soft', name: 'Ginger beer', per: [47, 0, 12, 0], sizes: CAN },
+  { cat: 'soft', name: 'Orange soda', per: [46, 0, 11.5, 0], sizes: CAN }, { cat: 'soft', name: 'Iced tea (bottled)', per: [28, 0, 7, 0], sizes: [['Bottle', 500], ['Glass', 250]] },
+  { cat: 'soft', name: 'Tonic water', per: [34, 0, 8.8, 0], sizes: [['Can', 300], ['Glass', 200]] }, { cat: 'soft', name: 'Sparkling water', per: [0, 0, 0, 0], sizes: [['Glass', 250], ['Bottle', 500]] },
+  { cat: 'energy', name: 'Energy drink', per: [45, 0, 11, 0], sizes: [['Small can', 250], ['Large can', 500]] }, { cat: 'energy', name: 'Energy drink, sugar free', per: [3, 0, 0.5, 0], sizes: [['Small can', 250], ['Large can', 500]] },
+  { cat: 'energy', name: 'Sports drink', per: [24, 0, 6, 0], sizes: [['Bottle', 600], ['Large bottle', 1000]] }, { cat: 'energy', name: 'Electrolyte drink, sugar free', per: [2, 0, 0.3, 0], sizes: [['Bottle', 600]] },
+  { cat: 'juice', name: 'Orange juice', per: [42, 0.7, 9, 0.1], sizes: [['Glass', 250], ['Bottle', 350]] }, { cat: 'juice', name: 'Apple juice', per: [44, 0.1, 10.5, 0.1], sizes: [['Glass', 250], ['Bottle', 350]] },
+  { cat: 'juice', name: 'Fruit smoothie', per: [60, 1, 13, 0.3], sizes: [['Regular', 450], ['Large', 650]] }, { cat: 'juice', name: 'Coconut water', per: [19, 0.7, 3.7, 0.2], sizes: [['Pack', 330]] },
+  { cat: 'juice', name: 'Chocolate milk', per: [70, 3.4, 10, 2], sizes: [['Small', 300], ['Large', 600]] }, { cat: 'juice', name: 'Iced coffee milk', per: [68, 3.4, 9.5, 1.8], sizes: [['Small', 300], ['Large', 600]] },
+  { cat: 'juice', name: 'Milk, full cream', per: MILKS.full.slice(1), sizes: [['Glass', 250]] }, { cat: 'juice', name: 'Milk, skim', per: MILKS.skim.slice(1), sizes: [['Glass', 250]] },
+  { cat: 'alcohol', name: 'Beer, full strength', per: [40, 0.3, 3, 0], sizes: [['Can / stubby', 375], ['Schooner', 425], ['Pint', 570]] },
+  { cat: 'alcohol', name: 'Beer, mid strength', per: [30, 0.3, 2.6, 0], sizes: [['Can / stubby', 375], ['Schooner', 425], ['Pint', 570]] },
+  { cat: 'alcohol', name: 'Beer, light', per: [26, 0.2, 2.2, 0], sizes: [['Can / stubby', 375], ['Schooner', 425], ['Pint', 570]] },
+  { cat: 'alcohol', name: 'Cider', per: [50, 0, 5.5, 0], sizes: [['Can / bottle', 375], ['Pint', 570]] },
+  { cat: 'alcohol', name: 'Red wine', per: [85, 0.1, 2.6, 0], sizes: [['Glass', 150], ['Large glass', 250], ['Bottle', 750]] },
+  { cat: 'alcohol', name: 'White wine', per: [82, 0.1, 2.6, 0], sizes: [['Glass', 150], ['Large glass', 250], ['Bottle', 750]] },
+  { cat: 'alcohol', name: 'Rosé', per: [80, 0.1, 3, 0], sizes: [['Glass', 150], ['Large glass', 250]] }, { cat: 'alcohol', name: 'Sparkling wine', per: [76, 0.2, 1.5, 0], sizes: [['Glass', 150]] },
+  { cat: 'alcohol', name: 'Spirit + mixer', spirit: true }, { cat: 'alcohol', name: 'Premix can', per: [67, 0, 8, 0], sizes: [['Can', 375]] },
+  { cat: 'alcohol', name: 'Premix can, no sugar', per: [40, 0, 0.5, 0], sizes: [['Can', 375]] }, { cat: 'alcohol', name: 'Hard seltzer', per: [26, 0, 0.5, 0], sizes: [['Can', 375]] },
+  { cat: 'alcohol', name: 'Cocktail', fixed: [['Espresso martini', 230, 0.5, 20, 0], ['Margarita', 270, 0, 23, 0], ['Spritz', 165, 0, 17, 0], ['Mojito', 220, 0, 25, 0], ['Piña colada', 400, 1, 50, 12]] },
+  { cat: 'other', name: 'Protein shake', fixed: [['With water', 115, 23, 2.5, 1.5], ['With skim milk', 220, 34, 17, 2], ['With full cream milk', 310, 33, 17, 12.5]] },
+  { cat: 'other', name: 'Bubble tea', fixed: [['Medium', 300, 2, 55, 8], ['Large', 420, 3, 77, 11], ['Medium, less sugar', 220, 2, 35, 8]] },
+  { cat: 'other', name: 'Kombucha', per: [15, 0, 3.5, 0], sizes: [['Bottle', 330]] },
+];
+const SPIRIT_MIXERS = { none: ['Neat / soda', 0, 0, 0, 0], diet: ['Diet cola', 0.6, 0, 0, 0], cola: ['Cola', 63, 0, 16, 0], lemonade: ['Lemonade', 57, 0, 14, 0], tonic: ['Tonic', 51, 0, 13, 0], juice: ['Juice', 63, 1, 14, 0], energy: ['Energy drink', 68, 0, 16, 0] };
+function drinkState() { if (!S.drink) S.drink = Object.assign({ cat: 'cafe', type: 'flatwhite', size: 'regular', milk: 'full', sugar: 0, shots: 1, mixer: 'cola' }, lsGet('rl:drink') || {}); return S.drink; }
+function drinkCalc() {
+  const d = drinkState();
+  if (d.cat === 'cafe') {
+    const [nm, frac, ex, fixed] = CAFE[d.type] || CAFE.flatwhite; const ml = fixed || CUPS[d.size][1];
+    const m = MILKS[d.milk] || MILKS.full; const mm = ml * frac / 100;
+    const kcal = m[1] * mm + (ex ? ex[0] : 0) + 2 + d.sugar * 16, p = m[2] * mm + (ex ? ex[1] : 0), c = m[3] * mm + (ex ? ex[2] : 0) + d.sugar * 4, f = m[4] * mm + (ex ? ex[3] : 0);
+    const bits = [fixed ? null : CUPS[d.size][0].toLowerCase(), frac ? m[0].toLowerCase() : null, d.sugar ? `${d.sugar} sugar` : null].filter(Boolean);
+    return { name: `${nm}${bits.length ? ` (${bits.join(', ')})` : ''}`, kcal, p, c, f };
   }
+  const it = DRINKS[d.item]; if (!it) return null;
+  if (it.spirit) { const mx = SPIRIT_MIXERS[d.mixer] || SPIRIT_MIXERS.none; return { name: `${d.shots === 2 ? 'Double' : 'Spirit'} + ${mx[0].toLowerCase()}`, kcal: 69 * d.shots + mx[1], p: mx[2], c: mx[3], f: mx[4] }; }
+  if (it.fixed) { const o = it.fixed[d.opt || 0] || it.fixed[0]; return { name: `${it.name} (${o[0].toLowerCase()})`, kcal: o[1], p: o[2], c: o[3], f: o[4] }; }
+  const sz = it.sizes[d.opt || 0] || it.sizes[0]; const k = sz[1] / 100;
+  return { name: `${it.name} (${sz[0].toLowerCase()}, ${sz[1]} ml)`, kcal: it.per[0] * k, p: it.per[1] * k, c: it.per[2] * k, f: it.per[3] * k };
+}
+function recentDrinks() {
+  const seen = new Map();
+  for (const d of Object.values(S.days).sort((a, b) => a.date < b.date ? 1 : -1)) for (const m of (d.meals || []).slice().reverse()) if (m.drink && !seen.has(m.name)) seen.set(m.name, m);
+  return [...seen.values()].slice(0, 6);
+}
+function drinksPanel() {
+  const d = drinkState(); const segBtns = (k, opts, cur) => `<div class="seg wrap">${opts.map(([v, l]) => `<button type="button" data-act="drinkOpt" data-k="${k}" data-v="${v}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
+  const recent = recentDrinks();
+  let h = recent.length ? `<div class="slotlabel" style="padding-top:0">Recent</div><div class="chips drink-recent">${recent.map((m, i) => `<button type="button" class="chip k chipbtn" data-act="drinkRecent" data-i="${i}">+ ${esc(m.name)} · ${r0(m.kcal)}</button>`).join('')}</div>` : '';
+  h += segBtns('cat', [['cafe', 'Coffee & tea'], ...DRINK_CATS], d.cat);
+  if (d.cat === 'cafe') {
+    const [, frac, , fixed] = CAFE[d.type] || CAFE.flatwhite;
+    h += `<div class="f"><span class="small muted">Drink</span>${segBtns('type', Object.entries(CAFE).map(([k, v]) => [k, v[0]]), d.type)}</div>`;
+    if (!fixed) h += `<div class="f"><span class="small muted">Size</span>${segBtns('size', Object.entries(CUPS).map(([k, v]) => [k, `${v[0]} (${v[1]} ml)`]), d.size)}</div>`;
+    if (frac) h += `<div class="f"><span class="small muted">Milk</span>${segBtns('milk', Object.entries(MILKS).map(([k, v]) => [k, v[0]]), d.milk)}</div>`;
+    h += `<div class="f"><span class="small muted">Sugar or syrup (tsp / pumps)</span>${segBtns('sugar', [[0, 'None'], [1, '1'], [2, '2'], [3, '3']], d.sugar)}</div>`;
+  } else {
+    const items = DRINKS.map((it, i) => [i, it]).filter(([, it]) => it.cat === d.cat);
+    if (!items.some(([i]) => i === d.item)) d.item = items[0][0], d.opt = 0;
+    h += `<div class="f"><span class="small muted">Drink</span>${segBtns('item', items.map(([i, it]) => [i, it.name]), d.item)}</div>`;
+    const it = DRINKS[d.item];
+    if (it.spirit) h += `<div class="f"><span class="small muted">Shots</span>${segBtns('shots', [[1, 'Single (30 ml)'], [2, 'Double (60 ml)']], d.shots)}</div><div class="f"><span class="small muted">Mixer (150 ml)</span>${segBtns('mixer', Object.entries(SPIRIT_MIXERS).map(([k, v]) => [k, v[0]]), d.mixer)}</div>`;
+    else if (it.fixed) h += `<div class="f"><span class="small muted">Which one</span>${segBtns('opt', it.fixed.map((o, i) => [i, o[0]]), d.opt || 0)}</div>`;
+    else h += `<div class="f"><span class="small muted">Size</span>${segBtns('opt', it.sizes.map((s, i) => [i, `${s[0]} (${s[1]} ml)`]), d.opt || 0)}</div>`;
+  }
+  const x = drinkCalc();
+  h += `<div class="drink-total"><div><div class="t">${esc(x.name)}</div><div class="chips"><span class="chip k">${r0(x.kcal)} kcal</span><span class="chip p">P ${r0(x.p)}</span><span class="chip c">C ${r0(x.c)}</span><span class="chip f">F ${r0(x.f)}</span></div></div><button class="btn" data-act="drinkAdd">Add drink</button></div>
+    <div class="small muted">Typical café and supermarket figures. Alcohol calories are included even though they don't show up as protein, carbs or fat.</div>`;
+  return `<div class="drinks-panel">${h}</div>`;
+}
+function addDrinkToLog(x) {
+  const day = localDay(S.date); day.meals.push({ id: uid(), name: x.name, slot: 'Drinks', servings: 1, kcal: r0(x.kcal), p: r1(x.p), c: r1(x.c), f: r1(x.f), drink: true });
+  saveDay(S.date, day); toast(`Added ${x.name}`);
+}
+
+/* ---------- steps through the day ---------- */
+function stepGoal() { return S.config?.stepGoal || 10000; }
+function stepsCard(day) {
+  const n = day?.steps || 0; const goal = stepGoal(); const pct = Math.min(100, n / goal * 100); const log = day?.stepLog || [];
+  return `<div class="steps-box">
+      <div class="steps-n"><b>${n.toLocaleString()}</b> steps <span>of ${goal.toLocaleString()}</span></div>
+      <div class="garden-bar steps-bar" role="img" aria-label="${n} of ${goal} steps"><i style="width:${pct}%"></i></div>
+      <div class="chips">${[500, 1000, 2500, 5000].map(v => `<button type="button" class="chip k chipbtn" data-act="stepsAdd" data-v="${v}">+ ${v.toLocaleString()}</button>`).join('')}</div>
+      <div class="formrow"><label class="f">Add steps<input type="number" id="st_add" inputmode="numeric" min="1" placeholder="e.g. 3200"></label><button type="button" class="btn ghost" data-act="stepsAdd">Add</button></div>
+      ${log.length ? `<div class="small muted">Added today: ${log.slice(-6).map(x => `${x.n > 0 ? '+' : ''}${x.n.toLocaleString()} at ${x.t}`).join(' · ')}${log.length > 6 ? ' …' : ''} <button type="button" class="linkbtn" data-act="stepsUndo">Undo last</button></div>` : ''}
+      <details class="small steps-more"${S.stepsMore ? ' open' : ''}><summary>Set today's total or change your goal</summary>
+        <div class="formrow" style="margin-top:8px"><label class="f">Today's total<input type="number" id="steps" inputmode="numeric" min="0" placeholder="From your phone's Health app" value="${day?.steps ?? ''}"></label>
+        <label class="f">Daily goal<input type="number" id="st_goal" inputmode="numeric" min="1000" step="500" value="${goal}"></label></div>
+      </details>
+    </div>`;
+}
+
+function scanPanel() {
+  const s = S.scan;
+  let res = '';
+  if (s.status === 'loading') res = `<div class="empty">Looking up ${esc(s.code)}…</div>`;
+  else if (s.status === 'notfound') res = `<div class="empty"><b>${s.partial ? esc(s.partial) + ' has no nutrition info yet.' : 'Not in the food database yet.'}</b>Add it with "Add a meal" using the numbers on the packet.<div style="margin-top:10px"><button class="btn ghost sm" data-act="foodAdd" data-v="custom">Add a meal</button></div></div>`;
+  else if (s.status === 'error') res = `<div class="empty">${esc(s.msg)}</div>`;
+  else if (s.status === 'found') res = productPanel(s, 'off');
   return `<div class="scan-panel">
     <button class="btn scan-cta" data-act="openScanner"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>Scan a barcode</button>
     <div class="formrow"><label class="f">Or type the barcode number<input type="text" id="sc_code" inputmode="numeric" autocomplete="off" value="${esc(s.code || '')}" placeholder="e.g. 9300633603262"></label><button class="btn ghost" data-act="scanLookup">Look up</button></div>
@@ -2245,6 +2472,29 @@ document.addEventListener('click', async e => {
     case 'closeScanner': closeScanner(); break;
     case 'scanLookup': lookupBarcode(document.getElementById('sc_code')?.value); break;
     case 'scanGrams': S.scan.grams = +b.dataset.v; render(); break;
+    case 'searchGo': searchOFF(document.getElementById('fs_q')?.value || S.search.q); break;
+    case 'searchPick': {
+      const f = b.dataset.src === 'common' ? searchCommon(S.search.q)[+b.dataset.i] : S.search.off[+b.dataset.i]; if (!f) break;
+      const prod = { ...f, nut: f.nut || (f.key ? nutFromKey(f.key) : null) };
+      S.search.pick = prod; S.scan = { code: f.code || '', status: 'found', product: prod, grams: f.serving || 100, from: 'search' }; render(); break;
+    }
+    case 'searchBack': S.search.pick = null; render(); break;
+    case 'drinkOpt': {
+      const d = drinkState(); const k = b.dataset.k; const num = ['sugar', 'shots', 'item', 'opt'].includes(k);
+      d[k] = num ? +b.dataset.v : b.dataset.v; if (k === 'item' || k === 'cat') d.opt = 0;
+      lsSet('rl:drink', d); render(); break;
+    }
+    case 'drinkAdd': { const x = drinkCalc(); if (x) addDrinkToLog(x); break; }
+    case 'drinkRecent': { const m = recentDrinks()[+b.dataset.i]; if (m) addDrinkToLog(m); break; }
+    case 'stepsAdd': {
+      const inp = document.getElementById('st_add'); const n = Math.round(+(b.dataset.v || inp?.value || 0)); if (!(n > 0)) { toast('Type how many steps to add'); break; }
+      const day = localDay(S.date); day.steps = (day.steps || 0) + n; const now = new Date();
+      day.stepLog = [...(day.stepLog || []), { n, t: now.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }) }]; saveDay(S.date, day); toast(`+${n.toLocaleString()} steps`); break;
+    }
+    case 'stepsUndo': {
+      const day = localDay(S.date); const last = (day.stepLog || []).pop(); if (!last) break;
+      day.steps = Math.max(0, (day.steps || 0) - last.n); saveDay(S.date, day); toast('Removed the last steps you added'); break;
+    }
     case 'scanAdd': {
       const p = S.scan.product; if (!p) break;
       const g = numOrNull(document.getElementById('sc_g')?.value) || S.scan.grams || 100; const k = g / 100;
@@ -2252,7 +2502,8 @@ document.addEventListener('click', async e => {
       if (p.nut) { item.nut = {}; for (const [kk, vv] of Object.entries(p.nut)) item.nut[kk] = Math.round(vv * k * 100) / 100; }
       const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, barcode: S.scan.code, ...item }); saveDay(S.date, day);
       if (document.getElementById('sc_save')?.checked) { const cfg = cfgCopy(); cfg.foods = [...(cfg.foods || []), { id: uid(), barcode: S.scan.code, ...item }]; saveConfig(cfg); }
-      S.scan = { code: '', status: 'idle', product: null }; S.foodAdd = 'plan'; render(); toast(`Added ${p.name}`); break;
+      const fromSearch = S.scan.from === 'search';
+      S.scan = { code: '', status: 'idle', product: null }; S.foodAdd = fromSearch ? 'search' : 'plan'; S.search.pick = null; render(); toast(`Added ${p.name}`); break;
     }
     case 'openGrocery': openGrocery(); break;
     case 'closeSheet': document.getElementById('sheetRoot').innerHTML = ''; if (pendingRender) { pendingRender = false; render(); } break;
@@ -2299,6 +2550,7 @@ document.addEventListener('click', async e => {
 
 document.addEventListener('input', e => {
   const el = e.target;
+  if (el.id === 'fs_q') { S.search.q = el.value; if (S.search.status !== 'loading') S.search.status = 'idle'; renderSearch(); return; }
   if (el.id === 'sc_g' && S.scan.product) {
     const p = S.scan.product; const k = (numOrNull(el.value) || 0) / 100; S.scan.grams = numOrNull(el.value) || 0;
     const m = document.getElementById('sc_macros'); if (m) m.innerHTML = `<span class="chip k">${r0(p.kcal * k)} kcal</span><span class="chip p">P ${r0(p.p * k)}</span><span class="chip c">C ${r0(p.c * k)}</span><span class="chip f">F ${r0(p.f * k)}</span>`;
@@ -2316,6 +2568,7 @@ document.addEventListener('input', e => {
     persistDraft();
   }
 });
+document.addEventListener('toggle', e => { if (e.target.classList?.contains('steps-more')) S.stepsMore = e.target.open; }, true);
 document.addEventListener('change', e => {
   const el = e.target;
   if (el.id === 'restoreFile' && el.files[0]) {
@@ -2335,10 +2588,13 @@ document.addEventListener('change', e => {
     const cfg = cfgCopy(); cfg.water = { ...(cfg.water || {}), [k]: n }; saveConfig(cfg); toast(k === 'goal' ? 'Water goal saved' : 'Bottle size saved');
   }
   else if (el.id === 'steps') {
-    const day = localDay(S.date); const v = numOrNull(el.value); if (day.steps === v) return; day.steps = v; saveDay(S.date, day); toast('Steps saved');
+    const day = localDay(S.date); const v = numOrNull(el.value); if (day.steps === v) return; day.steps = v; day.stepLog = []; saveDay(S.date, day); toast('Step total saved');
+  }
+  else if (el.id === 'st_goal') {
+    const v = Math.round(+el.value); if (!(v >= 1000)) return; const cfg = cfgCopy(); cfg.stepGoal = v; saveConfig(cfg); toast('Step goal saved');
   }
 });
-document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('tapcard')) { e.preventDefault(); openNutrients(); return; } if (e.key === 'Enter' && e.target.id === 'sc_code') { e.preventDefault(); lookupBarcode(e.target.value); } if (e.key === 'Escape' && !document.getElementById('scanRoot').hidden) closeScanner(); });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'fs_q') { e.preventDefault(); e.target.blur(); searchOFF(e.target.value); return; } if (e.key === 'Enter' && e.target.id === 'st_add') { e.preventDefault(); document.querySelector('[data-act=stepsAdd]:not([data-v])')?.click(); return; } if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('tapcard')) { e.preventDefault(); openNutrients(); return; } if (e.key === 'Enter' && e.target.id === 'sc_code') { e.preventDefault(); lookupBarcode(e.target.value); } if (e.key === 'Escape' && !document.getElementById('scanRoot').hidden) closeScanner(); });
 document.addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target; const v = id => document.getElementById(id)?.value;

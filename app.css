@@ -131,7 +131,7 @@ main { padding-block: 16px 120px; display: grid; gap: 16px; }
 .seg button { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-weight: 600; font-size: 14px; }
 .seg button[aria-pressed="true"] { background: var(--btn); color: var(--btn-ink); border-color: var(--btn); }
 label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
-input[type=text], input[type=number], input[type=date], select, textarea {
+input[type=text], input[type=search], input[type=number], input[type=date], select, textarea {
   background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0;
 }
 textarea { resize: vertical; min-height: 60px; }
@@ -347,7 +347,7 @@ input[type=file] { max-width: 100%; font-size: 14px; }
 [data-style="soft"] .datenav button, [data-style="soft"] .iconbtn { border-radius: 999px; border: 0; background: var(--surface); box-shadow: var(--shadow); }
 [data-style="soft"] .week button { border-radius: 16px; border: 0; box-shadow: var(--shadow); }
 [data-style="soft"] .week button.on { box-shadow: inset 0 0 0 2px var(--btn), var(--shadow); }
-[data-style="soft"] input[type=text], [data-style="soft"] input[type=number], [data-style="soft"] input[type=date], [data-style="soft"] input[type=email], [data-style="soft"] input[type=password], [data-style="soft"] select, [data-style="soft"] textarea { border-radius: 14px; }
+[data-style="soft"] input[type=text], [data-style="soft"] input[type=search], [data-style="soft"] input[type=number], [data-style="soft"] input[type=date], [data-style="soft"] input[type=email], [data-style="soft"] input[type=password], [data-style="soft"] select, [data-style="soft"] textarea { border-radius: 14px; }
 [data-style="soft"] .stepper { border-radius: 999px; }
 [data-style="soft"] .savebar { border: 0; border-radius: 22px; }
 [data-style="soft"] .seg button { border: 0; box-shadow: var(--shadow); }
@@ -593,3 +593,22 @@ nav.tabs button { min-width: 0; }
   @keyframes drDoor { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 }
 @media (prefers-reduced-motion: reduce) { .dr-door { transform: scaleY(0); } }
+
+/* search, drinks, steps */
+.search-panel, .drinks-panel { display: grid; gap: 10px; }
+.search-panel .rows .row .btn { flex: none; }
+.seg.wrap { flex-wrap: wrap; }
+.seg.wrap button { font-size: 13px; padding: 5px 11px; }
+.drinks-panel .f { gap: 6px; }
+.drink-total { display: flex; align-items: center; gap: 10px; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 10px; }
+.drink-total > div { min-width: 0; display: grid; gap: 4px; }
+.drink-total .btn { flex: none; }
+.drink-recent { flex-wrap: wrap; }
+.steps-box { display: grid; gap: 8px; }
+.steps-n { font-size: 14px; color: var(--muted); }
+.steps-n b { font-size: 28px; color: var(--ink); font-family: var(--font-display); line-height: 1; }
+.steps-bar i { background: var(--blue); }
+.steps-more summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+.sec > h2 .groc-btn { display: inline-flex; align-items: center; gap: 5px; }
+[data-style="soft"] .steps-bar i { background: var(--btn); }
+input[type=search] { -webkit-appearance: none; appearance: none; }
