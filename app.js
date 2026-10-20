@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 20; // keep in step with VERSION in sw.js
+const APP_VERSION = 21; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -700,6 +700,22 @@ function carSVG(stage, wilting, colour, label, v) {
     <rect x="0" y="58" width="120" height="88" rx="12" fill="var(--sunk)"/><rect x="0" y="130" width="120" height="16" fill="#000" opacity=".08"/><path d="M0 130 H120" stroke="#000" opacity=".12"/>
     <path d="M60 58 V62" stroke="var(--muted)" stroke-width="1"/><path d="M51 62 h18 l-3 3.5 h-12z" fill="var(--muted)"/>
     <g class="car-g">${carBody(stage, colour, wilting, v)}</g></svg>`;
+}
+// Finished-car celebration: it revs, then drives off into a garage and the door rolls down.
+function carDriveSVG(i, v) {
+  const k = 0.7, ty = 129 - 129 * k;
+  const C = CAR_STYLES[carStyle(v)];
+  const exX = 4 + C.w[0] * k - C.r * k - 8, exY = 125;
+  return `<div class="cele-drive"><svg viewBox="0 58 240 82" role="img" aria-label="Your finished car drives into the garage">
+    <rect x="0" y="129" width="240" height="11" style="fill:var(--gar-floor, #8E949B)" opacity=".55"/>
+    <rect x="168" y="90" width="44" height="40" fill="#2A2E33"/>
+    <g class="dr-puffs">${[0, 1, 2].map(n => `<circle class="dr-puff p${n}" cx="${exX - n * 7}" cy="${exY - n * 3}" r="${5 + n * 2}" fill="#BFC5CC"/>`).join('')}</g>
+    <g class="dr-car"><g class="dr-lines" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"><path d="M-14 100 h-16"/><path d="M-8 110 h-22"/><path d="M-14 120 h-14"/></g>
+      <g class="dr-shake"><g transform="translate(4 ${ty}) scale(${k})">${carBody(5, carColour(i, v), false, v)}</g></g></g>
+    <path d="M212 78 H240 V130 H212 Z M160 78 H240 V90 H160 Z M160 90 H168 V130 H160 Z" style="fill:var(--surface)" stroke="var(--line)"/>
+    <path d="M154 80 L200 62 L246 80 Z" style="fill:var(--btn)"/>
+    <g class="dr-door"><rect x="168" y="90" width="44" height="40" fill="#C9CED4"/>${[96, 102, 108, 114, 120, 126].map(y => `<path d="M168 ${y} H212" stroke="#A9AFB6" stroke-width="1"/>`).join('')}</g>
+  </svg></div>`;
 }
 function carColour(i, v) { const P = CAR_STYLES[carStyle(v)]?.soft ? PASTEL_COLOURS : CAR_COLOURS; return P[i % P.length]; }
 function growSVG(type, stage, wilting, opts = {}) {
@@ -1926,7 +1942,7 @@ function syncBlooms() {
     const v = growVariant(); const added = dates.slice(prev.length).map(date => ({ date, type, ...(v ? { v } : {}) }));
     cfg.blooms = [...prev, ...added]; cfg.bloomsInit = true;
     saveConfig(cfg);
-    if (added.some(x => x.date === todayISO()) && (!firstTime || added.length === 1)) { const M = gm(); celebrate(M.done(v), [{ text: M.doneText }], `<div class="cele-flower">${growSVG(type, 5, false, { i: prev.length + added.length - 1, v })}</div>`); }
+    if (added.some(x => x.date === todayISO()) && (!firstTime || added.length === 1)) { const M = gm(); celebrate(M.done(v), [{ text: M.doneText }], (type === 'car' ? carDriveSVG(prev.length + added.length - 1, v) : `<div class="cele-flower">${growSVG(type, 5, false, { i: prev.length + added.length - 1, v })}</div>`)); }
   }, 0);
 }
 function groundFlower(x, gy, i, type, stage = 5, wilting = false) {

@@ -574,3 +574,22 @@ nav.tabs button { min-width: 0; }
 .sec > h2 .h2btn.push { margin-left: auto; }
 [data-style="soft"] .sec > h2 .h2btn { color: var(--btn); }
 :root[data-style="soft"] { --gar-top: color-mix(in srgb, var(--btn) 10%, #FFFFFF); --gar-bot: color-mix(in srgb, var(--btn) 20%, #FFFFFF); --gar-floor: color-mix(in srgb, var(--btn) 30%, #B8AEB4); --gar-edge: color-mix(in srgb, var(--btn) 20%, #E6DCE1); --gar-bay: #FFFFFF; --gar-dot: color-mix(in srgb, var(--btn) 40%, #8A7F86); }
+
+/* finished car drives into the garage */
+.cele-drive { width: 100%; max-width: 300px; justify-self: center; }
+.cele-drive svg { width: 100%; height: auto; display: block; overflow: hidden; border-radius: 12px; background: color-mix(in srgb, var(--sunk) 55%, var(--surface)); }
+.dr-door { transform-box: fill-box; transform-origin: top; transform: scaleY(1); }
+@media (prefers-reduced-motion: no-preference) {
+  .dr-car { animation: drDrive 2.8s cubic-bezier(.55, 0, .85, .4) .2s both; }
+  .dr-shake { animation: drShake .09s linear 0s 9 alternate; }
+  .dr-lines { opacity: 0; animation: drLines 2.8s linear .2s both; }
+  .dr-puff { opacity: 0; transform-box: fill-box; transform-origin: center; animation: drPuff 1s ease-out both; }
+  .dr-puff.p0 { animation-delay: .9s; } .dr-puff.p1 { animation-delay: 1.05s; } .dr-puff.p2 { animation-delay: 1.2s; }
+  .dr-door { animation: drDoor .6s ease-in 2.75s both; }
+  @keyframes drDrive { 0%, 32% { transform: translateX(0); } 82%, 100% { transform: translateX(230px); } }
+  @keyframes drShake { from { transform: translateY(-.5px); } to { transform: translateY(.5px); } }
+  @keyframes drLines { 0%, 38% { opacity: 0; } 50%, 72% { opacity: .8; } 82%, 100% { opacity: 0; } }
+  @keyframes drPuff { 0% { opacity: 0; transform: scale(.4); } 30% { opacity: .9; } 100% { opacity: 0; transform: scale(1.8) translate(-6px, -4px); } }
+  @keyframes drDoor { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+}
+@media (prefers-reduced-motion: reduce) { .dr-door { transform: scaleY(0); } }
