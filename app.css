@@ -573,3 +573,4 @@ nav.tabs button { min-width: 0; }
 .sec > h2 .aside + .h2btn { margin-left: 0; }
 .sec > h2 .h2btn.push { margin-left: auto; }
 [data-style="soft"] .sec > h2 .h2btn { color: var(--btn); }
+:root[data-style="soft"] { --gar-top: color-mix(in srgb, var(--btn) 10%, #FFFFFF); --gar-bot: color-mix(in srgb, var(--btn) 20%, #FFFFFF); --gar-floor: color-mix(in srgb, var(--btn) 30%, #B8AEB4); --gar-edge: color-mix(in srgb, var(--btn) 20%, #E6DCE1); --gar-bay: #FFFFFF; --gar-dot: color-mix(in srgb, var(--btn) 40%, #8A7F86); }
