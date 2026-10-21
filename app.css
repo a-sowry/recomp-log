@@ -651,3 +651,4 @@ input[type=search] { -webkit-appearance: none; appearance: none; }
 .plan-chip button { border: 0; background: transparent; width: 22px; height: 22px; border-radius: 50%; color: var(--muted); font-size: 16px; line-height: 1; }
 select.plan-add { font-size: 13px; padding: 5px 8px; min-height: 0; width: auto; max-width: 100%; color: var(--muted); }
 [data-style="soft"] .ps-l { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.chain-chips { flex-wrap: wrap; }
