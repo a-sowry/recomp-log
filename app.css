@@ -652,3 +652,18 @@ input[type=search] { -webkit-appearance: none; appearance: none; }
 select.plan-add { font-size: 13px; padding: 5px 8px; min-height: 0; width: auto; max-width: 100%; color: var(--muted); }
 [data-style="soft"] .ps-l { text-transform: none; letter-spacing: 0; font-size: 13px; }
 .chain-chips { flex-wrap: wrap; }
+
+/* how it's calculated */
+.methods { display: grid; gap: 10px; }
+.methods-cta { display: flex; align-items: center; gap: 10px; text-align: left; width: 100%; color: var(--ink); cursor: pointer; }
+.methods-cta > span { display: grid; gap: 2px; min-width: 0; }
+.methods-cta svg { width: 20px; height: 20px; flex: none; margin-left: auto; fill: none; stroke: var(--muted); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.meth summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; align-items: center; gap: 8px; }
+.meth summary::-webkit-details-marker { display: none; }
+.meth summary::after { content: ''; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .2s; }
+.meth[open] summary::after { transform: rotate(-135deg); }
+.meth-body { display: grid; gap: 8px; padding-top: 10px; line-height: 1.45; font-size: 14px; }
+.meth-body p { margin: 0; }
+.meth-body a { color: var(--blue); }
+[data-style="soft"] .meth-body a { color: var(--btn); }
+[data-style="soft"] .meth summary { font-family: var(--font-display); font-size: 17px; }

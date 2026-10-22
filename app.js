@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 25; // keep in step with VERSION in sw.js
+const APP_VERSION = 26; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -2448,6 +2448,85 @@ function viewGarden() {
     </section>`;
 }
 
+/* ---------- "How it's calculated": every formula and data source in one place ---------- */
+function openMethods() {
+  const T = targets(); const pr = S.config?.profile || {};
+  const wt = weightList().slice(-1)[0]?.kg || pr.weight;
+  const n = v => Math.round(v).toLocaleString();
+  let worked;
+  if (pr.age && pr.height && wt && pr.sex) {
+    const male = pr.sex !== 'female'; const act = ACTIVITY.find(a => a.id === pr.activity) || ACTIVITY[1]; const goal = GOALS.find(g => g.id === pr.goal) || GOALS[1];
+    const bmr = 10 * wt + 6.25 * pr.height - 5 * pr.age + (male ? 5 : -161); const tdee = bmr * act.mult; const c = calcTargets({ ...pr, weight: wt });
+    worked = `<ol class="method-list">
+      <li><b>Resting burn (BMR)</b> = 10 × ${wt} kg + 6.25 × ${pr.height} cm − 5 × ${pr.age} ${male ? '+ 5' : '− 161'} = <b>${n(bmr)} kcal</b></li>
+      <li><b>Daily burn</b> = ${n(bmr)} × ${act.mult} (${act.label.toLowerCase()}) = <b>${n(tdee)} kcal</b></li>
+      <li><b>Calories</b> = ${n(tdee)} × ${goal.adj} (${goal.label.toLowerCase().replace(/\bi\b/g, 'I')}), rounded to the nearest 50 = <b>${n(c.kcal)} kcal</b></li>
+      <li><b>Protein</b> = ${wt} kg × ${goal.protein} g = ${r1(wt * goal.protein)} g, rounded to the nearest 5 = <b>${c.p} g</b></li>
+      <li><b>Fat</b> = the higher of 0.8 × ${wt} kg (${r1(wt * 0.8)} g) or 25% of calories (${r1(c.kcal * 0.25 / 9)} g), rounded to the nearest 5 = <b>${c.f} g</b></li>
+      <li><b>Carbs</b> = what's left: (${n(c.kcal)} − ${c.p} × 4 − ${c.f} × 9) ÷ 4 = <b>${c.c} g</b></li>
+    </ol>
+    <div class="small muted">Your saved targets are ${n(T.kcal)} kcal, ${T.p} g protein, ${T.c} g carbs and ${T.f} g fat. If they differ from the above, they were set or edited by hand, or your weight has changed since. Tap "Recalculate from my stats" in Settings to update them.</div>`;
+  } else {
+    worked = `<div class="small">Your targets are ${n(T.kcal)} kcal, ${T.p} g protein, ${T.c} g carbs and ${T.f} g fat. They were entered directly rather than worked out in setup, so there's no working to show here. Tap "Recalculate from my stats" in Settings to enter your age, height and sex, and the full working will appear here.</div>`;
+  }
+  const milk = Object.values(MILKS).map(m => `${m[0]} ${m[1]} kcal`).join(', ');
+  const cafe = Object.values(CAFE).filter(c => c[1] > 0 && !c[3]).map(c => `${c[0].toLowerCase()} ${Math.round(c[1] * 100)}%`).join(', ');
+  const sec = (title, body, open) => `<details class="card meth"${open ? ' open' : ''}><summary>${title}</summary><div class="meth-body">${body}</div></details>`;
+  const link = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
+  document.getElementById('sheetRoot').innerHTML = `<div class="sheet"><div class="panel"><div class="wrap methods">
+    <div style="display:flex;align-items:center;gap:10px"><h3>How it's calculated</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeMethods">${S.methodsFromSettings ? '‹ Settings' : 'Close'}</button></div>
+    <div class="small muted">Every number in the app comes from one of the formulas or sources below. They're good estimates for everyday tracking, not medical or dietetic advice. Talk to a GP or dietitian for anything specific to your health.</div>
+    ${sec('Your daily targets', `<p>Calories start from the <b>Mifflin–St Jeor equation</b>, the most widely used and accurate formula for resting energy needs. That's then scaled by how active you are and by your goal.</p>
+      <ul class="ing-list">
+        <li><b>Resting burn (BMR):</b> 10 × weight (kg) + 6.25 × height (cm) − 5 × age, then + 5 for men or − 161 for women.</li>
+        <li><b>Activity:</b> ${ACTIVITY.map(a => `${a.label.toLowerCase()} × ${a.mult}`).join('; ')}.</li>
+        <li><b>Goal:</b> ${GOALS.map(g => `${g.label.toLowerCase().replace(/\bi\b/g, 'I')} × ${g.adj}${g.adj !== 1 ? ` (${g.adj < 1 ? '−' : '+'}${Math.round(Math.abs(1 - g.adj) * 100)}%)` : ''}`).join('; ')}. Rounded to the nearest 50 kcal.</li>
+        <li><b>Protein:</b> 2.0 g per kg of body weight when losing fat or recomping, 1.8 g per kg otherwise. That's within the 1.6–2.2 g/kg range research supports for building and keeping muscle.</li>
+        <li><b>Fat:</b> the higher of 0.8 g per kg or 25% of calories, so hormones and fat-soluble vitamins are covered.</li>
+        <li><b>Carbs:</b> whatever calories are left, at a minimum of 50 g.</li>
+        <li><b>Energy per gram:</b> protein 4 kcal, carbs 4 kcal, fat 9 kcal, alcohol 7 kcal. 1 kcal = 4.184 kJ.</li>
+      </ul>
+      <div class="slotlabel">Your working</div>${worked}`, true)}
+    ${sec('Where food calories come from', `<ul class="ing-list">
+        <li><b>Starter meals:</b> each recipe comes from a named food blogger or social media creator (shown on the meal's page). I recalculated the macros from every ingredient's weight using standard nutrition values, not the creator's own figures, which are often overstated.</li>
+        <li><b>Common foods (Search):</b> typical values per 100 g from ${link('https://fdc.nal.usda.gov/', 'USDA FoodData Central')} and Food Standards Australia New Zealand's ${link('https://www.foodstandards.gov.au/science-data/food-nutrient-databases/ausnut', 'AUSNUT')}. Meat, rice and pasta use cooked weights unless the name says otherwise.</li>
+        <li><b>Packaged foods and barcodes:</b> ${link('https://world.openfoodfacts.org/', 'Open Food Facts')}, a free database built from nutrition panels people photograph and enter. It's usually right, but worth checking against the packet.</li>
+        <li><b>Takeaway:</b> each chain's published Australian nutrition info, collected via ${link('https://www.fatsecret.com.au/', 'FatSecret Australia')} in October 2026. Every item was checked so its calories match its protein, carbs and fat within 15%. A few Hungry Jack's burgers don't add up in any source, so their macros are approximate.</li>
+        <li><b>Drinks:</b> milk per 100 ml: ${milk}. Cups: small 220 ml, regular 330 ml, large 450 ml. Share of the cup that's milk: ${cafe}. Sugar or syrup 16 kcal per teaspoon or pump. A 30 ml spirit is 69 kcal. Other drinks use typical per-100 ml values for their category.</li>
+        <li><b>Your own meals:</b> exactly the numbers you entered.</li>
+        <li><b>Servings:</b> 1.5× a meal is simply 1.5 times its calories and macros.</li>
+      </ul>`)}
+    ${sec('Vitamins, minerals, fibre and sodium', `<ul class="ing-list">
+        <li><b>Amounts:</b> worked out from each ingredient's weight using USDA FoodData Central and AUSNUT values. Bread includes Australia's mandatory folic acid fortification. Scanned foods use whatever the packet lists.</li>
+        <li><b>Which meals count:</b> starter meals, searched and scanned foods, and your own meals that have ingredients listed. Meals with only calories and macros can't be broken down.</li>
+        <li><b>Targets:</b> the ${link('https://www.eatforhealth.gov.au/nutrient-reference-values', 'Nutrient Reference Values for Australia and New Zealand')} (NHMRC) for your age and sex. Sodium uses the 2,000 mg suggested dietary target, and saturated fat is capped at 10% of your calories.</li>
+        <li><b>Vitamin D:</b> mostly made from sunlight, so food alone rarely reaches the target.</li>
+      </ul>`)}
+    ${sec('Water and steps', `<ul class="ing-list">
+        <li><b>Water goal:</b> 35 ml per kg of body weight, rounded to the nearest 250 ml and kept between 2 and 4 L. You can change it in Settings. A full Stanley is 1,180 ml (40 oz).</li>
+        <li><b>Step goal:</b> 10,000 a day by default. Change it under Steps on the Food tab.</li>
+      </ul>`)}
+    ${sec('Training, PBs and progression', `<ul class="ing-list">
+        <li><b>Estimated 1-rep max:</b> the Epley formula, weight × (1 + reps ÷ 30), with reps capped at 15 so very high-rep sets don't inflate it.</li>
+        <li><b>Personal best:</b> either the heaviest weight you've ever done on that exercise, or an estimated 1RM more than 0.25 kg above your previous best.</li>
+        <li><b>"Go up" hints:</b> once every set hits the top of the rep range, add 2.5 kg. That's 1.25 kg for small isolation lifts like curls, laterals and flyes under 12.5 kg, and 5 kg for leg press or anything at 100 kg or more.</li>
+      </ul>`)}
+    ${sec('Food tab colours and suggestions', `<ul class="ing-list">
+        <li><b>Green:</b> within 150 kcal of your target and protein within 10 g of it. <b>Yellow:</b> under, or protein short. <b>Red:</b> more than 150 kcal over.</li>
+        <li><b>What fits:</b> your meals, favourites and regulars that fit the calories you have left. They're ranked by protein per calorie, with a bonus for meals that suit the time of day.</li>
+        <li><b>Your regulars:</b> anything logged at least twice in the last 30 days.</li>
+      </ul>`)}
+    ${sec('Weight trend advice', `<ul class="ing-list">
+        <li>Compares this week's average weight with last week's, because single days swing with water, salt and food in your gut.</li>
+        <li>Losing more than 0.5 kg a week suggests eating a little more to protect muscle. Gaining more than 0.4 kg suggests trimming 100–150 kcal if it repeats.</li>
+      </ul>`)}
+    ${sec('Garden, forest and garage points', `<ul class="ing-list">
+        <li>Workout +${GARDEN.WORKOUT}, cardio +${GARDEN.CARDIO} (up to 2 a day), food logged +${GARDEN.FOOD_DAY}, protein target hit +${GARDEN.PROTEIN_DAY}, weigh-in +${GARDEN.WEIGH_IN}.</li>
+        <li>Every ${GARDEN.PER_BLOOM} points a flower blooms, a tree finishes or a car is built. Go ${GARDEN.WILT_DAYS}+ days without a workout and it droops, browns or gathers dust, but you never lose progress.</li>
+      </ul>`)}
+  </div></div></div>`;
+}
+
 /* ---------- SETTINGS ---------- */
 function growPicker(kind, act, cur, soft = softTheme()) {
   return `<div class="flower-pick grow-pick" role="group" aria-label="What you grow">${(soft ? ['flower', 'bonsai', 'car'] : ['bonsai', 'car', 'flower']).map(k => `<button type="button" class="fp" data-act="${act}" data-v="${k}" aria-pressed="${cur === k}">
@@ -2490,6 +2569,7 @@ function openSettings() {
     <div><button type="button" class="linkbtn" data-act="pgAdd" data-day="${d}">+ Exercise</button></div></div>`).join('');
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet" id="sheet"><div class="panel"><form class="wrap" id="settingsForm">
     <div style="display:flex;align-items:center;gap:10px"><h3>Settings</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSettings">Close</button></div>
+    <button type="button" class="card methods-cta" data-act="openMethods"><span><b>How it's calculated</b><span class="small muted">The formulas behind your targets, and where every food's calories come from</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Background colour</div>
       <div class="swatches" role="group" aria-label="Background colour">${THEMES.map(t => `<button type="button" class="swatch" data-act="theme" data-v="${t.id}" aria-pressed="${(S.config?.theme || 'auto') === t.id}" title="${t.name}">
         <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div>
@@ -2510,7 +2590,7 @@ function openSettings() {
         <label class="f">Fat g<input type="number" id="t_f" value="${T.f}" min="0" max="300"></label>
       </div>
       <div class="small muted">On days with extra exercise, like a long hike, swim or run, eat a bit more to fuel it.</div>
-      <div><button type="button" class="btn ghost sm" data-act="redoSetup">Recalculate from my stats</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost sm" data-act="redoSetup">Recalculate from my stats</button><button type="button" class="btn ghost sm" data-act="openMethods">How it's calculated</button></div>
     </div>
     ${waterSettings()}
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Supplements</div>
@@ -2668,6 +2748,8 @@ document.addEventListener('click', async e => {
     case 'scanLookup': lookupBarcode(document.getElementById('sc_code')?.value); break;
     case 'scanGrams': S.scan.grams = +b.dataset.v; render(); break;
     case 'openMeal': openMeal(b.dataset.k); break;
+    case 'closeMethods': if (S.methodsFromSettings) openSettings(); else document.getElementById('sheetRoot').innerHTML = ''; break;
+    case 'openMethods': S.methodsFromSettings = !!b.closest('#settingsForm'); openMethods(); break;
     case 'quickAdd': { const it = quickItem(b.dataset.k); if (it) logItem(it, b.dataset.s); break; }
     case 'favToggle': {
       const k = b.dataset.k; const it = k.startsWith('L:') ? (S.days[S.date]?.meals || []).find(m => m.id === k.slice(2)) : quickItem(k);
