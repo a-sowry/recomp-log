@@ -667,3 +667,17 @@ select.plan-add { font-size: 13px; padding: 5px 8px; min-height: 0; width: auto;
 .meth-body a { color: var(--blue); }
 [data-style="soft"] .meth-body a { color: var(--btn); }
 [data-style="soft"] .meth summary { font-family: var(--font-display); font-size: 17px; }
+
+/* add a meal: build from ingredients */
+.build-card { display: grid; gap: 10px; }
+.build-card .slotlabel .aside { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--muted); margin-left: 6px; }
+.build-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.build-btns .btn { display: inline-flex; align-items: center; gap: 6px; }
+.build-btns svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.build-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 14px; }
+.build-total b { font-size: 18px; }
+.build-adder { display: grid; gap: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.serves { max-width: 220px; }
+.scan-overlay video { pointer-events: none; }
+.scan-frame { position: relative; z-index: 1; pointer-events: none; }
+.scan-ui { position: relative; z-index: 2; }

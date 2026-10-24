@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 26; // keep in step with VERSION in sw.js
+const APP_VERSION = 27; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -815,18 +815,21 @@ function viewToday() {
     }
     if (!any) add = `<div class="empty"><b>Your meal plan is empty.</b>Tap "Add a meal" to create your own. Removed starter meals can be brought back in Settings.</div>`;
   } else {
+    const built = buildState().items.length;
     add = `<form id="customForm" class="sec" style="gap:10px">
-      <label class="f">Food<input type="text" id="cf_name" required placeholder="e.g. Chobani Fit yoghurt 170 g"></label>
+      <label class="f">Meal name<input type="text" id="cf_name" required placeholder="e.g. Chicken pesto wrap" value="${esc(cfVal('cf_name'))}"></label>
+      ${builderCard()}
+      <div class="slotlabel" style="padding-top:2px">${built ? 'Totals (worked out from your ingredients, edit if needed)' : 'Calories and macros'}</div>
       <div class="grid4">
-        <label class="f">kcal<input type="number" id="cf_kcal" inputmode="decimal" min="0" required></label>
-        <label class="f">Protein g<input type="number" id="cf_p" inputmode="decimal" min="0" value="0"></label>
-        <label class="f">Carbs g<input type="number" id="cf_c" inputmode="decimal" min="0" value="0"></label>
-        <label class="f">Fat g<input type="number" id="cf_f" inputmode="decimal" min="0" value="0"></label>
+        <label class="f">kcal<input type="number" id="cf_kcal" inputmode="decimal" step="any" min="0" required value="${esc(cfVal('cf_kcal'))}"></label>
+        <label class="f">Protein g<input type="number" id="cf_p" inputmode="decimal" step="any" min="0" value="${esc(cfVal('cf_p', '0'))}"></label>
+        <label class="f">Carbs g<input type="number" id="cf_c" inputmode="decimal" step="any" min="0" value="${esc(cfVal('cf_c', '0'))}"></label>
+        <label class="f">Fat g<input type="number" id="cf_f" inputmode="decimal" step="any" min="0" value="${esc(cfVal('cf_f', '0'))}"></label>
       </div>
-      <label class="f">Ingredients (optional, one per line, for nutrients and your grocery list)<textarea id="cf_ing" rows="3" placeholder="200 g chicken breast&#10;1 avocado&#10;100 g rice"></textarea></label>
+      <label class="f">${built ? 'Other ingredients (optional, one per line)' : 'Ingredients (optional, one per line, for nutrients and your grocery list)'}<textarea id="cf_ing" rows="3" placeholder="200 g chicken breast&#10;1 avocado&#10;100 g rice">${esc(cfVal('cf_ing'))}</textarea></label>
       <div class="formrow">
-        <label class="f">Meal<select id="cf_slot">${SLOTS.map(s => `<option>${s}</option>`).join('')}</select></label>
-        <label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="cf_save" checked> Save to my meal plan</label>
+        <label class="f">Meal<select id="cf_slot">${SLOTS.map(s => `<option ${s === cfVal('cf_slot', guessSlot()) ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+        <label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="cf_save" ${cfVal('cf_save', true) ? 'checked' : ''}> Save to my meal plan</label>
         <button class="btn" type="submit">Add to log</button>
       </div></form>`;
   }
@@ -1425,7 +1428,7 @@ function closeScanner() {
 async function lookupBarcode(code) {
   code = String(code || '').replace(/\D/g, '');
   if (code.length < 6) { toast('That doesn\'t look like a barcode number.'); return; }
-  S.foodAdd = 'scan'; S.scan = { code, status: 'loading', product: null }; render();
+  if (S.build?.mode !== 'scan') S.foodAdd = 'scan'; S.scan = { code, status: 'loading', product: null }; render();
   const cache = lsGet('rl:off:' + code);
   if (cache) { S.scan = { code, status: 'found', product: cache, grams: cache.serving || 100 }; render(); return; }
   if (!navigator.onLine) { S.scan = { code, status: 'error', product: null, msg: 'You\'re offline. Scan again when you have signal.' }; render(); return; }
@@ -1533,14 +1536,14 @@ function searchTakeaway(q) {
   const terms = norm(q).split(/\s+/).filter(Boolean); if (!terms.length) return [];
   return TAKEAWAY.filter(t => { const hay = norm(`${t.brand} ${t.name} ${CHAIN_ALIASES[t.brand] || ''}`); return terms.every(w => hay.includes(w)); }).slice(0, 40);
 }
-function takeawayPanel(t) {
+function takeawayPanel(t, build) {
   const q = S.search.qty || 1; const x = v => r0(v * q);
   return `<div class="scan-result">
     <div><div class="t">${esc(t.name)}</div><div class="small muted">${esc(t.brand)} · per serve</div></div>
     <div class="formrow"><div class="f"><span class="small muted">How many</span><div class="stepper"><button type="button" data-act="taQty" data-d="-0.5" aria-label="Less">−</button><span>${q}×</span><button type="button" data-act="taQty" data-d="0.5" aria-label="More">+</button></div></div>
-      <label class="f">Meal<select id="sc_slot">${SLOTS.map(s => `<option ${s === guessSlot() ? 'selected' : ''}>${s}</option>`).join('')}</select></label></div>
+      ${build ? '' : `<label class="f">Meal<select id="sc_slot">${SLOTS.map(s => `<option ${s === guessSlot() ? 'selected' : ''}>${s}</option>`).join('')}</select></label>`}</div>
     <div class="chips"><span class="chip k">${x(t.kcal)} kcal</span><span class="chip p">P ${x(t.p)}</span><span class="chip c">C ${x(t.c)}</span><span class="chip f">F ${x(t.f)}</span></div>
-    <div><button class="btn" data-act="taAdd">Add to log</button></div>
+    <div><button type="button" class="btn" data-act="${build ? 'buildAddTa' : 'taAdd'}">${build ? 'Add to meal' : 'Add to log'}</button></div>
     <div class="small muted">From ${esc(t.brand)}'s published Australian nutrition info. Sauces and extras aren't included unless listed.</div></div>`;
 }
 
@@ -1552,44 +1555,44 @@ function searchRows() {
     const g = f.serving || 100; const k = g / 100;
     return `<div class="row"><div style="min-width:0"><div class="t">${esc(f.name)}</div><div class="small muted">${esc([f.brand, f.unitLabel ? `${f.unitLabel} (${r0(g)} g)` : f.serving ? `1 serve (${r0(g)} g)` : '100 g'].filter(Boolean).join(' · '))}</div>
       <div class="chips"><span class="chip k">${r0(f.kcal * k)} kcal</span><span class="chip p">P ${r0(f.p * k)}</span><span class="chip c">C ${r0(f.c * k)}</span><span class="chip f">F ${r0(f.f * k)}</span></div></div>
-      <button class="btn sm" data-act="searchPick" data-src="${src}" data-i="${i}">Add</button></div>`;
+      <button type="button" class="btn sm" data-act="searchPick" data-src="${src}" data-i="${i}">Add</button></div>`;
   };
   let h = ta.length ? `<div class="slotlabel">Takeaway</div>${ta.map((t, i) => `<div class="row"><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="small muted">${esc(t.brand)} · 1 serve</div>
       <div class="chips"><span class="chip k">${r0(t.kcal)} kcal</span><span class="chip p">P ${r0(t.p)}</span><span class="chip c">C ${r0(t.c)}</span><span class="chip f">F ${r0(t.f)}</span></div></div>
-      <button class="btn sm" data-act="searchPick" data-src="ta" data-i="${i}">Add</button></div>`).join('')}` : '';
+      <button type="button" class="btn sm" data-act="searchPick" data-src="ta" data-i="${i}">Add</button></div>`).join('')}` : '';
   h += common.length ? `<div class="slotlabel">Common foods</div>${common.map((f, i) => row(f, i, 'common')).join('')}` : '';
   const offHead = `<div class="slotlabel">Packaged foods</div>`;
   if (s.status === 'loading') h += offHead + `<div class="empty small">Searching Open Food Facts…</div>`;
   else if (s.status === 'offline') h += offHead + `<div class="empty small">You're offline, so only common foods can be searched.</div>`;
   else if (s.status === 'error') h += offHead + `<div class="empty small">Couldn't reach the food database. Try again in a moment.</div>`;
   else if (s.status === 'done' && s.offQ === q) h += offHead + (s.off.length ? s.off.map((f, i) => row(f, i, 'off')).join('') : `<div class="empty small">No packaged foods found for "${esc(q)}". Try fewer words or the brand name.</div>`);
-  else h += `<div class="row"><span class="small muted">Looking for a brand or packaged food?</span><button class="btn ghost sm" data-act="searchGo">Search packaged foods</button></div>`;
+  else h += `<div class="row"><span class="small muted">Looking for a brand or packaged food?</span><button type="button" class="btn ghost sm" data-act="searchGo">Search packaged foods</button></div>`;
   if (!common.length && !ta.length && s.status === 'idle') h = `<div class="empty small">No common foods or takeaway match "${esc(q)}".</div>` + h;
   return h;
 }
 function renderSearch() { const el = document.getElementById('fs_res'); if (el) el.innerHTML = searchRows(); }
-function searchPanel() {
+function searchPanel(build) {
   const s = S.search;
-  if (s.pick?.ta) return `<div class="search-panel"><div><button class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${takeawayPanel(s.pick)}</div>`;
-  if (s.pick) return `<div class="search-panel"><div><button class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${productPanel(S.scan, s.pick.common ? 'common' : 'off')}</div>`;
+  if (s.pick?.ta) return `<div class="search-panel"><div><button type="button" class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${takeawayPanel(s.pick, build)}</div>`;
+  if (s.pick) return `<div class="search-panel"><div><button type="button" class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${productPanel(S.scan, s.pick.common ? 'common' : 'off', build)}</div>`;
   return `<div class="search-panel">
-    <div class="formrow"><label class="f">Search foods<input type="search" id="fs_q" enterkeyhint="search" autocomplete="off" value="${esc(s.q || '')}" placeholder="e.g. banana, sourdough, Chobani"></label><button class="btn ghost" data-act="searchGo">Search</button></div>
+    <div class="formrow"><label class="f">Search foods<input type="search" id="fs_q" enterkeyhint="search" autocomplete="off" value="${esc(s.q || '')}" placeholder="e.g. banana, sourdough, Chobani"></label><button type="button" class="btn ghost" data-act="searchGo">Search</button></div>
     <div class="rows" id="fs_res">${searchRows()}</div></div>`;
 }
-function productPanel(s, src) {
+function productPanel(s, src, build) {
   const p = s.product; const g = s.grams || 100; const k = g / 100;
   const note = src === 'common' ? 'Typical values for this food. Brands and recipes vary.' : 'Nutrition from Open Food Facts. Check it against the packet if it looks off.';
   return `<div class="scan-result">
       <div><div class="t">${esc(p.name)}</div><div class="small muted">${esc([p.brand, p.size].filter(Boolean).join(' · '))}</div></div>
       <div class="small muted">Per 100 g: ${r0(p.kcal)} kcal · P ${r1(p.p)} · C ${r1(p.c)} · F ${r1(p.f)}</div>
       <div class="formrow">
-        <label class="f">Amount eaten (g or ml)<input type="number" id="sc_g" inputmode="decimal" min="1" value="${g}"></label>
-        <label class="f">Meal<select id="sc_slot">${SLOTS.map(x => `<option ${x === guessSlot() ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+        <label class="f">Amount eaten (g or ml)<input type="number" id="sc_g" inputmode="decimal" step="any" min="1" value="${g}"></label>
+        ${build ? '' : `<label class="f">Meal<select id="sc_slot">${SLOTS.map(x => `<option ${x === guessSlot() ? 'selected' : ''}>${x}</option>`).join('')}</select></label>`}
       </div>
       <div class="seg">${p.serving ? `<button type="button" data-act="scanGrams" data-v="${p.serving}" aria-pressed="${g === p.serving}">${esc(p.unitLabel || '1 serve')} (${r0(p.serving)} g)</button>` : ''}${p.serving && p.unitLabel && !/^\d/.test(p.unitLabel) ? `<button type="button" data-act="scanGrams" data-v="${p.serving * 2}" aria-pressed="${g === p.serving * 2}">×2</button>` : ''}<button type="button" data-act="scanGrams" data-v="100" aria-pressed="${g === 100}">100 g</button></div>
       <div class="chips" id="sc_macros"><span class="chip k">${r0(p.kcal * k)} kcal</span><span class="chip p">P ${r0(p.p * k)}</span><span class="chip c">C ${r0(p.c * k)}</span><span class="chip f">F ${r0(p.f * k)}</span></div>
-      <label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="sc_save"> Save to my meal plan</label>
-      <div><button class="btn" data-act="scanAdd">Add to log</button></div>
+      ${build ? `<div><button type="button" class="btn" data-act="buildAdd">Add to meal</button></div>` : `<label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="sc_save"> Save to my meal plan</label>
+      <div><button class="btn" data-act="scanAdd">Add to log</button></div>`}
       <div class="small muted">${note}</div>
     </div>`;
 }
@@ -1705,11 +1708,7 @@ function stepsCard(day) {
 
 function scanPanel() {
   const s = S.scan;
-  let res = '';
-  if (s.status === 'loading') res = `<div class="empty">Looking up ${esc(s.code)}…</div>`;
-  else if (s.status === 'notfound') res = `<div class="empty"><b>${s.partial ? esc(s.partial) + ' has no nutrition info yet.' : 'Not in the food database yet.'}</b>Add it with "Add a meal" using the numbers on the packet.<div style="margin-top:10px"><button class="btn ghost sm" data-act="foodAdd" data-v="custom">Add a meal</button></div></div>`;
-  else if (s.status === 'error') res = `<div class="empty">${esc(s.msg)}</div>`;
-  else if (s.status === 'found') res = productPanel(s, 'off');
+  const res = scanResult(s, false);
   return `<div class="scan-panel">
     <button class="btn scan-cta" data-act="openScanner"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>Scan a barcode</button>
     <div class="formrow"><label class="f">Or type the barcode number<input type="text" id="sc_code" inputmode="numeric" autocomplete="off" value="${esc(s.code || '')}" placeholder="e.g. 9300633603262"></label><button class="btn ghost" data-act="scanLookup">Look up</button></div>
@@ -1878,6 +1877,48 @@ function quickCard() {
   return `<section class="sec"><h2>Quick add</h2><div class="card rows">${h}</div></section>`;
 }
 function quickItem(key) { return key.startsWith('G:') ? regulars()[+key.slice(2)] : itemFromKey(key); }
+
+/* ---------- Add a meal: build it from scanned / searched ingredients ---------- */
+// S.build = { items: [{ name, line, kcal, p, c, f, nut }], serves, mode: null | 'scan' | 'search' }
+// S.cf keeps what's typed in the Add a meal form, so scanning or searching doesn't wipe it.
+function buildState() { if (!S.build) S.build = { items: [], serves: 1, mode: null }; return S.build; }
+function cfVal(id, def = '') { return S.cf && S.cf[id] != null ? S.cf[id] : def; }
+function buildTotals() {
+  const b = buildState(); const t = { kcal: 0, p: 0, c: 0, f: 0 }; const nut = {}; let anyNut = false;
+  for (const it of b.items) { t.kcal += it.kcal; t.p += it.p; t.c += it.c; t.f += it.f; if (it.nut) { anyNut = true; for (const [k, v] of Object.entries(it.nut)) nut[k] = (nut[k] || 0) + v; } }
+  const s = Math.max(1, +b.serves || 1); for (const k in t) t[k] /= s; for (const k in nut) nut[k] = Math.round(nut[k] / s * 100) / 100;
+  return { ...t, nut: anyNut ? nut : null };
+}
+function applyBuildTotals() {
+  const b = buildState(); S.cf = S.cf || {};
+  if (!b.items.length) return;
+  const t = buildTotals(); S.cf.cf_kcal = r0(t.kcal); S.cf.cf_p = r1(t.p); S.cf.cf_c = r1(t.c); S.cf.cf_f = r1(t.f);
+}
+function buildAddItem(it) {
+  const b = buildState(); b.items.push(it); b.mode = null; S.scan = { code: '', status: 'idle', product: null }; S.search.pick = null; S.search.qty = 1;
+  applyBuildTotals(); render(); toast(`Added ${it.name} to the meal`);
+}
+function scanResult(s, build) {
+  if (s.status === 'loading') return `<div class="empty">Looking up ${esc(s.code)}…</div>`;
+  if (s.status === 'notfound') return `<div class="empty"><b>${s.partial ? esc(s.partial) + ' has no nutrition info yet.' : 'Not in the food database yet.'}</b>${build ? 'Try Search instead, or type its numbers into the totals below.' : 'Add it with "Add a meal" using the numbers on the packet.<div style="margin-top:10px"><button class="btn ghost sm" data-act="foodAdd" data-v="custom">Add a meal</button></div>'}</div>`;
+  if (s.status === 'error') return `<div class="empty">${esc(s.msg)}</div>`;
+  if (s.status === 'found') return productPanel(s, 'off', build);
+  return '';
+}
+function builderCard() {
+  const b = buildState(); const t = buildTotals();
+  const list = b.items.length ? `<div class="rows build-list">${b.items.map((it, i) => `<div class="row"><div style="min-width:0"><div class="t">${esc(it.line)}</div><div class="small muted">${r0(it.kcal)} kcal · P ${r0(it.p)} · C ${r0(it.c)} · F ${r0(it.f)}</div></div><button type="button" class="xbtn" data-act="buildDel" data-i="${i}" aria-label="Remove ${esc(it.name)}">×</button></div>`).join('')}</div>
+    <div class="build-total"><span>${b.serves > 1 ? `Per serve (÷ ${b.serves})` : 'Meal total'}</span><b>${r0(t.kcal)} kcal</b><span class="muted">P ${r0(t.p)} · C ${r0(t.c)} · F ${r0(t.f)}</span></div>` : `<div class="small muted">Scan or search each ingredient and enter how much you used. The calories and macros below add themselves up.</div>`;
+  let adder = '';
+  if (b.mode === 'scan') adder = `<div class="build-adder"><div class="formrow"><label class="f">Barcode number<input type="text" id="sc_code" inputmode="numeric" autocomplete="off" value="${esc(S.scan.code || '')}" placeholder="Scan, or type the number"></label><button type="button" class="btn ghost" data-act="scanLookup">Look up</button></div>
+      <div><button type="button" class="btn ghost sm" data-act="openScanner">Open camera again</button> <button type="button" class="linkbtn muted" data-act="buildMode" data-v="">Cancel</button></div>${scanResult(S.scan, true)}</div>`;
+  else if (b.mode === 'search') adder = `<div class="build-adder">${searchPanel(true)}<div><button type="button" class="linkbtn muted" data-act="buildMode" data-v="">Cancel</button></div></div>`;
+  return `<div class="card build-card"><div class="slotlabel" style="padding-top:0">Build it from ingredients <span class="aside">optional</span></div>
+    ${list}
+    ${b.mode ? adder : `<div class="build-btns"><button type="button" class="btn ghost sm" data-act="buildScan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>Scan barcode</button><button type="button" class="btn ghost sm" data-act="buildMode" data-v="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>Search food</button></div>`}
+    ${b.items.length ? `<label class="f serves">Makes how many serves?<input type="number" id="cf_serves" inputmode="numeric" min="1" max="20" value="${b.serves}"></label>` : ''}
+  </div>`;
+}
 
 /* ---------- grocery list ---------- */
 const GROCERY_ITEMS = {
@@ -2748,6 +2789,20 @@ document.addEventListener('click', async e => {
     case 'scanLookup': lookupBarcode(document.getElementById('sc_code')?.value); break;
     case 'scanGrams': S.scan.grams = +b.dataset.v; render(); break;
     case 'openMeal': openMeal(b.dataset.k); break;
+    case 'buildScan': buildState().mode = 'scan'; S.scan = { code: '', status: 'idle', product: null }; render(); openScanner(); break;
+    case 'buildMode': { const bs = buildState(); bs.mode = b.dataset.v || null; S.search.pick = null; if (!bs.mode) S.scan = { code: '', status: 'idle', product: null }; render(); if (bs.mode === 'search') setTimeout(() => document.getElementById('fs_q')?.focus(), 50); break; }
+    case 'buildDel': { const bs = buildState(); bs.items.splice(+b.dataset.i, 1); if (bs.items.length) applyBuildTotals(); render(); break; }
+    case 'buildAdd': {
+      const p = S.scan.product; if (!p) break;
+      const g = numOrNull(document.getElementById('sc_g')?.value) || S.scan.grams || 100; const k = g / 100;
+      const nm = `${p.name}${p.brand ? ' (' + p.brand + ')' : ''}`; let nut = null;
+      if (p.nut) { nut = {}; for (const [kk, vv] of Object.entries(p.nut)) nut[kk] = vv * k; }
+      buildAddItem({ name: nm, line: `${r0(g)} g ${nm}`, kcal: p.kcal * k, p: p.p * k, c: p.c * k, f: p.f * k, nut }); break;
+    }
+    case 'buildAddTa': {
+      const t = S.search.pick; if (!t?.ta) break; const q = S.search.qty || 1; const nm = `${t.name} (${t.brand})`;
+      buildAddItem({ name: nm, line: `${q}× ${nm}`, kcal: t.kcal * q, p: t.p * q, c: t.c * q, f: t.f * q, nut: null }); break;
+    }
     case 'closeMethods': if (S.methodsFromSettings) openSettings(); else document.getElementById('sheetRoot').innerHTML = ''; break;
     case 'openMethods': S.methodsFromSettings = !!b.closest('#settingsForm'); openMethods(); break;
     case 'quickAdd': { const it = quickItem(b.dataset.k); if (it) logItem(it, b.dataset.s); break; }
@@ -2859,6 +2914,8 @@ document.addEventListener('click', async e => {
 
 document.addEventListener('input', e => {
   const el = e.target;
+  if (el.closest?.('#customForm') && el.id && el.id.startsWith('cf_') && el.id !== 'cf_serves') { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }
+  if (el.id === 'cf_serves') { const bs = buildState(); bs.serves = Math.max(1, Math.min(20, Math.round(+el.value) || 1)); applyBuildTotals(); ['cf_kcal', 'cf_p', 'cf_c', 'cf_f'].forEach(id => { const x = document.getElementById(id); if (x) x.value = S.cf[id]; }); const tot = document.querySelector('.build-total'); if (tot) { const t = buildTotals(); tot.innerHTML = `<span>${bs.serves > 1 ? `Per serve (÷ ${bs.serves})` : 'Meal total'}</span><b>${r0(t.kcal)} kcal</b><span class="muted">P ${r0(t.p)} · C ${r0(t.c)} · F ${r0(t.f)}</span>`; } return; }
   if (el.id === 'fs_q') { S.search.q = el.value; if (S.search.status !== 'loading') S.search.status = 'idle'; renderSearch(); return; }
   if (el.id === 'sc_g' && S.scan.product) {
     const p = S.scan.product; const k = (numOrNull(el.value) || 0) / 100; S.scan.grams = numOrNull(el.value) || 0;
@@ -2885,6 +2942,7 @@ document.addEventListener('change', e => {
       .catch(err => { console.error(err); toast('That file isn\'t a Recomp Log backup.'); });
     return;
   }
+  if (el.closest?.('#customForm') && (el.id === 'cf_slot' || el.id === 'cf_save')) { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }
   if (el.dataset.planD) {
     const key = el.value; if (!key) return; const d = el.dataset.planD, sl = el.dataset.planS;
     savePlan(wp => { wp[d] = wp[d] || {}; wp[d][sl] = [...(wp[d][sl] || []), key]; }); render(); openPlanner(); return;
@@ -2913,8 +2971,12 @@ document.addEventListener('submit', async e => {
   const f = e.target; const v = id => document.getElementById(id)?.value;
   if (f.id === 'customForm') {
     const item = { name: v('cf_name').trim(), kcal: +v('cf_kcal') || 0, p: +v('cf_p') || 0, c: +v('cf_c') || 0, f: +v('cf_f') || 0, slot: v('cf_slot') };
-    const ing = (v('cf_ing') || '').split('\n').map(x => x.trim()).filter(Boolean);
+    const b = buildState(); const bt = b.items.length ? buildTotals() : null;
+    const ing = [...b.items.map(x => x.line), ...(v('cf_ing') || '').split('\n').map(x => x.trim()).filter(Boolean)];
+    if (b.items.length && b.serves > 1) ing.unshift(`Whole recipe (${b.serves} serves):`);
+    if (bt?.nut) item.nut = bt.nut;
     if (!item.name) return;
+    S.build = null; S.cf = null;
     const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, ...item, ...(ing.length ? { ing } : {}) }); saveDay(S.date, day);
     if (document.getElementById('cf_save').checked) {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.foods = [...(cfg.foods || []), { id: uid(), ...item, ...(ing.length ? { ing } : {}) }]; saveConfig(cfg);
