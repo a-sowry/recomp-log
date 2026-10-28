@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 27; // keep in step with VERSION in sw.js
+const APP_VERSION = 28; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -922,7 +922,7 @@ function getDraft() {
   const prog = program()[S.trainDay] || [];
   let d;
   if (existing) {
-    d = { note: existing.note || '', exercises: existing.exercises.map((e, i) => {
+    d = { note: existing.note || '', title: existing.name || '', exercises: existing.exercises.map((e, i) => {
       const p = prog.find(x => x.name === e.name) || prog[i] || {};
       return { name: e.name, sets: p.sets || e.sets.length, min: p.min, max: p.max, rows: e.sets.map(s => ({ kg: s.kg, reps: s.reps, partials: s.partials || '', drop: s.drop ? { kg: s.drop.kg, reps: s.drop.reps, partials: s.drop.partials || '' } : null })) };
     }), fromSaved: true };
@@ -942,8 +942,8 @@ function getDraft() {
 function persistDraft() { lsSet('draft:' + draftKey(), S.drafts[draftKey()]); }
 function viewTrain() {
   const wd = fromISO(S.date).getDay();
-  if (!S.trainDay) S.trainDay = WEEKDAY_DAY[wd] || 'Rest';
-  const seg = `<div class="seg" role="group" aria-label="Session">${[...DAYS, 'Rest'].map(d => `<button data-act="trainDay" data-v="${d}" aria-pressed="${S.trainDay === d}">${d}</button>`).join('')}</div>`;
+  if (!S.trainDay) { const def = WEEKDAY_DAY[wd] || 'Rest'; S.trainDay = !S.sessions[S.date + '_' + def] && S.sessions[S.date + '_Custom'] ? 'Custom' : def; }
+  const seg = `<div class="seg" role="group" aria-label="Session">${[...DAYS, 'Custom', 'Rest'].map(d => `<button data-act="trainDay" data-v="${d}" aria-pressed="${S.trainDay === d}">${d}</button>`).join('')}</div>`;
   if (S.trainDay === 'Rest') {
     const day = S.days[S.date];
     return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${seg}</section>
@@ -977,13 +977,18 @@ function viewTrain() {
       <div class="ex-foot"><button class="linkbtn" data-act="addSet" data-e="${ei}">+ Set</button>${ex.rows.length > 1 ? `<button class="linkbtn" data-act="rmSet" data-e="${ei}">− Set</button>` : ''}<button class="linkbtn" style="margin-left:auto;color:var(--muted)" data-act="rmEx" data-e="${ei}">Remove exercise</button></div>
     </div>`;
   });
-  const t = S.timer;
+  const t = S.timer; const custom = S.trainDay === 'Custom';
+  const prog = program();
+  const picker = custom ? `<select id="customPick" class="custom-pick" aria-label="Add an exercise from your program"><option value="">+ Add from your program</option>${DAYS.map(dn => `<optgroup label="${dn}">${prog[dn].map(e => `<option value="${esc(dn + '|' + e.name)}">${esc(e.name)}</option>`).join('')}</optgroup>`).join('')}</select>` : '';
+  const customHead = custom ? `<div class="card custom-head"><label class="f">Session name (optional)<input type="text" data-f="title" id="sessTitle" placeholder="e.g. Quick arms, hotel gym" value="${esc(d.title || '')}"></label>
+      ${d.exercises.length ? '' : `<div class="small muted">Build a session that fits the time you've got. Pick exercises from your split below and their last weights fill in, or add any exercise by name.</div>`}</div>` : '';
   return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${seg}
     ${saved ? `<div class="small muted">Saved session. Changes overwrite it when you save again.</div>` : ''}</section>
+    ${customHead}
     ${cards}
-    <div><button class="btn ghost" data-act="addEx">+ Add exercise</button></div>
+    <div class="add-ex-row">${picker}<button class="btn ghost" data-act="addEx">+ Add ${custom ? 'any ' : ''}exercise</button></div>
     <label class="f">Session notes<textarea id="sessNote" data-f="note">${esc(d.note)}</textarea></label>
-    ${saved ? (S.confirmSession ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Delete this ${S.trainDay} session? <button class="btn danger sm" data-act="delSession">Delete</button><button class="btn ghost sm" data-act="cancelDelSession">Keep it</button></div>` : `<div><button class="linkbtn" style="color:var(--red)" data-act="askDelSession">Delete this session</button></div>`) : ''}
+    ${saved ? (S.confirmSession ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Delete this ${custom ? (d.title || 'custom') : S.trainDay} session? <button class="btn danger sm" data-act="delSession">Delete</button><button class="btn ghost sm" data-act="cancelDelSession">Keep it</button></div>` : `<div><button class="linkbtn" style="color:var(--red)" data-act="askDelSession">Delete this session</button></div>`) : ''}
     <div class="savebar">
       <div class="timer" aria-label="Rest timer"><span class="clock" id="clock">${t.end ? '' : '0:00'}</span>
         <button class="btn sm ghost" data-act="timer" data-s="90">1:30</button><button class="btn sm ghost" data-act="timer" data-s="120">2:00</button><button class="btn sm ghost" data-act="timer" data-s="180">3:00</button></div>
@@ -1029,6 +1034,7 @@ async function saveSession() {
   })).filter(e => e.name && e.sets.length);
   if (!exercises.length) { toast('Log reps on at least one set first.'); return; }
   const doc = { date: S.date, day: S.trainDay, exercises, note: d.note || '' };
+  if (S.trainDay === 'Custom' && (d.title || '').trim()) doc.name = d.title.trim();
   const pbs = detectPBs(doc, key);
   if (pbs.length) doc.pbs = pbs.map(x => x.name);
   S.sessions[key] = doc; lsSet('draft:' + key, null); delete S.drafts[key];
@@ -2084,7 +2090,7 @@ function weekSummary(ws) {
   const supps = S.config?.supps || [];
   const suppTaken = days.reduce((n, d) => n + (d.supps || []).filter(id => supps.some(s => s.id === id)).length, 0);
   let gpts = 0; if (gardenOn()) { for (const s of sess) gpts += GARDEN.WORKOUT; for (const d of logged) { gpts += GARDEN.FOOD_DAY; if (dayTotals(d).p >= T.p - 10) gpts += GARDEN.PROTEIN_DAY; } for (const d of days) if (d.cardio?.length) gpts += GARDEN.CARDIO * Math.min(d.cardio.length, 2); gpts += list.filter(w => inWeek(w.date)).length * GARDEN.WEIGH_IN; }
-  return { ws, we, loggedDays: logged.length, avgKcal: avg(kcals), avgP: avg(prots), proteinHit: prots.filter(p => p >= T.p - 10).length, workouts: sess.length, workoutDays: sess.map(s => s.day).filter(Boolean), cardioMin: cardio.reduce((n, c) => n + (c.minutes || 0), 0), cardioN: cardio.length, wNow, wPrev, waistNow, waistPrev, pbs, suppTaken, suppPossible: supps.length * 7, gpts };
+  return { ws, we, loggedDays: logged.length, avgKcal: avg(kcals), avgP: avg(prots), proteinHit: prots.filter(p => p >= T.p - 10).length, workouts: sess.length, workoutDays: sess.map(s => s.day === 'Custom' ? (s.name || 'Custom') : s.day).filter(Boolean), cardioMin: cardio.reduce((n, c) => n + (c.minutes || 0), 0), cardioN: cardio.length, wNow, wPrev, waistNow, waistPrev, pbs, suppTaken, suppPossible: supps.length * 7, gpts };
 }
 function weeklyCard() {
   S.weekOff = S.weekOff || 0;
@@ -2926,6 +2932,7 @@ document.addEventListener('input', e => {
   if (el.dataset.f && S.tab === 'train' && el.closest('#view')) {
     const d = getDraft();
     if (el.dataset.f === 'note') { d.note = el.value; persistDraft(); return; }
+    if (el.dataset.f === 'title') { d.title = el.value; persistDraft(); return; }
     const ex = d.exercises[el.dataset.e];
     if (el.dataset.f === 'name') { ex.name = el.value; persistDraft(); return; }
     const r = ex.rows[el.dataset.r];
@@ -2943,6 +2950,12 @@ document.addEventListener('change', e => {
     return;
   }
   if (el.closest?.('#customForm') && (el.id === 'cf_slot' || el.id === 'cf_save')) { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }
+  if (el.id === 'customPick' && el.value) {
+    const [dn, name] = el.value.split('|'); const spec = (program()[dn] || []).find(x => x.name === name) || { sets: 3, min: 8, max: 12 };
+    const last = lastFor(name, S.date); const rows = [];
+    for (let i = 0; i < spec.sets; i++) { const ls = last?.sets[i] || last?.sets[last.sets.length - 1]; rows.push({ kg: ls ? ls.kg : '', reps: '', partials: '', drop: null, ph: ls ? ls.reps : '' }); }
+    getDraft().exercises.push({ name, sets: spec.sets, min: spec.min, max: spec.max, rows }); persistDraft(); render(); toast(`Added ${name}`); return;
+  }
   if (el.dataset.planD) {
     const key = el.value; if (!key) return; const d = el.dataset.planD, sl = el.dataset.planS;
     savePlan(wp => { wp[d] = wp[d] || {}; wp[d][sl] = [...(wp[d][sl] || []), key]; }); render(); openPlanner(); return;

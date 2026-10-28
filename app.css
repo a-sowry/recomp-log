@@ -681,3 +681,8 @@ select.plan-add { font-size: 13px; padding: 5px 8px; min-height: 0; width: auto;
 .scan-overlay video { pointer-events: none; }
 .scan-frame { position: relative; z-index: 1; pointer-events: none; }
 .scan-ui { position: relative; z-index: 2; }
+
+/* custom sessions */
+.custom-head { display: grid; gap: 8px; }
+.add-ex-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+select.custom-pick { flex: 1 1 200px; min-width: 0; font-weight: 600; }
