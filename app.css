@@ -686,3 +686,9 @@ select.plan-add { font-size: 13px; padding: 5px 8px; min-height: 0; width: auto;
 .custom-head { display: grid; gap: 8px; }
 .add-ex-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 select.custom-pick { flex: 1 1 200px; min-width: 0; font-weight: 600; }
+
+/* editing meals */
+.edit-banner { display: flex; gap: 10px; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--btn) 10%, var(--surface)); border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+.build-list .rowbtns { align-items: center; }
+.amt { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+.amt input { width: 72px; padding: 6px 8px; text-align: right; }

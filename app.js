@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 29; // keep in step with VERSION in sw.js
+const APP_VERSION = 30; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -817,6 +817,7 @@ function viewToday() {
   } else {
     const built = buildState().items.length;
     add = `<form id="customForm" class="sec" style="gap:10px">
+      ${S.build?.editId || S.build?.fromRecipe ? `<div class="edit-banner"><span>${S.build.editId ? 'Editing your meal. Change amounts and the totals update.' : 'Making your own version of a starter meal. It saves to your meals and replaces the starter in your list.'}</span><button type="button" class="linkbtn" data-act="cancelEditMeal">Cancel</button></div>` : ''}
       <label class="f">Meal name<input type="text" id="cf_name" required placeholder="e.g. Chicken pesto wrap" value="${esc(cfVal('cf_name'))}"></label>
       ${builderCard()}
       <div class="slotlabel" style="padding-top:2px">${built ? 'Totals (worked out from your ingredients, edit if needed)' : 'Calories and macros'}</div>
@@ -829,8 +830,8 @@ function viewToday() {
       <label class="f">${built ? 'Other ingredients (optional, one per line)' : 'Ingredients (optional, one per line, for nutrients and your grocery list)'}<textarea id="cf_ing" rows="3" placeholder="200 g chicken breast&#10;1 avocado&#10;100 g rice">${esc(cfVal('cf_ing'))}</textarea></label>
       <div class="formrow">
         <label class="f">Meal<select id="cf_slot">${SLOTS.map(s => `<option ${s === cfVal('cf_slot', guessSlot()) ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
-        <label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="cf_save" ${cfVal('cf_save', true) ? 'checked' : ''}> Save to my meal plan</label>
-        <button class="btn" type="submit">Add to log</button>
+        ${S.build?.editId || S.build?.fromRecipe ? '' : `<label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="cf_save" ${cfVal('cf_save', true) ? 'checked' : ''}> Save to my meal plan</label>`}
+        ${S.build?.editId || S.build?.fromRecipe ? `<label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="cf_logtoo"> Also add to today's log</label><button class="btn" type="submit">Save changes</button>` : '<button class="btn" type="submit">Add to log</button>'}
       </div></form>`;
   }
   const cardio = day?.cardio || [];
@@ -1743,8 +1744,8 @@ function openMeal(key, editing) {
   if (editing) ingHTML = `<label class="f">One ingredient per line, with the amount first<textarea id="meal_ing" rows="8" placeholder="200 g chicken breast&#10;1 avocado&#10;100 g rice">${esc(ing.join('\n'))}</textarea></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="mealIngSave" data-k="${esc(key)}">Save ingredients</button><button class="btn ghost" data-act="openMeal" data-k="${esc(key)}">Cancel</button></div>
       <div class="small muted">These also feed your grocery list and the nutrients panel.</div>`;
-  else if (ing.length) ingHTML = `<ul class="ing-list">${ing.map(ingLineHTML).join('')}</ul>${m.kind === 'mine' ? `<div><button class="linkbtn" data-act="mealIngEdit" data-k="${esc(key)}">Edit ingredients</button></div>` : ''}`;
-  else ingHTML = `<div class="empty small"><b>No ingredients saved for this meal yet.</b>Add them so you can see the amounts here, and so they count towards your grocery list and nutrients.<div style="margin-top:10px"><button class="btn ghost sm" data-act="mealIngEdit" data-k="${esc(key)}">Add ingredients</button></div></div>`;
+  else if (ing.length) ingHTML = `<ul class="ing-list">${ing.map(ingLineHTML).join('')}</ul>`;
+  else ingHTML = `<div class="empty small"><b>No ingredients saved for this meal yet.</b>Add them so you can see the amounts here, and so they count towards your grocery list and nutrients.<div style="margin-top:10px"><button class="btn ghost sm" data-act="editMeal" data-k="${esc(key)}">Add ingredients</button></div></div>`;
   const method = m.kind === 'recipe' && m.info.method?.length ? `<div class="slotlabel">Method</div><ol class="method-list">${m.info.method.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : '';
   const addAct = m.kind === 'recipe' ? `data-act="addRecipe" data-id="${r.id}"` : `data-act="addMine" data-id="${r.id}"`;
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet" id="sheet"><div class="panel"><div class="wrap meal-page">
@@ -1756,7 +1757,7 @@ function openMeal(key, editing) {
     <div class="slotlabel">Ingredients${m.kind === 'recipe' && !/batch/i.test(ing.join(' ')) ? ' <span class="aside">1 serve</span>' : ''}</div>
     ${ingHTML}
     ${method}
-    <div class="meal-actions"><button class="btn" ${addAct} data-close="1">Add to today's log</button><button class="btn ghost starbtn-wide" data-act="favToggle" data-k="${esc(key)}" data-reopen="${esc(key)}" aria-pressed="${isFav(r.name)}">${starSVG(isFav(r.name))}${isFav(r.name) ? 'Favourite' : 'Add to favourites'}</button></div>
+    <div class="meal-actions"><button class="btn" ${addAct} data-close="1">Add to today's log</button><button class="btn ghost" data-act="editMeal" data-k="${esc(key)}">${m.kind === 'recipe' ? 'Make it my own' : 'Edit meal'}</button><button class="btn ghost starbtn-wide" data-act="favToggle" data-k="${esc(key)}" data-reopen="${esc(key)}" aria-pressed="${isFav(r.name)}">${starSVG(isFav(r.name))}${isFav(r.name) ? 'Favourite' : 'Add to favourites'}</button></div>
   </div></div></div>`;
   if (editing) setTimeout(() => document.getElementById('meal_ing')?.focus(), 50);
 }
@@ -1914,7 +1915,9 @@ function scanResult(s, build) {
 }
 function builderCard() {
   const b = buildState(); const t = buildTotals();
-  const list = b.items.length ? `<div class="rows build-list">${b.items.map((it, i) => `<div class="row"><div style="min-width:0"><div class="t">${esc(it.line)}</div><div class="small muted">${r0(it.kcal)} kcal · P ${r0(it.p)} · C ${r0(it.c)} · F ${r0(it.f)}</div></div><button type="button" class="xbtn" data-act="buildDel" data-i="${i}" aria-label="Remove ${esc(it.name)}">×</button></div>`).join('')}</div>
+  const amt = (it, i) => it.per ? `<label class="amt"><input type="number" inputmode="decimal" step="any" min="0" id="bi_${i}" data-bi="${i}" value="${it.g}" aria-label="Amount of ${esc(it.name)}"><span>${it.unit === 'ml' ? 'ml' : 'g'}</span></label>`
+    : it.each ? `<label class="amt"><input type="number" inputmode="decimal" step="0.5" min="0" id="bi_${i}" data-bi="${i}" value="${it.q}" aria-label="How many ${esc(it.name)}"><span>×</span></label>` : '';
+  const list = b.items.length ? `<div class="rows build-list">${b.items.map((it, i) => `<div class="row"><div style="min-width:0"><div class="t">${esc(it.per || it.each ? it.name : it.line)}</div><div class="small muted" id="bk_${i}">${r0(it.kcal)} kcal · P ${r0(it.p)} · C ${r0(it.c)} · F ${r0(it.f)}${it.fixed ? ' · fixed' : ''}</div></div><span class="rowbtns">${amt(it, i)}<button type="button" class="xbtn" data-act="buildDel" data-i="${i}" aria-label="Remove ${esc(it.name)}">×</button></span></div>`).join('')}</div>
     <div class="build-total"><span>${b.serves > 1 ? `Per serve (÷ ${b.serves})` : 'Meal total'}</span><b>${r0(t.kcal)} kcal</b><span class="muted">P ${r0(t.p)} · C ${r0(t.c)} · F ${r0(t.f)}</span></div>` : `<div class="small muted">Scan or search each ingredient and enter how much you used. The calories and macros below add themselves up.</div>`;
   let adder = '';
   if (b.mode === 'scan') adder = `<div class="build-adder"><div class="formrow"><label class="f">Barcode number<input type="text" id="sc_code" inputmode="numeric" autocomplete="off" value="${esc(S.scan.code || '')}" placeholder="Scan, or type the number"></label><button type="button" class="btn ghost" data-act="scanLookup">Look up</button></div>
@@ -1925,6 +1928,49 @@ function builderCard() {
     ${b.mode ? adder : `<div class="build-btns"><button type="button" class="btn ghost sm" data-act="buildScan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>Scan barcode</button><button type="button" class="btn ghost sm" data-act="buildMode" data-v="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>Search food</button></div>`}
     ${b.items.length ? `<label class="f serves">Makes how many serves?<input type="number" id="cf_serves" inputmode="numeric" min="1" max="20" value="${b.serves}"></label>` : ''}
   </div>`;
+}
+
+/* ---------- editing meals: amounts drive the calories ---------- */
+// Per 100 g/ml [kcal, protein, carbs, fat] for the starter-meal ingredients (the same values the starter macros were worked out from).
+const INGR_MACROS = {"chicken_breast": [108, 23.0, 0, 1.6], "chicken_thigh": [140, 19.5, 0, 7.0], "lean_beef": [140, 22.0, 0, 5.5], "turkey_mince": [140, 21.0, 0, 6.0], "salmon": [200, 20.0, 0, 13.0], "white_rice_cooked": [130, 2.6, 28.5, 0.3], "brown_rice_cooked": [123, 2.7, 25.6, 1.0], "orzo_dry": [357, 12.5, 72, 1.5], "penne_dry": [350, 13.0, 66, 2.0], "oats": [380, 13.0, 60, 7.0], "whey": [400, 80, 10, 5], "greek_yog_0": [60, 10.0, 4, 0.2], "skim_milk": [36, 3.6, 5, 0.1], "banana": [89, 1.1, 20, 0.3], "peanut_butter": [610, 25, 13, 50], "egg": [143, 12.6, 0.7, 9.5], "egg_white": [50, 11, 0.7, 0.2], "cottage_cheese": [80, 12.5, 3, 2.0], "sourdough": [255, 9, 49, 1.5], "berries": [50, 0.8, 10, 0.3], "maple": [260, 0, 67, 0], "honey": [304, 0.3, 82, 0], "black_beans": [90, 6, 13, 0.5], "corn": [86, 3.3, 17, 1.3], "capsicum": [30, 1, 5, 0.3], "tomato": [18, 0.9, 3, 0.2], "olive_oil": [884, 0, 0, 100], "avocado": [165, 2, 2, 15], "cabbage": [25, 1.3, 4, 0.1], "carrot": [41, 0.9, 7, 0.2], "cucumber": [15, 0.6, 3, 0.1], "kewpie": [680, 1.5, 2, 75], "mayo": [680, 1.5, 2, 75], "sweet_chilli": [220, 0.3, 53, 0.3], "sriracha": [95, 2, 19, 1], "soy": [60, 8, 6, 0], "broccoli": [34, 2.8, 4, 0.4], "broth": [5, 1, 0.3, 0], "cornflour": [360, 0.3, 88, 0], "kimchi": [20, 1.5, 2.5, 0.5], "spinach": [23, 2.9, 1, 0.4], "parmesan": [420, 36, 0, 29], "flour": [364, 10, 73, 1], "tortilla": [300, 8, 46, 7.5], "light_cheese": [300, 30, 0.5, 19], "salsa": [35, 1.3, 6, 0.2], "sweet_potato": [80, 1.6, 17, 0.1], "choc_chips": [490, 5, 60, 27], "almonds": [580, 21, 5, 50], "strawberries": [32, 0.7, 6, 0.3], "almond_milk": [15, 0.5, 0.3, 1.2], "granola": [450, 10, 60, 18], "edamame": [122, 11, 8, 5], "passata": [35, 1.5, 6, 0.2], "onion": [40, 1.1, 7, 0.1], "light_mozz": [250, 25, 1, 16], "taco_season": [300, 6, 55, 5], "chia": [490, 17, 8, 31], "broccolini": [35, 3.5, 3, 0.4], "lettuce": [15, 1.3, 2, 0.2], "rice_cake": [390, 8, 80, 3], "nori": [0, 0, 0, 0], "rice_vinegar": [20, 0, 4, 0], "lime": [25, 0.4, 8, 0.1]};
+const INGR_NAMES = { white_rice_cooked: 'White rice (cooked)', brown_rice_cooked: 'Brown rice (cooked)', chicken_breast: 'Chicken breast (raw)', chicken_thigh: 'Skinless chicken thigh (raw)', lean_beef: 'Lean beef steak (raw)', turkey_mince: 'Lean turkey mince (raw)', salmon: 'Salmon fillet (raw)', orzo_dry: 'Orzo (dry)', penne_dry: 'Wholemeal penne (dry)', oats: 'Rolled oats', egg: 'Egg', nori: 'Nori sheet' };
+function ingrName(key) { return INGR_NAMES[key] || (GROCERY_ITEMS[key] ? GROCERY_ITEMS[key][0] : key.replace(/_/g, ' ')); }
+function perFromKey(key) { const m = INGR_MACROS[key]; if (!m) return null; return { kcal: m[0], p: m[1], c: m[2], f: m[3], nut: nutFromKey(key) }; }
+function itemCalc(it) { // recompute an editable builder item from its amount
+  if (it.per) { const k = (+it.g || 0) / 100; Object.assign(it, { kcal: it.per.kcal * k, p: it.per.p * k, c: it.per.c * k, f: it.per.f * k, line: `${r0(it.g)} ${it.unit === 'ml' ? 'ml' : 'g'} ${it.name}` }); if (it.per.nut) { it.nut = {}; for (const [kk, vv] of Object.entries(it.per.nut)) it.nut[kk] = vv * k; } }
+  else if (it.each) { const q = +it.q || 0; Object.assign(it, { kcal: it.each.kcal * q, p: it.each.p * q, c: it.each.c * q, f: it.each.f * q, line: `${q}× ${it.name}` }); }
+  return it;
+}
+function matchLine(line) { // "200 g chicken breast" -> builder item, or null if we can't tell what it is
+  const t = line.trim(); const pi = parseIng(t);
+  const own = t.replace(/^(\d+(?:[.,]\d+)?|half|½)\s*(kg|g|ml|l|tbsp|tsp)?\b\.?\s*/i, '').trim();
+  if (pi && INGR_MACROS[pi[0]]) { const asG = /^\d+(?:[.,]\d+)?\s*(kg|g|ml|l|tbsp|tsp)\b/i.test(t); return itemCalc({ name: asG && own ? own.charAt(0).toUpperCase() + own.slice(1) : ingrName(pi[0]), g: Math.round(pi[1]), per: perFromKey(pi[0]) }); }
+  const m = t.match(/^(\d+(?:[.,]\d+)?)\s*(g|kg|ml|l)\b\.?\s+(.+)$/i);
+  if (m) { let q = parseFloat(m[1].replace(',', '.')); if (/^(kg|l)$/i.test(m[2])) q *= 1000; const f = searchCommon(m[3])[0]; if (f) return itemCalc({ name: m[3].charAt(0).toUpperCase() + m[3].slice(1), g: Math.round(q), per: { kcal: f.kcal, p: f.p, c: f.c, f: f.f, nut: f.key ? nutFromKey(f.key) : null } }); }
+  return null;
+}
+function itemsFromFood(f) {
+  if (f.items?.length) return JSON.parse(JSON.stringify(f.items)).map(itemCalc);
+  const items = [], rest = [];
+  for (const l of f.ing || []) { if (/:$/.test(l.trim())) continue; const it = matchLine(l); if (it) items.push(it); else rest.push(l); }
+  const serves = f.serves || 1; const sum = { kcal: 0, p: 0, c: 0, f: 0 }; for (const it of items) for (const k in sum) sum[k] += it[k];
+  const left = { kcal: f.kcal * serves - sum.kcal, p: f.p * serves - sum.p, c: f.c * serves - sum.c, f: f.f * serves - sum.f };
+  if (rest.length || left.kcal > 15) items.push({ name: 'Rest of the meal', line: 'Rest of the meal (from your original numbers)', kcal: Math.max(0, left.kcal), p: Math.max(0, left.p), c: Math.max(0, left.c), f: Math.max(0, left.f), fixed: true });
+  return { items, rest };
+}
+function editMeal(key) {
+  const m = mealByKey(key); if (!m) return; const r = m.r;
+  let items, rest = [], serves = 1, name = r.name;
+  if (m.kind === 'recipe') {
+    items = (RECIPE_GROCERY[r.id] || []).filter(([k, g]) => g > 0 && INGR_MACROS[k] && k !== 'nori').map(([k, g]) => itemCalc({ name: ingrName(k), g: Math.round(g * 10) / 10, per: perFromKey(k), unit: ['skim_milk', 'almond_milk', 'broth', 'soy', 'olive_oil', 'rice_vinegar'].includes(k) ? 'ml' : 'g' }));
+  } else {
+    const x = itemsFromFood(r); if (Array.isArray(x)) items = x; else { items = x.items; rest = x.rest; } serves = r.serves || 1;
+  }
+  S.build = { items, serves, mode: null, editId: m.kind === 'mine' ? r.id : null, fromRecipe: m.kind === 'recipe' ? r.id : null };
+  S.cf = { cf_name: name, cf_slot: r.slot || 'Snack', cf_ing: rest.join('\n'), cf_save: true };
+  applyBuildTotals();
+  document.getElementById('sheetRoot').innerHTML = ''; S.foodAdd = 'custom'; render();
+  setTimeout(() => document.getElementById('customForm')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60);
 }
 
 /* ---------- grocery list ---------- */
@@ -2796,6 +2842,8 @@ document.addEventListener('click', async e => {
     case 'scanLookup': lookupBarcode(document.getElementById('sc_code')?.value); break;
     case 'scanGrams': S.scan.grams = +b.dataset.v; render(); break;
     case 'openMeal': openMeal(b.dataset.k); break;
+    case 'editMeal': editMeal(b.dataset.k); break;
+    case 'cancelEditMeal': S.build = null; S.cf = null; S.foodAdd = 'plan'; render(); break;
     case 'buildScan': buildState().mode = 'scan'; S.scan = { code: '', status: 'idle', product: null }; render(); openScanner(); break;
     case 'buildMode': { const bs = buildState(); bs.mode = b.dataset.v || null; S.search.pick = null; if (!bs.mode) S.scan = { code: '', status: 'idle', product: null }; render(); if (bs.mode === 'search') setTimeout(() => document.getElementById('fs_q')?.focus(), 50); break; }
     case 'buildDel': { const bs = buildState(); bs.items.splice(+b.dataset.i, 1); if (bs.items.length) applyBuildTotals(); render(); break; }
@@ -2804,11 +2852,11 @@ document.addEventListener('click', async e => {
       const g = numOrNull(document.getElementById('sc_g')?.value) || S.scan.grams || 100; const k = g / 100;
       const nm = `${p.name}${p.brand ? ' (' + p.brand + ')' : ''}`; let nut = null;
       if (p.nut) { nut = {}; for (const [kk, vv] of Object.entries(p.nut)) nut[kk] = vv * k; }
-      buildAddItem({ name: nm, line: `${r0(g)} g ${nm}`, kcal: p.kcal * k, p: p.p * k, c: p.c * k, f: p.f * k, nut }); break;
+      buildAddItem(itemCalc({ name: nm, g: r0(g), per: { kcal: p.kcal, p: p.p, c: p.c, f: p.f, nut: p.nut || null } })); break;
     }
     case 'buildAddTa': {
       const t = S.search.pick; if (!t?.ta) break; const q = S.search.qty || 1; const nm = `${t.name} (${t.brand})`;
-      buildAddItem({ name: nm, line: `${q}× ${nm}`, kcal: t.kcal * q, p: t.p * q, c: t.c * q, f: t.f * q, nut: null }); break;
+      buildAddItem(itemCalc({ name: nm, q, each: { kcal: t.kcal, p: t.p, c: t.c, f: t.f } })); break;
     }
     case 'closeMethods': if (S.methodsFromSettings) openSettings(); else document.getElementById('sheetRoot').innerHTML = ''; break;
     case 'openMethods': S.methodsFromSettings = !!b.closest('#settingsForm'); openMethods(); break;
@@ -2923,6 +2971,14 @@ document.addEventListener('click', async e => {
 document.addEventListener('input', e => {
   const el = e.target;
   if (el.closest?.('#customForm') && el.id && el.id.startsWith('cf_') && el.id !== 'cf_serves') { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }
+  if (el.dataset.bi != null) {
+    const bs = buildState(); const it = bs.items[+el.dataset.bi]; if (!it) return; const v = Math.max(0, +el.value || 0);
+    if (it.per) it.g = v; else if (it.each) it.q = v; itemCalc(it); applyBuildTotals();
+    const row = document.getElementById('bk_' + el.dataset.bi); if (row) row.textContent = `${r0(it.kcal)} kcal · P ${r0(it.p)} · C ${r0(it.c)} · F ${r0(it.f)}`;
+    ['cf_kcal', 'cf_p', 'cf_c', 'cf_f'].forEach(id => { const x = document.getElementById(id); if (x) x.value = S.cf[id]; });
+    const tot = document.querySelector('.build-total'); if (tot) { const t = buildTotals(); tot.innerHTML = `<span>${bs.serves > 1 ? `Per serve (÷ ${bs.serves})` : 'Meal total'}</span><b>${r0(t.kcal)} kcal</b><span class="muted">P ${r0(t.p)} · C ${r0(t.c)} · F ${r0(t.f)}</span>`; }
+    return;
+  }
   if (el.id === 'cf_serves') { const bs = buildState(); bs.serves = Math.max(1, Math.min(20, Math.round(+el.value) || 1)); applyBuildTotals(); ['cf_kcal', 'cf_p', 'cf_c', 'cf_f'].forEach(id => { const x = document.getElementById(id); if (x) x.value = S.cf[id]; }); const tot = document.querySelector('.build-total'); if (tot) { const t = buildTotals(); tot.innerHTML = `<span>${bs.serves > 1 ? `Per serve (÷ ${bs.serves})` : 'Meal total'}</span><b>${r0(t.kcal)} kcal</b><span class="muted">P ${r0(t.p)} · C ${r0(t.c)} · F ${r0(t.f)}</span>`; } return; }
   if (el.id === 'fs_q') { S.search.q = el.value; if (S.search.status !== 'loading') S.search.status = 'idle'; renderSearch(); return; }
   if (el.id === 'sc_g' && S.scan.product) {
@@ -2987,14 +3043,24 @@ document.addEventListener('submit', async e => {
   if (f.id === 'customForm') {
     const item = { name: v('cf_name').trim(), kcal: +v('cf_kcal') || 0, p: +v('cf_p') || 0, c: +v('cf_c') || 0, f: +v('cf_f') || 0, slot: v('cf_slot') };
     const b = buildState(); const bt = b.items.length ? buildTotals() : null;
-    const ing = [...b.items.map(x => x.line), ...(v('cf_ing') || '').split('\n').map(x => x.trim()).filter(Boolean)];
+    const ing = [...b.items.filter(x => !x.fixed).map(x => x.line), ...(v('cf_ing') || '').split('\n').map(x => x.trim()).filter(Boolean)];
     if (b.items.length && b.serves > 1) ing.unshift(`Whole recipe (${b.serves} serves):`);
     if (bt?.nut) item.nut = bt.nut;
     if (!item.name) return;
+    const extra = { ...(ing.length ? { ing } : {}), ...(b.items.length ? { items: JSON.parse(JSON.stringify(b.items)), serves: b.serves } : {}) };
+    const editId = b.editId, fromRecipe = b.fromRecipe; const logToo = editId || fromRecipe ? !!document.getElementById('cf_logtoo')?.checked : true;
     S.build = null; S.cf = null;
+    if (editId || fromRecipe) {
+      const cfg = cfgCopy(); cfg.foods = cfg.foods || [];
+      if (editId) cfg.foods = cfg.foods.map(x => x.id === editId ? { id: x.id, ...item, ...extra } : x);
+      else { cfg.foods.push({ id: uid(), ...item, ...extra }); cfg.hiddenRecipes = [...new Set([...(cfg.hiddenRecipes || []), fromRecipe])]; }
+      saveConfig(cfg);
+      if (logToo) { const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, ...item, ...(ing.length ? { ing } : {}) }); saveDay(S.date, day); }
+      S.foodAdd = 'plan'; render(); toast(editId ? `${item.name} updated` : `${item.name} saved to your meals`); return;
+    }
     const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, ...item, ...(ing.length ? { ing } : {}) }); saveDay(S.date, day);
-    if (document.getElementById('cf_save').checked) {
-      const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.foods = [...(cfg.foods || []), { id: uid(), ...item, ...(ing.length ? { ing } : {}) }]; saveConfig(cfg);
+    if (document.getElementById('cf_save')?.checked) {
+      const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.foods = [...(cfg.foods || []), { id: uid(), ...item, ...extra }]; saveConfig(cfg);
     }
     toast(`Added ${item.name}`);
   } else if (f.id === 'cardioForm') {
