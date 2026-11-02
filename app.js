@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 31; // keep in step with VERSION in sw.js
+const APP_VERSION = 32; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -114,12 +114,21 @@ function applyTheme(id) {
 applyTheme(lsGet('rl:theme') || 'auto');
 
 function targets() { return Object.assign({}, DEFAULT_TARGETS, S.config?.targets || {}); }
+// Each account's training split. Accounts from before custom splits (no config.split) keep the original Push/Pull/Legs/Upper/Lower.
+function starterSplit() { return DAYS.map(name => ({ name, wd: Object.entries(WEEKDAY_DAY).filter(([, v]) => v === name).map(([k]) => +k) })); }
+function splitList() { return Array.isArray(S.config?.split) ? S.config.split : starterSplit(); }
+function splitDays() { return splitList().map(d => d.name); }
+function dayForWeekday(wd) { return splitList().find(d => (d.wd || []).includes(wd))?.name || null; }
 function program() {
-  const p = S.config?.program;
+  const p = S.config?.program; const legacy = !Array.isArray(S.config?.split);
   const out = {};
-  for (const d of DAYS) out[d] = (p && p[d] ? p[d] : DEFAULT_PROGRAM[d].map(([name, sets, min, max]) => ({ name, sets, min, max })));
+  for (const d of splitDays()) out[d] = (p && p[d] ? p[d] : legacy && DEFAULT_PROGRAM[d] ? DEFAULT_PROGRAM[d].map(([name, sets, min, max]) => ({ name, sets, min, max })) : []);
   return out;
 }
+const COMMON_EXERCISES = ['Barbell bench press', 'Incline dumbbell press', 'Overhead press', 'Dumbbell shoulder press', 'Lateral raise', 'Cable fly', 'Tricep pushdown', 'Overhead tricep extension', 'Dips', 'Push-ups',
+  'Pull-ups', 'Lat pulldown', 'Seated cable row', 'Barbell row', 'Dumbbell row', 'Face pull', 'Rear delt fly', 'Barbell curl', 'Dumbbell curl', 'Hammer curl',
+  'Back squat', 'Front squat', 'Leg press', 'Romanian deadlift', 'Deadlift', 'Hip thrust', 'Bulgarian split squat', 'Walking lunge', 'Leg extension', 'Lying leg curl', 'Seated leg curl', 'Calf raise',
+  'Plank', 'Hanging leg raise', 'Cable crunch', 'Glute bridge', 'Kettlebell swing', 'Farmer carry'];
 function dayTotals(day) {
   const t = { kcal: 0, p: 0, c: 0, f: 0 };
   for (const m of (day?.meals || [])) { const s = m.servings ?? 1; t.kcal += m.kcal * s; t.p += m.p * s; t.c += m.c * s; t.f += m.f * s; }
@@ -394,6 +403,7 @@ function render() {
   syncBlooms();
   const names = new Set(); for (const s of Object.values(S.sessions)) for (const e of s.exercises || []) names.add(e.name);
   for (const d of Object.values(program())) for (const e of d) names.add(e.name);
+  for (const n of COMMON_EXERCISES) names.add(n);
   document.getElementById('exnames').innerHTML = [...names].sort().map(n => `<option value="${esc(n)}">`).join('');
 }
 
@@ -943,11 +953,13 @@ function getDraft() {
 function persistDraft() { lsSet('draft:' + draftKey(), S.drafts[draftKey()]); }
 function viewTrain() {
   const wd = fromISO(S.date).getDay();
-  if (!S.trainDay) { const def = WEEKDAY_DAY[wd] || 'Rest'; S.trainDay = !S.sessions[S.date + '_' + def] && S.sessions[S.date + '_Custom'] ? 'Custom' : def; }
-  const seg = `<div class="seg" role="group" aria-label="Session">${[...DAYS, 'Custom', 'Rest'].map(d => `<button data-act="trainDay" data-v="${d}" aria-pressed="${S.trainDay === d}">${d}</button>`).join('')}</div>`;
+  if (!S.trainDay) { const def = dayForWeekday(wd) || 'Rest'; S.trainDay = !S.sessions[S.date + '_' + def] && S.sessions[S.date + '_Custom'] ? 'Custom' : def; }
+  if (S.trainDay !== 'Custom' && S.trainDay !== 'Rest' && !splitDays().includes(S.trainDay)) S.trainDay = 'Rest';
+  const seg = `<div class="seg" role="group" aria-label="Session">${[...splitDays(), 'Custom', 'Rest'].map(d => `<button data-act="trainDay" data-v="${d}" aria-pressed="${S.trainDay === d}">${d}</button>`).join('')}</div>`;
   if (S.trainDay === 'Rest') {
     const day = S.days[S.date];
     return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${seg}</section>
+    ${splitDays().length ? '' : `<div class="card" style="display:grid;gap:8px"><b>No training split set up yet.</b><div class="small muted">Build your own split in Settings: name your days, pick which weekdays they're on, and add exercises. Or tap Custom to log any session.</div><div><button class="btn sm" data-act="openSplit">Set up my split</button></div></div>`}
     <div class="card empty"><b>Rest day.</b>Log abs, cardio, swims and hikes under Food → Steps &amp; cardio. ${day?.cardio?.length ? `Logged today: ${day.cardio.map(c => esc(c.type)).join(', ')}.` : ''}<div style="margin-top:10px"><button class="btn ghost" data-act="tab" data-v="today">Go to steps &amp; cardio</button></div></div>`;
   }
   if (!S.loaded.sessions && navigator.onLine && !S.offlineAuth) return `<section class="sec">${seg}</section><div class="card empty">Loading your lift history…</div>`;
@@ -980,7 +992,7 @@ function viewTrain() {
   });
   const t = S.timer; const custom = S.trainDay === 'Custom';
   const prog = program();
-  const picker = custom ? `<select id="customPick" class="custom-pick" aria-label="Add an exercise from your program"><option value="">+ Add from your program</option>${DAYS.map(dn => `<optgroup label="${dn}">${prog[dn].map(e => `<option value="${esc(dn + '|' + e.name)}">${esc(e.name)}</option>`).join('')}</optgroup>`).join('')}</select>` : '';
+  const picker = custom ? `<select id="customPick" class="custom-pick" aria-label="Add an exercise from your program"><option value="">+ Add from your program</option>${splitDays().map(dn => `<optgroup label="${esc(dn)}">${prog[dn].map(e => `<option value="${esc(dn + '|' + e.name)}">${esc(e.name)}</option>`).join('')}</optgroup>`).join('')}</select>` : '';
   const customHead = custom ? `<div class="card custom-head"><label class="f">Session name (optional)<input type="text" data-f="title" id="sessTitle" placeholder="e.g. Quick arms, hotel gym" value="${esc(d.title || '')}"></label>
       ${d.exercises.length ? '' : `<div class="small muted">Build a session that fits the time you've got. Pick exercises from your split below and their last weights fill in, or add any exercise by name.</div>`}</div>` : '';
   return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${seg}
@@ -1117,7 +1129,7 @@ function viewProgress() {
   const change = first && last ? ((last.e1 - first.e1) / first.e1) * 100 : 0;
   // summary of current program lifts
   const prog = program(); const seen = new Set(); let sumRows = '';
-  for (const d of DAYS) for (const p of prog[d]) {
+  for (const d of splitDays()) for (const p of prog[d]) {
     if (seen.has(p.name)) continue; seen.add(p.name);
     const hh = historyFor(p.name); if (!hh.length) continue;
     const f = hh[0], l = hh[hh.length - 1]; const ch = hh.length > 1 ? ((l.e1 - f.e1) / f.e1) * 100 : null;
@@ -1364,6 +1376,9 @@ function openOnboarding(step) {
       <div class="f"><span>Colour</span><div class="swatches">${THEMES.map(t => `<button type="button" class="swatch" data-act="ob-theme" data-v="${t.id}" aria-pressed="${d.theme === t.id}" title="${t.name}">
         <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div></div>
       ${(() => { const soft = isSoftId(d.theme); const g = growKind(d.theme, soft ? d.growSoft : d.grow); return `<div class="f"><span>What you grow. It grows every time you log, and fastest when you work out.</span>${growPicker(g, 'ob-grow', g, soft)}</div>` + (g === 'flower' ? `<div class="f"><span>Your flower</span>${flowerPicker('ob-flower', d.flower)}</div>` : ''); })()}
+      ${d.redo ? '' : `<div class="f"><span>How do you want to start?</span><div class="start-pick">
+        <button type="button" class="card start-opt" data-act="ob-start" data-v="blank" aria-pressed="${(d.start || 'blank') === 'blank'}"><b>Start blank</b><span class="small muted">No meals or workouts. Add your own meals and build your own training split.</span></button>
+        <button type="button" class="card start-opt" data-act="ob-start" data-v="starter" aria-pressed="${d.start === 'starter'}"><b>Use the starter plan</b><span class="small muted">16 high-protein meals and a 5-day Push / Pull / Legs / Upper / Lower split. Everything's editable.</span></button></div></div>`}
       <div class="ob-actions"><button type="button" class="btn ghost" data-act="ob-back">Back</button><button type="button" class="btn" data-act="ob-finish">Start logging</button></div>`;
   }
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet ob"><div class="panel"><div class="wrap ob-wrap"><div class="ob-dots" aria-label="Step ${st} of 4">${dots}</div>${body}</div></div></div>`;
@@ -1393,6 +1408,11 @@ function obFinish(skip) {
     cfg.theme = d.theme; cfg.flower = d.flower; if (d.grow) cfg.grow = d.grow; if (d.growSoft) cfg.growSoft = d.growSoft;
     if (d.weight && !S.weights[todayISO()]) store.set('weights', todayISO(), { date: todayISO(), kg: d.weight });
   }
+  // brand-new accounts start blank unless they chose the starter plan (redoing setup never touches meals or the split)
+  const hasHistory = Object.keys(S.days).length || Object.keys(S.sessions).length || Object.keys(S.weights).filter(k => k !== todayISO()).length || (cfg.foods || []).length;
+  const firstTime = !S.ob?.d?.redo && !cfg.split && !cfg.program && !hasHistory;
+  if (firstTime && (skip || (S.ob?.d?.start || 'blank') === 'blank')) { cfg.split = []; cfg.program = {}; cfg.hiddenRecipes = RECIPES.map(r => r.id); }
+  else if (firstTime) { cfg.split = starterSplit(); }
   S.ob = null; document.getElementById('sheetRoot').innerHTML = '';
   applyTheme(cfg.theme || 'auto'); saveConfig(cfg);
   toast(skip ? 'You can do setup any time from Settings.' : `All set${cfg.profile?.name ? ', ' + cfg.profile.name : ''}. Happy logging!`);
@@ -2664,15 +2684,10 @@ function growSettings() {
 }
 function openSettings() {
   const T = targets(); const prog = program();
-  const ed = DAYS.map(d => `<div class="card" style="display:grid;gap:6px"><div class="slotlabel" style="padding-top:0">${d}</div>
-    <div class="progrow small muted"><span>Exercise</span><span>Sets</span><span>Min</span><span>Max</span><span></span></div>
-    ${prog[d].map((p, i) => `<div class="progrow" data-day="${d}">
-      <input type="text" list="exnames" value="${esc(p.name)}" data-k="name" aria-label="${d} exercise ${i + 1}" id="pg_${d}_${i}_n">
-      <input type="number" min="1" max="8" value="${p.sets}" data-k="sets" aria-label="Sets" id="pg_${d}_${i}_s">
-      <input type="number" min="1" max="50" value="${p.min}" data-k="min" aria-label="Min reps" id="pg_${d}_${i}_a">
-      <input type="number" min="1" max="50" value="${p.max}" data-k="max" aria-label="Max reps" id="pg_${d}_${i}_b">
-      <button type="button" class="del" data-act="pgDel" aria-label="Remove">×</button></div>`).join('')}
-    <div><button type="button" class="linkbtn" data-act="pgAdd" data-day="${d}">+ Exercise</button></div></div>`).join('');
+  const ed = `<div class="card split-intro" id="splitEditor" style="display:grid;gap:8px"><div class="slotlabel" style="padding-top:0">Your training split</div>
+      <div class="small muted">Name your training days, tick which weekdays they're on (the Train tab opens on that day automatically), and add the exercises with their rep ranges. Tap Save at the bottom when you're done.</div></div>
+    <div id="splitDays">${splitList().map((sd, di) => dayEditor(sd, prog[sd.name] || [], di)).join('')}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost sm" data-act="pgAddDay">+ Add a training day</button></div>`;
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet" id="sheet"><div class="panel"><form class="wrap" id="settingsForm">
     <div style="display:flex;align-items:center;gap:10px"><h3>Settings</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSettings">Close</button></div>
     <button type="button" class="card methods-cta" data-act="openMethods"><span><b>How it's calculated</b><span class="small muted">The formulas behind your targets, and where every food's calories come from</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -2711,7 +2726,7 @@ function openSettings() {
       <div class="chips">${SUPP_SUGGEST.filter(n => !(S.config?.supps || []).some(x => x.name === n)).map(n => `<button type="button" class="chip k chipbtn" data-act="suppQuick" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>
     </div>
     ${ed}
-    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" type="submit">Save</button><button type="button" class="btn ghost" data-act="pgReset">Reset program to original split</button></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" type="submit">Save</button><button type="button" class="btn ghost sm" data-act="pgStarter">Use the starter split</button><button type="button" class="btn ghost sm" data-act="pgClear">Clear my split</button></div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Your data</div>
       <div class="small muted">${store.outbox.length ? `${store.outbox.length} change${store.outbox.length > 1 ? 's' : ''} waiting to sync.` : 'Everything is synced to your Supabase database.'}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2734,15 +2749,43 @@ function openSettings() {
     </div>
   </form></div></div>`;
 }
-function readProgramFromSheet() {
-  const out = {}; for (const d of DAYS) out[d] = [];
-  document.querySelectorAll('#settingsForm .progrow[data-day]').forEach(row => {
-    const g = k => row.querySelector(`[data-k="${k}"]`).value;
-    const name = g('name').trim(); if (!name) return;
-    const min = Math.max(1, +g('min') || 8), max = Math.max(min, +g('max') || min);
-    out[row.dataset.day].push({ name, sets: Math.max(1, +g('sets') || 3), min, max });
+const WD = [[1, 'M'], [2, 'T'], [3, 'W'], [4, 'T'], [5, 'F'], [6, 'S'], [0, 'S']];
+const WD_LONG = { 0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday' };
+function exRow(p, k) {
+  return `<div class="progrow">
+      <input type="text" list="exnames" value="${esc(p.name || '')}" data-k="name" aria-label="Exercise" id="pg_${k}_n" placeholder="Exercise">
+      <input type="number" min="1" max="10" value="${p.sets || 3}" data-k="sets" aria-label="Sets" id="pg_${k}_s">
+      <input type="number" min="1" max="50" value="${p.min || 8}" data-k="min" aria-label="Min reps" id="pg_${k}_a">
+      <input type="number" min="1" max="50" value="${p.max || 12}" data-k="max" aria-label="Max reps" id="pg_${k}_b">
+      <button type="button" class="del" data-act="pgDel" aria-label="Remove exercise">×</button></div>`;
+}
+function dayEditor(sd, exs, di) {
+  const k = 'd' + di + '_' + Math.random().toString(36).slice(2, 6);
+  return `<div class="card dayedit" style="display:grid;gap:8px">
+    <div class="dayedit-head"><input type="text" class="dayname" data-k="dayname" value="${esc(sd.name)}" placeholder="Day name, e.g. Push, Full body A" aria-label="Training day name" maxlength="24"><button type="button" class="linkbtn" style="color:var(--red)" data-act="pgDelDay">Remove day</button></div>
+    <div class="wdpick" role="group" aria-label="Which weekdays">${WD.map(([n, l]) => `<button type="button" class="wd-chip" data-wd="${n}" aria-pressed="${(sd.wd || []).includes(n)}" aria-label="${WD_LONG[n]}" data-act="wdToggle">${l}</button>`).join('')}</div>
+    <div class="progrow small muted"><span>Exercise</span><span>Sets</span><span>Min</span><span>Max</span><span></span></div>
+    <div class="dayexs">${exs.map((p, i) => exRow(p, k + '_' + i)).join('')}</div>
+    <div><button type="button" class="linkbtn" data-act="pgAdd">+ Exercise</button></div></div>`;
+}
+function readSplitFromSheet() { // -> { split, program } from the Settings editor
+  const split = [], program = {}; const used = new Set(['custom', 'rest']);
+  document.querySelectorAll('#settingsForm .dayedit').forEach((card, i) => {
+    let name = (card.querySelector('.dayname').value || '').trim().replace(/[_/]/g, ' ') || `Day ${i + 1}`;
+    let n = name, c = 2; while (used.has(n.toLowerCase())) n = `${name} ${c++}`; used.add(n.toLowerCase());
+    const wd = [...card.querySelectorAll('.wd-chip[aria-pressed="true"]')].map(b => +b.dataset.wd);
+    const exs = [];
+    card.querySelectorAll('.progrow:not(.small)').forEach(row => {
+      const g = k => row.querySelector(`[data-k="${k}"]`)?.value ?? '';
+      const ex = g('name').trim(); if (!ex) return;
+      const min = Math.max(1, +g('min') || 8), max = Math.max(min, +g('max') || min);
+      exs.push({ name: ex, sets: Math.max(1, Math.min(10, +g('sets') || 3)), min, max });
+    });
+    split.push({ name: n, wd }); program[n] = exs;
   });
-  return out;
+  // a weekday can only open one day: the first day that claims it wins
+  const seen = new Set(), clash = []; for (const d of split) d.wd = d.wd.filter(w => { if (seen.has(w)) { clash.push(`${WD_LONG[w]} stays with ${split.find(x => x.wd.includes(w) && x !== d)?.name}`); return false; } seen.add(w); return true; });
+  return { split, program, clash };
 }
 
 /* ---------- events ---------- */
@@ -2852,8 +2895,9 @@ document.addEventListener('click', async e => {
     case 'ob-finish': obFinish(false); break;
     case 'ob-theme': { S.ob.d.theme = b.dataset.v; appliedTheme = null; applyTheme(b.dataset.v); openOnboarding(); break; }
     case 'ob-flower': { S.ob.d.flower = b.dataset.v; openOnboarding(); break; }
+    case 'ob-start': { S.ob.d.start = b.dataset.v; openOnboarding(); break; }
     case 'ob-grow': { S.ob.d[isSoftId(S.ob.d.theme) ? 'growSoft' : 'grow'] = b.dataset.v; openOnboarding(); break; }
-    case 'redoSetup': { const pr = S.config?.profile || {}; S.ob = { step: 1, d: { sex: pr.sex || 'female', age: pr.age, height: pr.height, weight: weightList().slice(-1)[0]?.kg || pr.weight, name: pr.name, activity: pr.activity || 'light', goal: pr.goal || 'recomp', theme: S.config?.theme || 'auto', flower: flowerType(), grow: S.config?.grow } }; openOnboarding(); break; }
+    case 'redoSetup': { const pr = S.config?.profile || {}; S.ob = { step: 1, d: { redo: true, sex: pr.sex || 'female', age: pr.age, height: pr.height, weight: weightList().slice(-1)[0]?.kg || pr.weight, name: pr.name, activity: pr.activity || 'light', goal: pr.goal || 'recomp', theme: S.config?.theme || 'auto', flower: flowerType(), grow: S.config?.grow } }; openOnboarding(); break; }
     case 'changePw': changePassword(); break;
     case 'openScanner': openScanner(); break;
     case 'closeScanner': closeScanner(); break;
@@ -2977,14 +3021,19 @@ document.addEventListener('click', async e => {
     case 'closeSettings': S.confirmSignOut = false; document.getElementById('sheetRoot').innerHTML = ''; if (pendingRender) { pendingRender = false; render(); } break;
     case 'pgDel': b.closest('.progrow').remove(); break;
     case 'pgAdd': {
-      const d = b.dataset.day; const row = document.createElement('div'); row.className = 'progrow'; row.dataset.day = d; const i = Date.now();
-      row.innerHTML = `<input type="text" list="exnames" data-k="name" aria-label="${d} new exercise" id="pg_${d}_${i}_n" placeholder="Exercise"><input type="number" min="1" max="8" value="3" data-k="sets" aria-label="Sets" id="pg_${d}_${i}_s"><input type="number" min="1" max="50" value="8" data-k="min" aria-label="Min reps" id="pg_${d}_${i}_a"><input type="number" min="1" max="50" value="12" data-k="max" aria-label="Max reps" id="pg_${d}_${i}_b"><button type="button" class="del" data-act="pgDel" aria-label="Remove">×</button>`;
-      b.parentElement.before(row); row.querySelector('input').focus(); break;
+      const box = b.closest('.dayedit').querySelector('.dayexs'); const tmp = document.createElement('div'); tmp.innerHTML = exRow({}, 'n' + Date.now());
+      const row = tmp.firstElementChild; box.append(row); row.querySelector('input').focus(); break;
     }
-    case 'pgReset': {
-      const cfg = JSON.parse(JSON.stringify(S.config || {})); delete cfg.program; saveConfig(cfg);
-      document.getElementById('sheetRoot').innerHTML = ''; S.drafts = {}; toast('Program reset to your original split'); break;
+    case 'pgAddDay': { const box = document.getElementById('splitDays'); const tmp = document.createElement('div'); tmp.innerHTML = dayEditor({ name: '', wd: [] }, [], box.children.length); box.append(tmp.firstElementChild); box.lastElementChild.querySelector('.dayname').focus(); break; }
+    case 'pgDelDay': b.closest('.dayedit').remove(); break;
+    case 'wdToggle': b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); break;
+    case 'pgStarter': {
+      const box = document.getElementById('splitDays');
+      box.innerHTML = starterSplit().map((sd, di) => dayEditor(sd, DEFAULT_PROGRAM[sd.name].map(([name, sets, min, max]) => ({ name, sets, min, max })), di)).join('');
+      toast('Starter split loaded. Tap Save to keep it.'); break;
     }
+    case 'pgClear': { document.getElementById('splitDays').innerHTML = ''; toast('Split cleared. Add your own days, then tap Save.'); break; }
+    case 'openSplit': openSettings(); setTimeout(() => document.getElementById('splitEditor')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80); break;
   }
 });
 
@@ -3113,9 +3162,9 @@ document.addEventListener('submit', async e => {
   } else if (f.id === 'settingsForm') {
     const cfg = JSON.parse(JSON.stringify(S.config || {}));
     cfg.targets = { kcal: +v('t_kcal') || DEFAULT_TARGETS.kcal, p: +v('t_p') || 0, c: +v('t_c') || 0, f: +v('t_f') || 0 };
-    cfg.program = readProgramFromSheet();
+    const sp = readSplitFromSheet(); cfg.split = sp.split; cfg.program = sp.program; S.trainDay = null; S.splitClash = sp.clash;
     document.getElementById('sheetRoot').innerHTML = '';
-    S.drafts = {}; saveConfig(cfg); toast('Targets and program saved');
+    S.drafts = {}; saveConfig(cfg); toast(S.splitClash?.length ? `Saved. Each weekday can only open one day, so ${S.splitClash.join('; ')}.` : 'Targets and split saved'); S.splitClash = null;
   }
 });
 
