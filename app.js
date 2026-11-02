@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 28; // keep in step with VERSION in sw.js
+const APP_VERSION = 29; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1869,18 +1869,19 @@ function fitsCard() {
   if (!fit.length) return `<section class="sec">${head}<div class="card small muted">Nothing in your meal plan fits under ${r0(kLeft)} kcal. Try Search for something lighter, like fruit, yoghurt or a protein shake.</div></section>`;
   const rows = fit.map(({ it, key }) => {
     const after = kLeft - it.kcal, pAfter = pLeft - it.p;
-    return quickRow(it, `<button class="btn sm" data-act="quickAdd" data-k="${key}">Add</button>`, ` · then ${r0(Math.max(0, after))} kcal${pAfter > 0 ? `, ${r0(pAfter)} g protein` : ', protein hit'} left`);
+    return quickRow(it, `<button class="btn sm" data-act="quickAdd" data-k="${key}">Add</button>`, ` · then ${r0(Math.max(0, after)).toLocaleString()} kcal${pAfter > 0 ? `, ${r0(pAfter)} g protein` : ', protein hit'} left`);
   }).join('');
   return `<section class="sec">${head}<div class="card rows">${rows}</div></section>`;
 }
 function quickCard() {
   const planned = plannedToday(); const fav = favs(); const reg = regulars();
   if (!planned.length && !fav.length && !reg.length) return '';
+  if (S.config?.quickHidden) return `<section class="sec"><h2>Quick add <button class="linkbtn h2btn push" data-act="quickHide" data-v="0" aria-expanded="false">Show</button></h2></section>`;
   let h = '';
   if (planned.length) h += `<div class="slotlabel">Planned for ${S.date === todayISO() ? 'today' : fmtDay(S.date)}</div>` + planned.map(x => quickRow(x.it, x.done ? `<span class="done-tick" aria-label="Logged">✓ Logged</span>` : `<button class="btn sm" data-act="quickAdd" data-k="${x.key}" data-s="${x.slot}">Add</button>`)).join('');
   if (fav.length) h += `<div class="slotlabel">Favourites</div>` + fav.map(q => quickRow(q, `<button class="starbtn" data-act="favToggle" data-k="Q:${q.id}" aria-label="Remove ${esc(q.name)} from favourites" aria-pressed="true">${starSVG(true)}</button><button class="btn sm" data-act="quickAdd" data-k="Q:${q.id}">Add</button>`)).join('');
   if (reg.length) h += `<div class="slotlabel">Your regulars</div>` + reg.map((r, i) => quickRow(r, `<button class="starbtn" data-act="favToggle" data-k="G:${i}" aria-label="Add ${esc(r.name)} to favourites" aria-pressed="false">${starSVG(false)}</button><button class="btn sm" data-act="quickAdd" data-k="G:${i}">Add</button>`, ` · logged ${r.times}× lately`)).join('');
-  return `<section class="sec"><h2>Quick add</h2><div class="card rows">${h}</div></section>`;
+  return `<section class="sec"><h2>Quick add <button class="linkbtn h2btn push" data-act="quickHide" data-v="1" aria-expanded="true">Hide</button></h2><div class="card rows">${h}</div></section>`;
 }
 function quickItem(key) { return key.startsWith('G:') ? regulars()[+key.slice(2)] : itemFromKey(key); }
 
@@ -2816,6 +2817,7 @@ document.addEventListener('click', async e => {
       const k = b.dataset.k; const it = k.startsWith('L:') ? (S.days[S.date]?.meals || []).find(m => m.id === k.slice(2)) : quickItem(k);
       if (it) toggleFav(it); if (b.dataset.reopen) openMeal(b.dataset.reopen); break;
     }
+    case 'quickHide': { const cfg = cfgCopy(); cfg.quickHidden = b.dataset.v === '1'; saveConfig(cfg); break; }
     case 'fitsHide': { const cfg = cfgCopy(); cfg.fitsHidden = b.dataset.v === '1'; saveConfig(cfg); break; }
     case 'openPlanner': openPlanner(); break;
     case 'planWeek': S.planWeek = +b.dataset.v; openPlanner(); break;
