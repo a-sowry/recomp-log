@@ -692,3 +692,6 @@ select.custom-pick { flex: 1 1 200px; min-width: 0; font-weight: 600; }
 .build-list .rowbtns { align-items: center; }
 .amt { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
 .amt input { width: 72px; padding: 6px 8px; text-align: right; }
+
+/* range slider */
+input.range { width: 100%; accent-color: var(--btn); height: 28px; }

@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 30; // keep in step with VERSION in sw.js
+const APP_VERSION = 31; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1004,11 +1004,23 @@ function tickTimer() {
   el.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
   el.classList.toggle('done', left === 0);
 }
-function beep() {
+function timerVol() { const v = S.config?.timerVol; return v == null ? 80 : v; }
+function timerBeeps() { return S.config?.timerBeeps || 2; }
+function beep(vol = timerVol(), count = timerBeeps()) {
   try {
-    const ctx = beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)());
-    const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
-    g.gain.setValueAtTime(0.15, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5); o.start(); o.stop(ctx.currentTime + 0.5);
+    // "transient" lets the beep briefly duck music instead of being drowned out (Safari 16.4+)
+    try { if (navigator.audioSession) navigator.audioSession.type = 'transient'; } catch {}
+    const ctx = beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)()); ctx.resume?.();
+    const peak = Math.max(0.0001, Math.min(1, vol / 100));
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 4; comp.connect(ctx.destination);
+    for (let n = 0; n < count; n++) {
+      const t0 = ctx.currentTime + n * 0.32;
+      for (const [freq, share] of [[880, 1], [1760, 0.35]]) { // fundamental + an octave on top: carries better over music
+        const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = freq; o.connect(g); g.connect(comp);
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak * share, t0 + 0.015); g.gain.setValueAtTime(peak * share, t0 + 0.18); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+        o.start(t0); o.stop(t0 + 0.28);
+      }
+    }
   } catch {}
 }
 function startTimer(sec) {
@@ -2686,6 +2698,12 @@ function openSettings() {
       <div class="small muted">On days with extra exercise, like a long hike, swim or run, eat a bit more to fuel it.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost sm" data-act="redoSetup">Recalculate from my stats</button><button type="button" class="btn ghost sm" data-act="openMethods">How it's calculated</button></div>
     </div>
+    <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Rest timer</div>
+      <label class="f">Volume <span class="small muted" id="tv_show">${timerVol()}%</span><input type="range" id="tv_vol" min="0" max="100" step="5" value="${timerVol()}" class="range"></label>
+      <div class="f"><span class="small muted">Beeps when rest is over</span><div class="seg">${[1, 2, 3].map(n => `<button type="button" data-act="timerBeeps" data-v="${n}" aria-pressed="${timerBeeps() === n}">${n}</button>`).join('')}</div></div>
+      <div><button type="button" class="btn ghost sm" data-act="testBeep">Test sound</button></div>
+      <div class="small muted">The beep also depends on your phone's volume, and on iPhone it won't play if the ring/silent switch is on silent. It briefly turns your music down so you can hear it. Keep the app open while you rest, as phones pause web apps in the background.</div>
+    </div>
     ${waterSettings()}
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Supplements</div>
       ${(S.config?.supps || []).length ? `<div class="rows">${S.config.supps.map(x => `<div class="row"><span class="t">${esc(x.name)}</span><button type="button" class="xbtn" data-act="suppDel" data-v="${x.id}" aria-label="Remove ${esc(x.name)}">×</button></div>`).join('')}</div>` : '<div class="small muted">Add what you take and tick them off on the Food tab each day.</div>'}
@@ -2842,6 +2860,8 @@ document.addEventListener('click', async e => {
     case 'scanLookup': lookupBarcode(document.getElementById('sc_code')?.value); break;
     case 'scanGrams': S.scan.grams = +b.dataset.v; render(); break;
     case 'openMeal': openMeal(b.dataset.k); break;
+    case 'testBeep': beep(+(document.getElementById('tv_vol')?.value ?? timerVol())); break;
+    case 'timerBeeps': { const cfg = cfgCopy(); cfg.timerBeeps = +b.dataset.v; saveConfig(cfg); openSettings(); beep(timerVol(), +b.dataset.v); break; }
     case 'editMeal': editMeal(b.dataset.k); break;
     case 'cancelEditMeal': S.build = null; S.cf = null; S.foodAdd = 'plan'; render(); break;
     case 'buildScan': buildState().mode = 'scan'; S.scan = { code: '', status: 'idle', product: null }; render(); openScanner(); break;
@@ -2971,6 +2991,7 @@ document.addEventListener('click', async e => {
 document.addEventListener('input', e => {
   const el = e.target;
   if (el.closest?.('#customForm') && el.id && el.id.startsWith('cf_') && el.id !== 'cf_serves') { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }
+  if (el.id === 'tv_vol') { const sh = document.getElementById('tv_show'); if (sh) sh.textContent = el.value + '%'; return; }
   if (el.dataset.bi != null) {
     const bs = buildState(); const it = bs.items[+el.dataset.bi]; if (!it) return; const v = Math.max(0, +el.value || 0);
     if (it.per) it.g = v; else if (it.each) it.q = v; itemCalc(it); applyBuildTotals();
@@ -3014,6 +3035,7 @@ document.addEventListener('change', e => {
     for (let i = 0; i < spec.sets; i++) { const ls = last?.sets[i] || last?.sets[last.sets.length - 1]; rows.push({ kg: ls ? ls.kg : '', reps: '', partials: '', drop: null, ph: ls ? ls.reps : '' }); }
     getDraft().exercises.push({ name, sets: spec.sets, min: spec.min, max: spec.max, rows }); persistDraft(); render(); toast(`Added ${name}`); return;
   }
+  if (el.id === 'tv_vol') { const cfg = cfgCopy(); cfg.timerVol = +el.value; saveConfig(cfg); beep(+el.value); return; }
   if (el.dataset.planD) {
     const key = el.value; if (!key) return; const d = el.dataset.planD, sl = el.dataset.planS;
     savePlan(wp => { wp[d] = wp[d] || {}; wp[d][sl] = [...(wp[d][sl] || []), key]; }); render(); openPlanner(); return;
