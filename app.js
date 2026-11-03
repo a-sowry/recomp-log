@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 32; // keep in step with VERSION in sw.js
+const APP_VERSION = 33; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1035,12 +1035,50 @@ function beep(vol = timerVol(), count = timerBeeps()) {
     }
   } catch {}
 }
+/* ---------- rest-timer notifications (web push) ---------- */
+// Per phone: this device's on/off lives in localStorage; the subscription lives in Supabase (push_subs).
+function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function isStandalone() { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
+function pushOn() { return !!lsGet('rl:pushOn') && pushSupported() && Notification.permission === 'granted'; }
+function vapidKey() { const k = window.RECOMP_CONFIG?.VAPID_PUBLIC_KEY || ''; const b = atob(k.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - k.length % 4) % 4)); return Uint8Array.from(b, c => c.charCodeAt(0)); }
+async function enablePush() {
+  if (!pushSupported()) { toast(/iPhone|iPad/.test(navigator.userAgent) && !isStandalone() ? 'Open Recomp Log from your Home Screen icon to turn on notifications.' : 'This browser can\'t show notifications.'); return; }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast('Notifications are blocked. Allow them in iPhone Settings → Notifications → Recomp Log.'); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey() });
+    const j = sub.toJSON();
+    const { error } = await sb.from('push_subs').upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: 'endpoint' });
+    if (error) throw error;
+    lsSet('rl:pushOn', true); toast('Notifications on for this phone');
+  } catch (e) { console.error(e); toast('Couldn\'t turn on notifications: ' + (e.message || e)); }
+  if (document.getElementById('settingsForm')) openSettings();
+}
+async function disablePush() {
+  lsSet('rl:pushOn', false);
+  try { const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription(); if (sub) { await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); } } catch (e) { console.error(e); }
+  toast('Notifications off for this phone'); if (document.getElementById('settingsForm')) openSettings();
+}
+async function schedulePush(sec, title = 'Rest over', body = 'Time for your next set.') {
+  if (!pushOn() || !navigator.onLine || !sb) return null;
+  const id = crypto.randomUUID ? crypto.randomUUID() : uid() + '-0000-4000-8000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
+  const { error } = await sb.from('push_jobs').insert({ id, send_at: new Date(Date.now() + sec * 1000).toISOString(), title, body, tag: 'rest' });
+  if (error) { console.error(error); return null; }
+  return id;
+}
+async function cancelPush(id) { if (!id || !sb) return; try { await sb.from('push_jobs').delete().eq('id', id); } catch {} }
 function startTimer(sec) {
   clearInterval(S.timer.handle);
+  if (S.timer.pushId) { cancelPush(S.timer.pushId); S.timer.pushId = null; }
+  const myRun = (S.timer.run = (S.timer.run || 0) + 1);
+  schedulePush(sec).then(id => { if (id && S.timer.run === myRun) S.timer.pushId = id; else if (id) cancelPush(id); });
   try { (beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)())).resume(); } catch {}
   S.timer.end = Date.now() + sec * 1000;
   S.timer.handle = setInterval(() => {
     tickTimer();
+    // still looking at the app near the end? cancel the notification and just beep here
+    if (S.timer.pushId && document.visibilityState === 'visible' && S.timer.end - Date.now() < 2500) { cancelPush(S.timer.pushId); S.timer.pushId = null; }
     if (Date.now() >= S.timer.end) { clearInterval(S.timer.handle); beep(); toast('Rest over. Next set.'); }
   }, 250);
   tickTimer();
@@ -2717,7 +2755,12 @@ function openSettings() {
       <label class="f">Volume <span class="small muted" id="tv_show">${timerVol()}%</span><input type="range" id="tv_vol" min="0" max="100" step="5" value="${timerVol()}" class="range"></label>
       <div class="f"><span class="small muted">Beeps when rest is over</span><div class="seg">${[1, 2, 3].map(n => `<button type="button" data-act="timerBeeps" data-v="${n}" aria-pressed="${timerBeeps() === n}">${n}</button>`).join('')}</div></div>
       <div><button type="button" class="btn ghost sm" data-act="testBeep">Test sound</button></div>
-      <div class="small muted">The beep also depends on your phone's volume, and on iPhone it won't play if the ring/silent switch is on silent. It briefly turns your music down so you can hear it. Keep the app open while you rest, as phones pause web apps in the background.</div>
+      <div class="small muted">The beep also depends on your phone's volume, and on iPhone it won't play if the ring/silent switch is on silent. It briefly turns your music down so you can hear it.</div>
+      <div class="slotlabel">Notify me when rest is over</div>
+      ${!pushSupported() ? `<div class="small muted">${/iPhone|iPad/.test(navigator.userAgent) && !isStandalone() ? 'Open Recomp Log from its Home Screen icon (not Safari) to turn this on. Needs iOS 16.4 or later.' : 'This browser can\'t show notifications.'}</div>`
+        : `<div class="small muted">Get a notification when your rest timer ends, even if you've switched to music or locked your phone. This is set per phone.</div>
+      <div class="seg" role="group" aria-label="Rest notifications"><button type="button" data-act="pushOn" aria-pressed="${pushOn()}">On</button><button type="button" data-act="pushOff" aria-pressed="${!pushOn()}">Off</button></div>
+      ${pushOn() ? '<div><button type="button" class="btn ghost sm" data-act="pushTest">Send a test in 5 seconds</button></div><div class="small muted">Tap it, then lock your phone or switch apps.</div>' : ''}`}
     </div>
     ${waterSettings()}
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Supplements</div>
@@ -2904,6 +2947,9 @@ document.addEventListener('click', async e => {
     case 'scanLookup': lookupBarcode(document.getElementById('sc_code')?.value); break;
     case 'scanGrams': S.scan.grams = +b.dataset.v; render(); break;
     case 'openMeal': openMeal(b.dataset.k); break;
+    case 'pushOn': enablePush(); break;
+    case 'pushOff': disablePush(); break;
+    case 'pushTest': schedulePush(5, 'Test notification', 'Rest-timer notifications are working.').then(id => toast(id ? 'Test on its way. Lock your phone or switch apps now.' : 'Couldn\'t schedule the test. Check you\'re online.')); break;
     case 'testBeep': beep(+(document.getElementById('tv_vol')?.value ?? timerVol())); break;
     case 'timerBeeps': { const cfg = cfgCopy(); cfg.timerBeeps = +b.dataset.v; saveConfig(cfg); openSettings(); beep(timerVol(), +b.dataset.v); break; }
     case 'editMeal': editMeal(b.dataset.k); break;

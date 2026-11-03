@@ -1,6 +1,6 @@
 // Recomp Log service worker: the app opens instantly and works offline.
 // Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = 'recomp-v32';
+const VERSION = 'recomp-v33';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'vendor/supabase.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
@@ -26,5 +26,20 @@ self.addEventListener('fetch', e => {
     const hit = await c.match(key);
     const net = fetch(req, { cache: 'no-cache' }).then(r => { if (r.ok) c.put(key, r.clone()); return r; }).catch(() => null);
     return hit || (await net) || new Response('Offline', { status: 503 });
+  }));
+});
+
+// Rest-timer notifications (sent by the send-push Supabase function).
+self.addEventListener('push', e => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Recomp Log', {
+    body: d.body || '', tag: d.tag || 'rest', renotify: true, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: './' },
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) if ('focus' in c) return c.focus();
+    return self.clients.openWindow ? self.clients.openWindow('./') : null;
   }));
 });
