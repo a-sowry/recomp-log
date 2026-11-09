@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 33; // keep in step with VERSION in sw.js
+const APP_VERSION = 34; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -953,7 +953,14 @@ function getDraft() {
 function persistDraft() { lsSet('draft:' + draftKey(), S.drafts[draftKey()]); }
 function viewTrain() {
   const wd = fromISO(S.date).getDay();
-  if (!S.trainDay) { const def = dayForWeekday(wd) || 'Rest'; S.trainDay = !S.sessions[S.date + '_' + def] && S.sessions[S.date + '_Custom'] ? 'Custom' : def; }
+  if (!S.trainDay) {
+    // Order: the session you picked for this date (remembered on this phone) → the scheduled day if it's logged
+    // → any other session logged on this date → the scheduled day.
+    const def = dayForWeekday(wd) || 'Rest';
+    const picked = (lsGet('rl:trainPick') || {})[S.date];
+    const loggedDay = Object.keys(S.sessions).filter(k => k.startsWith(S.date + '_')).map(k => k.slice(S.date.length + 1))[0];
+    S.trainDay = picked || (S.sessions[S.date + '_' + def] ? def : loggedDay) || def;
+  }
   if (S.trainDay !== 'Custom' && S.trainDay !== 'Rest' && !splitDays().includes(S.trainDay)) S.trainDay = 'Rest';
   const seg = `<div class="seg" role="group" aria-label="Session">${[...splitDays(), 'Custom', 'Rest'].map(d => `<button data-act="trainDay" data-v="${d}" aria-pressed="${S.trainDay === d}">${d}</button>`).join('')}</div>`;
   if (S.trainDay === 'Rest') {
@@ -2893,7 +2900,13 @@ document.addEventListener('click', async e => {
       saveDay(S.date, day); break;
     }
     case 'delCardio': { const day = localDay(S.date); day.cardio = (day.cardio || []).filter(x => x.id !== b.dataset.id); saveDay(S.date, day); break; }
-    case 'trainDay': S.trainDay = b.dataset.v; S.confirmSession = false; render(); break;
+    case 'trainDay': {
+      S.trainDay = b.dataset.v; S.confirmSession = false;
+      // Remember the pick for this date only; keep the last ~3 weeks.
+      const picks = lsGet('rl:trainPick') || {}; const cut = addDays(todayISO(), -21);
+      picks[S.date] = S.trainDay; Object.keys(picks).forEach(k => { if (k < cut) delete picks[k]; });
+      lsSet('rl:trainPick', picks); render(); break;
+    }
     case 'drop': { const r = D().exercises[b.dataset.e].rows[b.dataset.r]; r.drop = r.drop ? null : { kg: r.kg ? Math.max(0, Number(r.kg) - increment(D().exercises[b.dataset.e].name, Number(r.kg)) * 2) : '', reps: '', partials: '' }; persistDraft(); render(); break; }
     case 'addSet': { const ex = D().exercises[b.dataset.e]; const l = ex.rows[ex.rows.length - 1]; ex.rows.push({ kg: l?.kg ?? '', reps: '', partials: '', drop: null, ph: l?.ph ?? '' }); persistDraft(); render(); break; }
     case 'rmSet': { D().exercises[b.dataset.e].rows.pop(); persistDraft(); render(); break; }
