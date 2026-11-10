@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 35; // keep in step with VERSION in sw.js
+const APP_VERSION = 36; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -2410,7 +2410,7 @@ function stanleySVG(f, col) {
   const dark = hexMix(col, '#000000', 0.22), pale = hexMix(col, '#FFFFFF', 0.62), shine = hexMix(col, '#FFFFFF', 0.85);
   const top = 46, bot = 192, y = bot - f * (bot - top);
   const body = 'M22 46 H98 L90 148 H30 Z M33 148 H87 L85 187 Q84.6 192 80 192 H40 Q35.4 192 35 187 Z';
-  return `<svg viewBox="0 0 124 200" class="bottle-svg" role="img" aria-label="Stanley cup ${Math.round(f * 100)}% full">
+  return `<svg viewBox="0 0 124 200" class="bottle-svg" role="img" aria-label="Tumbler ${Math.round(f * 100)}% full">
     <defs><clipPath id="stClip"><path d="${body}"/></clipPath></defs>
     <path d="M94 60 C116 60 116 62 115 92 L113 124 C112 132 106 134 89 134" fill="none" stroke="${dark}" stroke-width="9" stroke-linecap="round"/>
     <path d="M94 60 C116 60 116 62 115 92 L113 124 C112 132 106 134 89 134" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round"/>
@@ -2451,7 +2451,7 @@ function waterCard() {
   const soft = softTheme(); const bs = bottleSize(); const left = Math.max(0, goal - ml);
   const msg = ml >= goal ? 'Goal hit. Nicely done.'
     : ml === 0 ? `Start with a glass. Your goal is ${fmtL(goal)} L.`
-    : `${fmtL(left)} L to go, about ${Math.max(1, Math.round(left / bs * 2) / 2)} ${soft ? 'Stanley' : 'bottle'}${left / bs > 1 ? 's' : ''}.`;
+    : `${fmtL(left)} L to go, about ${Math.max(1, Math.round(left / bs * 2) / 2)} ${soft ? 'tumbler' : 'bottle'}${left / bs > 1 ? 's' : ''}.`;
   return `<section class="sec"><h2>Water <span class="aside">${fmtL(ml)} / ${fmtL(goal)} L</span><button class="linkbtn h2btn" data-act="waterHide" data-v="1" aria-expanded="true">Hide</button></h2>
     <div class="card water${ml >= goal ? ' done' : ''}">
       <div class="water-art">${soft ? stanleySVG(f, stanleyColour()) : plainBottleSVG(f)}</div>
@@ -2461,7 +2461,7 @@ function waterCard() {
         <div class="water-btns">
           <button class="btn ghost sm" data-act="water" data-d="250">+ 250 ml</button>
           <button class="btn ghost sm" data-act="water" data-d="500">+ 500 ml</button>
-          <button class="btn sm" data-act="water" data-d="${bs}">+ ${soft ? 'Full Stanley' : 'Full bottle'} <span class="wb-sz">${fmtL(bs)} L</span></button>
+          <button class="btn sm" data-act="water" data-d="${bs}">+ ${soft ? 'Full tumbler' : 'Full bottle'} <span class="wb-sz">${fmtL(bs)} L</span></button>
         </div>
         ${ml ? '<button class="linkbtn muted" data-act="water" data-d="-250">Take off 250 ml</button>' : ''}
       </div>
@@ -2472,11 +2472,11 @@ function waterSettings() {
   return `<div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Water</div>
     <div class="grid2">
       <label class="f">Daily goal (ml)<input type="number" id="wt_goal" min="500" max="8000" step="250" value="${waterGoal()}"></label>
-      <label class="f">${soft ? 'Stanley' : 'Bottle'} size (ml)<input type="number" id="wt_bottle" min="100" max="3000" step="10" value="${bottleSize()}"></label>
+      <label class="f">${soft ? 'Tumbler' : 'Bottle'} size (ml)<input type="number" id="wt_bottle" min="100" max="3000" step="10" value="${bottleSize()}"></label>
     </div>
-    <div class="small muted">${S.config?.water?.goal ? '' : 'Goal starts at about 35 ml per kg of body weight. '}Drink more on hot days and long sessions.${soft ? ' A 40 oz Stanley holds 1,180 ml.' : ''}</div>
-    ${soft ? `<div class="small muted">Stanley colour</div>
-    <div class="stanley-pick" role="group" aria-label="Stanley colour">${STANLEY_COLOURS.map(([id, name, hex]) => `<button type="button" class="sp" data-act="stanleyColour" data-v="${id}" aria-pressed="${cur === id}" title="${name}">
+    <div class="small muted">${S.config?.water?.goal ? '' : 'Goal starts at about 35 ml per kg of body weight. '}Drink more on hot days and long sessions.${soft ? ' A 40 oz tumbler holds 1,180 ml.' : ''}</div>
+    ${soft ? `<div class="small muted">Tumbler colour</div>
+    <div class="stanley-pick" role="group" aria-label="Tumbler colour">${STANLEY_COLOURS.map(([id, name, hex]) => `<button type="button" class="sp" data-act="stanleyColour" data-v="${id}" aria-pressed="${cur === id}" title="${name}">
       <span class="sp-art">${stanleySVG(0.6, hex).replace(/stClip/g, 'stClip_' + id)}</span><span class="sp-name">${name}</span></button>`).join('')}</div>` : ''}
   </div>`;
 }
@@ -2674,7 +2674,7 @@ function openMethods() {
         <li><b>Vitamin D:</b> mostly made from sunlight, so food alone rarely reaches the target.</li>
       </ul>`)}
     ${sec('Water and steps', `<ul class="ing-list">
-        <li><b>Water goal:</b> 35 ml per kg of body weight, rounded to the nearest 250 ml and kept between 2 and 4 L. You can change it in Settings. A full Stanley is 1,180 ml (40 oz).</li>
+        <li><b>Water goal:</b> 35 ml per kg of body weight, rounded to the nearest 250 ml and kept between 2 and 4 L. You can change it in Settings. A full tumbler is 1,180 ml (40 oz).</li>
         <li><b>Step goal:</b> 10,000 a day by default. Change it under Steps on the Food tab.</li>
       </ul>`)}
     ${sec('Training, PBs and progression', `<ul class="ing-list">
