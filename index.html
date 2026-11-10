@@ -56,9 +56,10 @@
 
 <script src="config.js"></script>
 <script src="vendor/supabase.js"></script>
+<script>if (/[?&]demo=1(&|$)/.test(location.search)) document.write('<script src="demo.js"><\/script>');</script>
 <script src="app.js"></script>
 <script>
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && !window.__RECOMP_DEMO__) {
   // A new version takes over as soon as it's downloaded; reload once so it shows straight away.
   const hadController = !!navigator.serviceWorker.controller; let reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
