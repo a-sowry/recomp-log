@@ -14,6 +14,7 @@
  *   streak   consecutive logged days up to today (default 40; 0 = brand new account)
  *   cars     finished cars / trees / flowers so far (default 5)
  *   bloom    points into the current one, 0-39 (default 35)
+ *   weeks    full past weeks of 3 workouts, for the "weeks in a row" count (default 6)
  *   logged   0 = nothing logged yet today, 1 = today's meals logged (default 1)
  *   today    pretend today is this date, YYYY-MM-DD (default: the real date)
  *   cfg      JSON merged into the saved settings, for anything not covered above
@@ -89,7 +90,7 @@
     Lower: [['Hip thrust', 80, 10], ['Bulgarian split squat', 16, 10], ['Calf raise', 40, 15]],
   };
   var WEEKDAY_DAY = { 1: 'Push', 2: 'Pull', 3: 'Legs', 4: 'Upper', 5: 'Lower' };
-  var TRAIN_WEEKDAYS = [1, 2, 4, 5]; // Mon, Tue, Thu, Fri
+  var TRAIN_WEEKDAYS = [1, 3, 5]; // Mon, Wed, Fri: the app's weekly goal is 3 workouts
 
   var rows = [];
   function put(coll, id, data) {
@@ -108,23 +109,34 @@
     var first = loggedToday ? 0 : 1; // how many days back the streak ends
     var days = {}, sessions = {}, weights = {};
 
+    function addSession(date, back) {
+      var name = WEEKDAY_DAY[parse(date).getDay()], wk = Math.floor(back / 7);
+      sessions[date + '_' + name] = {
+        date: date, day: name, note: '',
+        exercises: SESSIONS[name].map(function (e) {
+          var kg = Math.max(2.5, e[1] - wk * 1.25);
+          return { name: e[0], sets: [0, 1, 2].map(function () { return { kg: kg, reps: e[2], partials: 0 }; }) };
+        }),
+      };
+    }
     for (var k = 0; k < streak; k++) {
       var date = addDays(today, -(k + first));
       var isToday = date === today;
       var meals = isToday ? MEALS_TODAY : ((k % 10 === 3 || k % 10 === 7) ? MEALS_LIGHT : MEALS_FULL);
       days[date] = { date: date, meals: meals.map(mealDoc), cardio: [], steps: 6500 + ((k * 937) % 5200) };
-      var wd = parse(date).getDay();
-      if (!isToday && TRAIN_WEEKDAYS.indexOf(wd) >= 0) {
-        var name = WEEKDAY_DAY[wd], wk = Math.floor(k / 7);
-        sessions[date + '_' + name] = {
-          date: date, day: name, note: '',
-          exercises: SESSIONS[name].map(function (e) {
-            var kg = Math.max(2.5, e[1] - wk * 1.25);
-            return { name: e[0], sets: [0, 1, 2].map(function () { return { kg: kg, reps: e[2], partials: 0 }; }) };
-          }),
-        };
-      }
+      if (!isToday && TRAIN_WEEKDAYS.indexOf(parse(date).getDay()) >= 0) addSession(date, k);
       if (k % 7 === 2) weights[date] = { date: date, kg: Math.round((66.4 - (streak - k) * 0.04 + (k % 3) * 0.1) * 10) / 10 };
+    }
+    // Older training before the streak began, so "N weeks in a row" is right. One empty day is left between it
+    // and the streak so the two don't join up. weeks = how many full past weeks of 3 workouts to show (default 6).
+    if (streak > 0) {
+      var weeksBack = Math.max(0, Math.round(num('weeks', 6)));
+      var mondayOff = (parse(today).getDay() + 6) % 7;
+      var earliest = addDays(today, -(mondayOff + weeksBack * 7));
+      for (var j = streak + first + 1; addDays(today, -j) >= earliest; j++) {
+        var od = addDays(today, -j);
+        if (TRAIN_WEEKDAYS.indexOf(parse(od).getDay()) >= 0) addSession(od, j);
+      }
     }
 
     // points the way app.js counts them, then nudge with walks / weigh-ins to land on the requested car count + progress

@@ -1,0 +1,22 @@
+{
+  "id": "01-car-build",
+  "look": "dark",
+  "query": "demo=1&grow=car&streak=39&cars=4&bloom=35&logged=0&today=2026-11-10",
+  "duration": 15.2,
+  "captions": [
+    { "t": 0,    "title": "My gym app builds me a car", "sub": "one workout at a time" },
+    { "t": 5.8,  "title": "One more workout to finish it…" },
+    { "t": 7.0,  "title": "Done. It drives into the garage" },
+    { "t": 11.0, "title": "Every car you finish parks here", "sub": "Recomp Log" }
+  ],
+  "steps": [
+    { "at": 1.8,  "do": "tap",  "target": "[data-tab='train']" },
+    { "at": 3.2,  "do": "tap",  "target": "[data-act='trainDay'][data-v='Push']" },
+    { "at": 4.2,  "do": "type", "target": "#kg_0_0", "text": "32.5" },
+    { "at": 5.4,  "do": "type", "target": "#rp_0_0", "text": "8" },
+    { "at": 6.6,  "do": "tap",  "target": "[data-act='saveSession']" },
+    { "at": 10.4, "do": "tap",  "target": "button:text-is('Nice!')" },
+    { "at": 11.2, "do": "tap",  "target": "[data-tab='garden']" },
+    { "at": 13.2, "do": "scroll", "dy": 460, "ms": 1300 }
+  ]
+}
