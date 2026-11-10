@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 39; // keep in step with VERSION in sw.js
+const APP_VERSION = 40; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -274,32 +274,58 @@ function showSetup(msg) {
     <p class="small muted">Find both in Supabase under Project Settings → API.</p>
   </form>`);
 }
-function showLogin(msg, email) {
-  const last = lsGet('rl:lastUser');
-  showGate(`<form class="gatebox" id="loginForm">
-    <div class="brand big"><span class="plate" aria-hidden="true"></span>Refyne</div>
-    <p>Sign in with the login you created in Supabase.</p>
-    ${msg ? `<p class="gate-err">${esc(msg)}</p>` : ''}
-    <label class="f">Email<input type="email" id="li_email" autocomplete="username" autocapitalize="off" value="${esc(email || last?.email || '')}" required></label>
+function showLogin(msg, email, mode = 'in', note = '') {
+  const last = lsGet('rl:lastUser'); const em = esc(email || last?.email || '');
+  const emailField = `<label class="f">Email<input type="email" id="li_email" autocomplete="username" autocapitalize="off" value="${em}" required></label>`;
+  const err = msg ? `<p class="gate-err">${esc(msg)}</p>` : ''; const ok = note ? `<p class="gate-ok">${esc(note)}</p>` : '';
+  let body;
+  if (mode === 'up') body = `<p>Create your free account. It keeps your logs safe and synced across your devices.</p>${err}${ok}${emailField}
+    <label class="f">Password<input type="password" id="li_pw" autocomplete="new-password" minlength="8" required></label>
+    <label class="f">Password again<input type="password" id="li_pw2" autocomplete="new-password" minlength="8" required></label>
+    <div class="small muted">At least 8 characters.</div>
+    <button class="btn" type="submit" id="li_btn">Create account</button>
+    <div class="small">Already have an account? <button class="linkbtn" type="button" data-act="authMode" data-v="in">Sign in</button></div>`;
+  else if (mode === 'reset') body = `<p>Enter your email and we'll send you a link to set a new password.</p>${err}${ok}${emailField}
+    <button class="btn" type="submit" id="li_btn">Send reset link</button>
+    <div class="small"><button class="linkbtn" type="button" data-act="authMode" data-v="in">Back to sign in</button></div>`;
+  else body = `<p>Sign in or create your account.</p>${err}${ok}${emailField}
     <label class="f">Password<input type="password" id="li_pw" autocomplete="current-password" required></label>
     <button class="btn" type="submit" id="li_btn">Sign in</button>
-    <button class="linkbtn small" type="button" data-act="resetConn">Use a different Supabase project</button>
+    <div class="small" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>New here? <button class="linkbtn" type="button" data-act="authMode" data-v="up">Create an account</button></span><button class="linkbtn muted" type="button" data-act="authMode" data-v="reset">Forgot password?</button></div>`;
+  showGate(`<form class="gatebox" id="loginForm" data-mode="${mode}">
+    <div class="brand big"><span class="plate" aria-hidden="true"></span>Refyne</div>
+    ${body}
   </form>`);
 }
+function showNewPassword(msg) {
+  showGate(`<form class="gatebox" id="newPwForm">
+    <div class="brand big"><span class="plate" aria-hidden="true"></span>Refyne</div>
+    <p>Choose a new password.</p>${msg ? `<p class="gate-err">${esc(msg)}</p>` : ''}
+    <label class="f">New password<input type="password" id="np1" autocomplete="new-password" minlength="8" required></label>
+    <label class="f">Password again<input type="password" id="np2" autocomplete="new-password" minlength="8" required></label>
+    <button class="btn" type="submit" id="np_btn">Save password</button>
+  </form>`);
+}
+const authRedirect = () => location.origin + location.pathname;
 
 async function boot() {
   updateOnline();
   const conf = sbConf();
   if (!conf) { showSetup(); return; }
   if (!window.supabase?.createClient) { showSetup('The app files did not load completely. Close and reopen the app.'); return; }
-  sb = window.supabase.createClient(conf.url, conf.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'rl-auth', detectSessionInUrl: false } });
+  // Links from sign-up and password-reset emails land here with the session in the URL.
+  const recovering = /type=recovery/.test(location.hash);
+  sb = window.supabase.createClient(conf.url, conf.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'rl-auth', detectSessionInUrl: true } });
   let session = null;
   try { ({ data: { session } } = await sb.auth.getSession()); } catch (e) { console.error(e); }
-  if (session) { startApp(session.user); }
+  if (/access_token|error_description/.test(location.hash)) { const bad = /error_description=([^&]+)/.exec(location.hash); history.replaceState(null, '', location.pathname + location.search); if (bad && !session) { showLogin(decodeURIComponent(bad[1].replace(/\+/g, ' ')) + ' Request a new link.'); return; } }
+  if (session && recovering) { showNewPassword(); }
+  else if (session) { startApp(session.user); }
   else if (!navigator.onLine && lsGet('rl:lastUser')) { S.offlineAuth = true; startApp(lsGet('rl:lastUser')); }
   else { showLogin(); }
   sb.auth.onAuthStateChange((ev, sess) => {
     if (ev === 'SIGNED_OUT') { S.user = null; showLogin(); }
+    else if (ev === 'PASSWORD_RECOVERY') { showNewPassword(); }
     else if ((ev === 'SIGNED_IN' || ev === 'TOKEN_REFRESHED') && sess && S.offlineAuth) { S.offlineAuth = false; store.flush().then(() => store.pull()); }
   });
 }
@@ -326,18 +352,43 @@ gate.addEventListener('submit', async e => {
     const key = document.getElementById('su_key').value.trim();
     if (!/^https:\/\/.+/.test(url)) { showSetup('The Project URL should start with https://'); return; }
     lsSet('rl:sbUrl', url); lsSet('rl:sbKey', key); location.reload();
+  } else if (e.target.id === 'newPwForm') {
+    const a = document.getElementById('np1').value, b2 = document.getElementById('np2').value;
+    if (a.length < 8) { showNewPassword('Use at least 8 characters.'); return; }
+    if (a !== b2) { showNewPassword('Those passwords don\'t match.'); return; }
+    const btn = document.getElementById('np_btn'); btn.disabled = true; btn.textContent = 'Saving…';
+    const { error } = await sb.auth.updateUser({ password: a });
+    if (error) { showNewPassword(error.message); return; }
+    const { data } = await sb.auth.getSession(); toast('Password updated'); if (data.session) startApp(data.session.user); else showLogin('', '', 'in', 'Password updated. Sign in with your new password.');
+  } else if (e.target.id === 'loginForm' && e.target.dataset.mode === 'up') {
+    const email = document.getElementById('li_email').value.trim(), pw = document.getElementById('li_pw').value;
+    if (pw !== document.getElementById('li_pw2').value) { showLogin('Those passwords don\'t match.', email, 'up'); return; }
+    const btn = document.getElementById('li_btn'); btn.disabled = true; btn.textContent = 'Creating account…';
+    let data, error;
+    try { ({ data, error } = await sb.auth.signUp({ email, password: pw, options: { emailRedirectTo: authRedirect() } })); }
+    catch (err) { error = { message: navigator.onLine ? 'Could not reach the server. Try again.' : 'You\'re offline. Connect to create an account.' }; }
+    if (error) { showLogin(/already registered/i.test(error.message) ? 'That email already has an account. Sign in instead.' : error.message, email, /already registered/i.test(error.message) ? 'in' : 'up'); return; }
+    if (data?.session) { S.offlineAuth = false; startApp(data.user); return; }
+    showLogin('', email, 'in', `Almost there. We've emailed a link to ${email}. Tap it to confirm your account, then sign in here.`);
+  } else if (e.target.id === 'loginForm' && e.target.dataset.mode === 'reset') {
+    const email = document.getElementById('li_email').value.trim();
+    const btn = document.getElementById('li_btn'); btn.disabled = true; btn.textContent = 'Sending…';
+    let error; try { ({ error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: authRedirect() })); } catch (err) { error = { message: 'Could not reach the server. Try again.' }; }
+    if (error) { showLogin(error.message, email, 'reset'); return; }
+    showLogin('', email, 'in', `If ${email} has an account, a reset link is on its way. Open it on this phone.`);
   } else if (e.target.id === 'loginForm') {
     const btn = document.getElementById('li_btn'); btn.disabled = true; btn.textContent = 'Signing in…';
     const email = document.getElementById('li_email').value.trim();
     let data, error;
     try { ({ data, error } = await sb.auth.signInWithPassword({ email, password: document.getElementById('li_pw').value })); }
-    catch (err) { error = { message: navigator.onLine ? 'Could not reach Supabase. Try again.' : 'You\'re offline. Connect to sign in.' }; }
-    if (error) { showLogin(error.message === 'Invalid login credentials' ? 'That email and password don\'t match. Check them and try again.' : error.message, email); setTimeout(() => document.getElementById('li_pw')?.focus(), 0); return; }
+    catch (err) { error = { message: navigator.onLine ? 'Could not reach the server. Try again.' : 'You\'re offline. Connect to sign in.' }; }
+    if (error) { showLogin(error.message === 'Invalid login credentials' ? 'That email and password don\'t match. Check them and try again.' : /not confirmed/i.test(error.message) ? 'Confirm your email first: tap the link we sent you, then sign in.' : error.message, email); setTimeout(() => document.getElementById('li_pw')?.focus(), 0); return; }
     S.offlineAuth = false; startApp(data.user);
   }
 });
 gate.addEventListener('click', e => {
   if (e.target.closest('[data-act="resetConn"]')) { lsSet('rl:sbUrl', null); lsSet('rl:sbKey', null); location.reload(); }
+  const am = e.target.closest('[data-act="authMode"]'); if (am) { showLogin('', document.getElementById('li_email')?.value.trim(), am.dataset.v); }
 });
 
 /* ---------- backup + import ---------- */
@@ -398,7 +449,7 @@ function render() {
   document.getElementById('dateLabel').textContent = S.date === todayISO() ? 'Today' : fmtDay(S.date);
   if (S.config?.theme && THEME_ALIAS[S.config.theme]) { const cfg = cfgCopy(); cfg.theme = THEME_ALIAS[cfg.theme]; S.config = cfg; store.set('config', 'settings', cfg); }
   applyTheme(S.config?.theme || lsGet('rl:theme') || 'auto');
-  const banner = S.syncError ? `<div class="banner">Some changes haven't reached your Supabase database yet (${esc(S.syncError)}). They're kept on this phone and retry automatically.</div>` : '';
+  const banner = S.syncError ? `<div class="banner">Some changes haven't synced to your account yet (${esc(S.syncError)}). They're kept on this phone and retry automatically.</div>` : '';
   const gOn = gardenOn();
   const gBtn = document.querySelector('nav.tabs button[data-tab="garden"]'); if (gBtn) gBtn.hidden = !gOn;
   if (gBtn && gBtn.dataset.kind !== growKind()) { gBtn.dataset.kind = growKind(); gBtn.innerHTML = `<svg viewBox="0 0 24 24">${gm().icon}</svg>${gm().tab}`; }
@@ -2788,7 +2839,7 @@ function openSettings() {
     ${ed}
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" type="submit">Save</button><button type="button" class="btn ghost sm" data-act="pgStarter">Use the starter split</button><button type="button" class="btn ghost sm" data-act="pgClear">Clear my split</button></div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Your data</div>
-      <div class="small muted">${store.outbox.length ? `${store.outbox.length} change${store.outbox.length > 1 ? 's' : ''} waiting to sync.` : 'Everything is synced to your Supabase database.'}</div>
+      <div class="small muted">${store.outbox.length ? `${store.outbox.length} change${store.outbox.length > 1 ? 's' : ''} waiting to sync.` : 'Everything is synced to your account.'}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button type="button" class="btn ghost sm" data-act="exportBackup">Export backup</button>
         <label class="btn ghost sm" style="cursor:pointer">Restore from backup<input type="file" id="restoreFile" accept="application/json,.json" hidden></label>
