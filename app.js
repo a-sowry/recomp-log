@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 34; // keep in step with VERSION in sw.js
+const APP_VERSION = 35; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -2728,6 +2728,8 @@ function growSettings() {
     </div>`;
 }
 function openSettings() {
+  // Re-opening while Settings is already up (after picking a theme, car, bonsai, colour…) keeps your place instead of jumping to the top.
+  const keepScroll = document.getElementById('settingsForm') ? (document.querySelector('.sheet .panel')?.scrollTop || 0) : 0;
   const T = targets(); const prog = program();
   const ed = `<div class="card split-intro" id="splitEditor" style="display:grid;gap:8px"><div class="slotlabel" style="padding-top:0">Your training split</div>
       <div class="small muted">Name your training days, tick which weekdays they're on (the Train tab opens on that day automatically), and add the exercises with their rep ranges. Tap Save at the bottom when you're done.</div></div>
@@ -2798,6 +2800,7 @@ function openSettings() {
       ${S.confirmSignOut ? `<div class="small">${store.outbox.length ? `<b class="down-txt">${store.outbox.length} change${store.outbox.length > 1 ? 's' : ''} haven't synced yet and will be lost.</b> ` : ''}Sign out of this phone?</div><div style="display:flex;gap:8px"><button type="button" class="btn danger sm" data-act="signOut">Sign out</button><button type="button" class="btn ghost sm" data-act="cancelSignOut">Stay signed in</button></div>` : `<div><button type="button" class="btn ghost sm" data-act="askSignOut">Sign out</button></div>`}
     </div>
   </form></div></div>`;
+  if (keepScroll) { const pn = document.querySelector('.sheet .panel'); if (pn) pn.scrollTop = keepScroll; }
 }
 const WD = [[1, 'M'], [2, 'T'], [3, 'W'], [4, 'T'], [5, 'F'], [6, 'S'], [0, 'S']];
 const WD_LONG = { 0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday' };
