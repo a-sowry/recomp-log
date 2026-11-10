@@ -1,0 +1,30 @@
+{
+  "name": "Refyne",
+  "short_name": "Refyne",
+  "description": "Meals, training, lifts, weigh-ins and progress photos.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ECE3F7",
+  "theme_color": "#ECE3F7",
+  "icons": [
+    {
+      "src": "icons/t/lilac-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/t/lilac-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/t/lilac-mask.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "./"
+}

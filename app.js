@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 37; // keep in step with VERSION in sw.js
+const APP_VERSION = 38; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -106,6 +106,12 @@ function applyTheme(id) {
   }
   if (t.style) root.dataset.style = t.style; else delete root.dataset.style;
   if (t.id === 'auto') delete root.dataset.theme; else root.dataset.theme = t.dark ? 'dark' : 'light';
+  // Home-screen icon + manifest follow the theme. Phones lock the icon in when the app is added,
+  // so a new theme's icon shows after removing the app from the home screen and adding it again.
+  const setLink = (sel, href) => { const l = document.querySelector(sel); if (l && l.getAttribute('href') !== href) l.setAttribute('href', href); };
+  setLink('link[rel="apple-touch-icon"]', `icons/t/${t.id}-180.png`);
+  setLink('link[rel="icon"]', `icons/t/${t.id}-192.png`);
+  setLink('link[rel="manifest"]', `manifest-${t.id}.webmanifest`);
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
     if (t.bg) m.setAttribute('content', t.bg);
     else m.setAttribute('content', m.media && m.media.includes('dark') ? '#11151A' : '#F1F1EC');
@@ -2741,6 +2747,7 @@ function openSettings() {
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Background colour</div>
       <div class="swatches" role="group" aria-label="Background colour">${THEMES.map(t => `<button type="button" class="swatch" data-act="theme" data-v="${t.id}" aria-pressed="${(S.config?.theme || 'auto') === t.id}" title="${t.name}">
         <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div>
+      <div class="icon-note"><img src="icons/t/${findTheme(S.config?.theme)?.id || 'auto'}-180.png" alt="" width="40" height="40"><span class="small muted">Your home-screen icon matches this colour. Phones lock the icon in when you add the app, so to update it, remove Refyne from your home screen and add it again from ${/iPhone|iPad/.test(navigator.userAgent) ? 'Safari (Share → Add to Home Screen)' : 'your browser menu'}. Your data stays.</span></div>
     </div>
     ${growSettings()}
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Meal plan</div>
