@@ -1,4 +1,4 @@
-# Recomp Log
+# Refyne
 
 A recomp tracker you install as a home-screen app: meals against macro targets, Push / Pull / Legs / Upper / Lower sessions with progression hints, lift charts, weigh-ins and private progress photos.
 
@@ -28,7 +28,7 @@ It's a plain static web app (no build step). Data lives in your own Supabase pro
    - Go to **Settings → Pages → Build and deployment**, choose **Deploy from a branch**, set the branch to `main` and the folder to `/ (root)`.
    - The app goes live at `https://<your-username>.github.io/<repo-name>/`.
 4. **iPhone**
-   - Open that link in Safari, tap **Share → Add to Home Screen**, and open **Recomp** from your Home Screen.
+   - Open that link in Safari, tap **Share → Add to Home Screen**, and open **Refyne** from your Home Screen.
    - Sign in.
    - To bring in old data, use Settings (gear icon) → **Restore from backup**.
 

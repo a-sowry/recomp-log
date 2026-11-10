@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 36; // keep in step with VERSION in sw.js
+const APP_VERSION = 37; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -258,7 +258,7 @@ function showGate(html) { gate.innerHTML = html; gate.hidden = false; document.b
 function hideGate() { gate.hidden = true; gate.innerHTML = ''; document.body.classList.remove('gated'); }
 function showSetup(msg) {
   showGate(`<form class="gatebox" id="setupForm">
-    <div class="brand big"><span class="plate" aria-hidden="true"></span>Recomp Log</div>
+    <div class="brand big"><span class="plate" aria-hidden="true"></span>Refyne</div>
     <p>Connect your Supabase project. You only do this once on each device.</p>
     ${msg ? `<p class="gate-err">${esc(msg)}</p>` : ''}
     <label class="f">Project URL<input type="text" id="su_url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://abcd1234.supabase.co" required></label>
@@ -270,7 +270,7 @@ function showSetup(msg) {
 function showLogin(msg, email) {
   const last = lsGet('rl:lastUser');
   showGate(`<form class="gatebox" id="loginForm">
-    <div class="brand big"><span class="plate" aria-hidden="true"></span>Recomp Log</div>
+    <div class="brand big"><span class="plate" aria-hidden="true"></span>Refyne</div>
     <p>Sign in with the login you created in Supabase.</p>
     ${msg ? `<p class="gate-err">${esc(msg)}</p>` : ''}
     <label class="f">Email<input type="email" id="li_email" autocomplete="username" autocapitalize="off" value="${esc(email || last?.email || '')}" required></label>
@@ -356,7 +356,7 @@ async function restoreBackup(file) {
 }
 async function exportBackup() {
   const payload = { app: 'recomp-log', version: 1, exportedAt: new Date().toISOString(), collections: { days: S.days, sessions: S.sessions, weights: S.weights, photos: S.photos, config: S.config ? { settings: S.config } : {} } };
-  const name = `recomp-log-backup-${todayISO()}.json`;
+  const name = `refyne-backup-${todayISO()}.json`;
   const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
   const file = new File([blob], name, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1049,10 +1049,10 @@ function isStandalone() { return matchMedia('(display-mode: standalone)').matche
 function pushOn() { return !!lsGet('rl:pushOn') && pushSupported() && Notification.permission === 'granted'; }
 function vapidKey() { const k = window.RECOMP_CONFIG?.VAPID_PUBLIC_KEY || ''; const b = atob(k.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - k.length % 4) % 4)); return Uint8Array.from(b, c => c.charCodeAt(0)); }
 async function enablePush() {
-  if (!pushSupported()) { toast(/iPhone|iPad/.test(navigator.userAgent) && !isStandalone() ? 'Open Recomp Log from your Home Screen icon to turn on notifications.' : 'This browser can\'t show notifications.'); return; }
+  if (!pushSupported()) { toast(/iPhone|iPad/.test(navigator.userAgent) && !isStandalone() ? 'Open Refyne from your Home Screen icon to turn on notifications.' : 'This browser can\'t show notifications.'); return; }
   try {
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { toast('Notifications are blocked. Allow them in iPhone Settings → Notifications → Recomp Log.'); return; }
+    if (perm !== 'granted') { toast('Notifications are blocked. Allow them in iPhone Settings → Notifications → Refyne.'); return; }
     const reg = await navigator.serviceWorker.ready;
     const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey() });
     const j = sub.toJSON();
@@ -1381,7 +1381,7 @@ function openOnboarding(step) {
   const dots = [1, 2, 3, 4].map(i => `<span class="ob-dot${i === st ? ' on' : ''}${i < st ? ' done' : ''}"></span>`).join('');
   let body = '';
   if (st === 1) {
-    body = `<h3>Welcome to Recomp Log</h3>
+    body = `<h3>Welcome to Refyne</h3>
       <p class="muted">Two minutes of setup and the app works out calorie and protein targets for your body and goal.</p>
       ${S.ob.err ? `<div class="gate-err">${esc(S.ob.err)}</div>` : ''}
       <label class="f">First name (optional)<input type="text" id="ob_name" autocomplete="given-name" value="${esc(d.name || '')}"></label>
@@ -2766,7 +2766,7 @@ function openSettings() {
       <div><button type="button" class="btn ghost sm" data-act="testBeep">Test sound</button></div>
       <div class="small muted">The beep also depends on your phone's volume, and on iPhone it won't play if the ring/silent switch is on silent. It briefly turns your music down so you can hear it.</div>
       <div class="slotlabel">Notify me when rest is over</div>
-      ${!pushSupported() ? `<div class="small muted">${/iPhone|iPad/.test(navigator.userAgent) && !isStandalone() ? 'Open Recomp Log from its Home Screen icon (not Safari) to turn this on. Needs iOS 16.4 or later.' : 'This browser can\'t show notifications.'}</div>`
+      ${!pushSupported() ? `<div class="small muted">${/iPhone|iPad/.test(navigator.userAgent) && !isStandalone() ? 'Open Refyne from its Home Screen icon (not Safari) to turn this on. Needs iOS 16.4 or later.' : 'This browser can\'t show notifications.'}</div>`
         : `<div class="small muted">Get a notification when your rest timer ends, even if you've switched to music or locked your phone. This is set per phone.</div>
       <div class="seg" role="group" aria-label="Rest notifications"><button type="button" data-act="pushOn" aria-pressed="${pushOn()}">On</button><button type="button" data-act="pushOff" aria-pressed="${!pushOn()}">Off</button></div>
       ${pushOn() ? '<div><button type="button" class="btn ghost sm" data-act="pushTest">Send a test in 5 seconds</button></div><div class="small muted">Tap it, then lock your phone or switch apps.</div>' : ''}`}
@@ -3136,7 +3136,7 @@ document.addEventListener('change', e => {
   const el = e.target;
   if (el.id === 'restoreFile' && el.files[0]) {
     restoreBackup(el.files[0]).then(n => { toast(`Restored ${n} records`); document.getElementById('sheetRoot').innerHTML = ''; render(); })
-      .catch(err => { console.error(err); toast('That file isn\'t a Recomp Log backup.'); });
+      .catch(err => { console.error(err); toast('That file isn\'t a Refyne backup.'); });
     return;
   }
   if (el.closest?.('#customForm') && (el.id === 'cf_slot' || el.id === 'cf_save')) { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }

@@ -1,6 +1,6 @@
 {
-  "name": "Recomp Log",
-  "short_name": "Recomp",
+  "name": "Refyne",
+  "short_name": "Refyne",
   "description": "Meals, training, lifts, weigh-ins and progress photos.",
   "start_url": "./",
   "scope": "./",

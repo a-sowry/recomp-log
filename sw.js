@@ -1,6 +1,6 @@
-// Recomp Log service worker: the app opens instantly and works offline.
+// Refyne service worker: the app opens instantly and works offline.
 // Bump VERSION whenever app files change so phones pick up the update.
-const VERSION = 'recomp-v36';
+const VERSION = 'recomp-v37';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'vendor/supabase.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
@@ -32,7 +32,7 @@ self.addEventListener('fetch', e => {
 // Rest-timer notifications (sent by the send-push Supabase function).
 self.addEventListener('push', e => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.title || 'Recomp Log', {
+  e.waitUntil(self.registration.showNotification(d.title || 'Refyne', {
     body: d.body || '', tag: d.tag || 'rest', renotify: true, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: './' },
   }));
 });
