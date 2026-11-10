@@ -704,3 +704,14 @@ input.range { width: 100%; accent-color: var(--btn); height: 28px; }
 .icon-note img { border-radius: 9px; flex: none; box-shadow: 0 0 0 1px var(--line); }
 
 .gate-ok { color: var(--green); background: var(--sunk); padding: 8px 10px; border-radius: 8px; font-size: 14px; }
+
+.tick { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4; }
+.tick input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--btn); }
+details.privacy { font-size: 13.5px; color: var(--muted); }
+details.privacy summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+details.privacy p { margin: 8px 0 0; line-height: 1.45; }
+
+.banner.warn-soft { background: var(--sunk); border: 0; border-left: 3px solid var(--red); color: var(--ink); font-size: 13.5px; padding: 8px 10px; border-radius: 6px; }
+details.fb summary, details.del summary { cursor: pointer; font-weight: 600; }
+details.del summary { color: var(--red); }
+#fb_text { width: 100%; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); resize: vertical; box-sizing: border-box; }
