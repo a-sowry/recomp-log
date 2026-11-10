@@ -56,7 +56,7 @@ button { cursor: pointer; }
 header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); }
 header.top .wrap { display: flex; align-items: center; gap: 12px; padding-block: 10px; }
 .brand { white-space: nowrap; font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
-.brand .plate { width: 18px; height: 18px; border-radius: 50%; border: 4px solid var(--red); }
+.brand .plate { width: 24px; height: 24px; border-radius: 6px; flex: none; background: var(--logo, url(icons/t/auto-180.png)) center / cover no-repeat; box-shadow: 0 0 0 1px var(--line); }
 .datenav { margin-left: auto; display: flex; align-items: center; gap: 4px; }
 .datenav button { background: none; border: 1px solid var(--line); border-radius: 8px; width: 34px; height: 34px; display: grid; place-items: center; }
 .datenav .label { font-family: var(--font-display); font-weight: 600; font-size: 17px; min-width: 104px; text-align: center; text-transform: uppercase; letter-spacing: .03em; }
@@ -223,7 +223,7 @@ nav.tabs button[aria-current="page"] svg { stroke: var(--red); }
 .empty b { color: var(--ink); display: block; margin-bottom: 2px; }
 @media (max-width: 420px) {
   .brand { font-size: 19px; }
-  .brand .plate { width: 14px; height: 14px; border-width: 3px; }
+  .brand .plate { width: 21px; height: 21px; border-radius: 5px; }
   .datenav .label { min-width: 84px; font-size: 16px; }
   .macro { grid-template-columns: 64px 1fr auto; }
   .kcal-big .n { font-size: 38px; }
@@ -243,7 +243,7 @@ body.gated header.top, body.gated nav.tabs, body.gated main { display: none; }
 .gatebox { width: 100%; max-width: 380px; display: grid; gap: 14px; }
 .gatebox p { margin: 0; }
 .brand.big { font-size: 34px; }
-.brand.big .plate { width: 26px; height: 26px; border-width: 6px; }
+.brand.big .plate { width: 34px; height: 34px; border-radius: 8px; }
 .gate-err { background: var(--red-soft); color: var(--red); border-radius: 8px; padding: 8px 10px; font-weight: 600; font-size: 14px; }
 .sync { width: 10px; height: 10px; border-radius: 50%; background: var(--green); flex: none; }
 .sync[data-state="wait"] { background: var(--yellow); }
@@ -324,13 +324,6 @@ input[type=file] { max-width: 100%; font-size: 14px; }
 [data-style="soft"] .card { border: 0; box-shadow: var(--shadow, 0 6px 18px rgb(0 0 0 / .06)); border-radius: var(--r); padding: 16px 18px; }
 [data-style="soft"] header.top { border-bottom: 0; }
 [data-style="soft"] .brand { font-family: var(--font-display); font-style: italic; text-transform: none; letter-spacing: 0; font-size: 24px; }
-[data-style="soft"] .brand .plate { border: 0; width: 18px; height: 18px; background:
-  radial-gradient(circle at 50% 50%, #F6C445 0 22%, transparent 23%),
-  radial-gradient(circle at 50% 12%, var(--btn) 0 24%, transparent 25%),
-  radial-gradient(circle at 88% 38%, var(--btn) 0 24%, transparent 25%),
-  radial-gradient(circle at 74% 84%, var(--btn) 0 24%, transparent 25%),
-  radial-gradient(circle at 26% 84%, var(--btn) 0 24%, transparent 25%),
-  radial-gradient(circle at 12% 38%, var(--btn) 0 24%, transparent 25%); }
 [data-style="soft"] .sec > h2 { font-family: var(--font-display); font-style: italic; text-transform: none; letter-spacing: 0; font-size: 21px; font-weight: 700; color: var(--ink); }
 [data-style="soft"] .sec > h2 .aside { font-family: var(--font-body); font-style: normal; color: var(--muted); }
 [data-style="soft"] .slotlabel, [data-style="soft"] .macro .k, [data-style="soft"] .stat3 .s span, [data-style="soft"] th, [data-style="soft"] .sethead, [data-style="soft"] .week .d {

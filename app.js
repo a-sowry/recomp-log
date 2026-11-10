@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 38; // keep in step with VERSION in sw.js
+const APP_VERSION = 39; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -111,6 +111,7 @@ function applyTheme(id) {
   const setLink = (sel, href) => { const l = document.querySelector(sel); if (l && l.getAttribute('href') !== href) l.setAttribute('href', href); };
   setLink('link[rel="apple-touch-icon"]', `icons/t/${t.id}-180.png`);
   setLink('link[rel="icon"]', `icons/t/${t.id}-192.png`);
+  document.documentElement.style.setProperty('--logo', `url(icons/t/${t.id}-180.png)`);
   setLink('link[rel="manifest"]', `manifest-${t.id}.webmanifest`);
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
     if (t.bg) m.setAttribute('content', t.bg);
