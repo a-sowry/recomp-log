@@ -793,3 +793,23 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .dayedit .progrow [data-k="max"] { grid-area: max; }
 .dayedit .progrow .del { grid-area: del; }
 .dayedit .progrow::after { content: "sets · min–max reps"; grid-area: hint; align-self: center; font-size: 12px; color: var(--muted); padding-left: 4px; }
+
+/* starter meals picker */
+.sp-tabs { flex-wrap: wrap; }
+.sp-avoid { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sp-avoid .chip { background: var(--sunk); color: var(--ink); padding: 4px 10px; font-size: 13px; }
+.sp-avoid .chip.on { background: var(--ink); color: var(--btn-ink); text-decoration: line-through; }
+.sp-list { display: grid; gap: 8px; }
+.sp-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; background: var(--surface); }
+.sp-card.on { border-color: var(--btn); box-shadow: 0 0 0 1px var(--btn) inset; }
+.sp-top { text-align: left; display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.sp-top input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--btn); }
+.sp-name { display: grid; gap: 4px; min-width: 0; justify-items: start; text-align: left; font-size: 15px; }
+.sp-row { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.sp-row details { min-width: 0; flex: 1; }
+.sp-row summary { cursor: pointer; color: var(--muted); }
+.sp-size { flex: none; }
+.sp-size span { min-width: 44px; font-size: 13px; }
+.sp-legal { line-height: 1.4; }
+.sp-bar { position: sticky; bottom: 0; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 30%); display: grid; }
+.sp-entry { padding: 4px 0 2px; }
