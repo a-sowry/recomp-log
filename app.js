@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 51; // keep in step with VERSION in sw.js
+const APP_VERSION = 52; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1022,10 +1022,13 @@ function lastFor(name, beforeDate) {
   }
   return null;
 }
+// Half reps (partials) column: on if you've turned it on, or if you've ever logged them.
+function halfRepsOn() { const h = S.config?.halfReps; if (h === true || h === false) return h; return Object.values(S.sessions).some(s => (s.exercises || []).some(e => (e.sets || []).some(x => x.partials || x.drop?.partials))); }
+const DAY_HINTS = { Push: 'Chest, shoulders and triceps', Pull: 'Back and biceps', Legs: 'Quads, hamstrings, glutes and calves', Upper: 'Chest, back, shoulders and arms', Lower: 'Glutes, hamstrings, quads and calves' };
 function setTxt(st, steps) {
   if (steps || st.unit === 'steps') return `${kgFmt(st.kg)}×${st.reps} steps`;
-  let t = `${kgFmt(st.kg)}×${st.reps}${st.partials ? '+' + st.partials + 'p' : ''}`;
-  if (st.drop && st.drop.reps) t += ` → ${kgFmt(st.drop.kg)}×${st.drop.reps}${st.drop.partials ? '+' + st.drop.partials + 'p' : ''}`;
+  let t = `${kgFmt(st.kg)}×${st.reps}${st.partials ? ' +' + st.partials + ' half' : ''}`;
+  if (st.drop && st.drop.reps) t += ` → drop ${kgFmt(st.drop.kg)}×${st.drop.reps}${st.drop.partials ? ' +' + st.drop.partials + ' half' : ''}`;
   return t;
 }
 function increment(name, kg) {
@@ -1090,25 +1093,27 @@ function viewTrain() {
     ${splitDays().length ? '' : `<div class="card" style="display:grid;gap:8px"><b>No training split set up yet.</b><div class="small muted">Build your own split in Settings: name your days, pick which weekdays they're on, and add exercises. Or tap Custom to log any session.</div><div><button class="btn sm" data-act="openSplit">Set up my split</button></div></div>`}
     <div class="card empty"><b>Rest day.</b>Log abs, cardio, swims and hikes under Food → Steps &amp; cardio. ${day?.cardio?.length ? `Logged today: ${day.cardio.map(c => esc(c.type)).join(', ')}.` : ''}<div style="margin-top:10px"><button class="btn ghost" data-act="tab" data-v="today">Go to steps &amp; cardio</button></div></div>`;
   }
-  if (!S.loaded.sessions && navigator.onLine && !S.offlineAuth) return `<section class="sec">${seg}</section><div class="card empty">Loading your lift history…</div>`;
+  const segH = seg + (DAY_HINTS[S.trainDay] ? `<div class="small muted day-hint">${S.trainDay}: ${DAY_HINTS[S.trainDay].toLowerCase()}</div>` : '');
+  if (!S.loaded.sessions && navigator.onLine && !S.offlineAuth) return `<section class="sec">${segH}</section><div class="card empty">Loading your lift history…</div>`;
   const d = getDraft();
   const saved = !!S.sessions[draftKey()];
-  let cards = '';
+  let cards = ''; const halfReps = halfRepsOn();
   d.exercises.forEach((ex, ei) => {
     const steps = STEP_EXERCISES.has(ex.name);
     const last = lastFor(ex.name, S.date);
-    const scheme = ex.max ? `${ex.sets} × ${ex.min === ex.max ? ex.min : ex.min + '–' + ex.max}${steps ? ' steps' : ''}` : '';
-    let rows = `<div class="sethead"><span>Set</span><span>kg</span><span>${steps ? 'Steps' : 'Reps'}</span><span>${steps ? '' : '+Part.'}</span><span>${steps ? '' : 'Drop'}</span></div>`;
+    const scheme = ex.max ? `${ex.sets} set${ex.sets === 1 ? '' : 's'} · ${ex.min === ex.max ? ex.min : ex.min + '–' + ex.max} ${steps ? 'steps' : 'reps'}` : '';
+    const half = !steps && halfReps; const gc = half ? ' half' : '';
+    let rows = `<div class="sethead${gc}"><span>Set</span><span>kg</span><span>${steps ? 'Steps' : 'Reps'}</span>${half ? '<span>Half reps</span>' : ''}<span></span></div>`;
     ex.rows.forEach((r, ri) => {
-      rows += `<div class="setrow"><span class="n">${ri + 1}</span>
+      rows += `<div class="setrow${gc}"><span class="n">${ri + 1}</span>
         <input type="number" inputmode="decimal" step="0.25" min="0" aria-label="Set ${ri + 1} weight" data-f="kg" data-e="${ei}" data-r="${ri}" value="${r.kg ?? ''}" id="kg_${ei}_${ri}">
         <input type="number" inputmode="numeric" min="0" aria-label="Set ${ri + 1} reps" data-f="reps" data-e="${ei}" data-r="${ri}" value="${r.reps ?? ''}" placeholder="${r.ph ?? ''}" id="rp_${ei}_${ri}">
-        ${steps ? '<span></span><span></span>' : `<input type="number" inputmode="numeric" min="0" aria-label="Set ${ri + 1} partial reps" data-f="partials" data-e="${ei}" data-r="${ri}" value="${r.partials ?? ''}" placeholder="0" id="pa_${ei}_${ri}">
-        <button class="dropbtn" data-act="drop" data-e="${ei}" data-r="${ri}" aria-pressed="${!!r.drop}" aria-label="Drop set">DROP</button>`}</div>`;
-      if (r.drop) rows += `<div class="setrow drop"><span class="n">↳</span>
+        ${steps ? '<span></span>' : `${half ? `<input type="number" inputmode="numeric" min="0" aria-label="Set ${ri + 1} half reps" data-f="partials" data-e="${ei}" data-r="${ri}" value="${r.partials ?? ''}" placeholder="0" id="pa_${ei}_${ri}">` : ''}
+        <button class="dropbtn" data-act="drop" data-e="${ei}" data-r="${ri}" aria-pressed="${!!r.drop}" aria-label="${r.drop ? 'Remove the drop set' : 'Add a drop set'} for set ${ri + 1}">${r.drop ? 'Drop set ×' : '+ Drop set'}</button>`}</div>`;
+      if (r.drop) rows += `<div class="setrow drop${gc}"><span class="n">↳</span>
         <input type="number" inputmode="decimal" step="0.25" min="0" aria-label="Drop weight" data-f="dkg" data-e="${ei}" data-r="${ri}" value="${r.drop.kg ?? ''}" id="dkg_${ei}_${ri}">
         <input type="number" inputmode="numeric" min="0" aria-label="Drop reps" data-f="dreps" data-e="${ei}" data-r="${ri}" value="${r.drop.reps ?? ''}" id="drp_${ei}_${ri}">
-        <input type="number" inputmode="numeric" min="0" aria-label="Drop partial reps" data-f="dpartials" data-e="${ei}" data-r="${ri}" value="${r.drop.partials ?? ''}" placeholder="0" id="dpa_${ei}_${ri}"><span></span></div>`;
+        ${half ? `<input type="number" inputmode="numeric" min="0" aria-label="Drop half reps" data-f="dpartials" data-e="${ei}" data-r="${ri}" value="${r.drop.partials ?? ''}" placeholder="0" id="dpa_${ei}_${ri}">` : ''}<span class="small muted drop-lbl">drop set</span></div>`;
     });
     cards += `<div class="card ex">
       <div class="ex-head"><input type="text" list="exnames" aria-label="Exercise" data-f="name" data-e="${ei}" value="${esc(ex.name)}" id="exn_${ei}"><span class="scheme">${scheme}</span></div>
@@ -1123,7 +1128,7 @@ function viewTrain() {
   const picker = custom ? `<select id="customPick" class="custom-pick" aria-label="Add an exercise from your program"><option value="">+ Add from your program</option>${splitDays().map(dn => `<optgroup label="${esc(dn)}">${prog[dn].map(e => `<option value="${esc(dn + '|' + e.name)}">${esc(e.name)}</option>`).join('')}</optgroup>`).join('')}</select>` : '';
   const customHead = custom ? `<div class="card custom-head"><label class="f">Session name (optional)<input type="text" data-f="title" id="sessTitle" placeholder="e.g. Quick arms, hotel gym" value="${esc(d.title || '')}"></label>
       ${d.exercises.length ? '' : `<div class="small muted">Build a session that fits the time you've got. Pick exercises from your split below and their last weights fill in, or add any exercise by name.</div>`}</div>` : '';
-  return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${seg}
+  return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${segH}
     ${saved ? `<div class="small muted">Saved session. Changes overwrite it when you save again.</div>` : ''}</section>
     ${customHead}
     ${cards}
@@ -1313,12 +1318,12 @@ function viewProgress() {
   </section>
   <section class="card" style="display:grid;gap:12px">
     <div class="stat3">
-      <div class="s"><span>${steps ? 'Latest' : 'Est. 1RM now'}</span><b>${steps ? kgFmt(last.top.kg) : kgFmt(r1(last.e1))} kg</b></div>
-      <div class="s"><span>${steps ? 'Sessions' : 'Best est. 1RM'}</span><b>${steps ? h.length : kgFmt(r1(best.e1)) + ' kg'}</b></div>
+      <div class="s"><span>${steps ? 'Latest' : 'Est. max now'}</span><b>${steps ? kgFmt(last.top.kg) : kgFmt(r1(last.e1))} kg</b></div>
+      <div class="s"><span>${steps ? 'Sessions' : 'Best est. max'}</span><b>${steps ? h.length : kgFmt(r1(best.e1)) + ' kg'}</b></div>
       <div class="s"><span>Since ${fmtDay(first.date, { day: 'numeric', month: 'short' })}</span><b class="${change >= 0 ? 'up-txt' : 'down-txt'}">${h.length > 1 ? (change >= 0 ? '+' : '') + r0(change) + '%' : '–'}</b></div>
     </div>
     ${lineChart(pts, { label: S.progressEx + ' progress', unit: ' kg', second: !steps })}
-    <div class="legend">${steps ? '<span><i style="background:var(--red)"></i>Weight carried</span>' : '<span><i style="background:var(--red)"></i>Estimated 1RM (best set)</span><span><i style="background:var(--surface);border:1.5px solid var(--muted)"></i>Heaviest weight used</span>'}</div>
+    <div class="legend">${steps ? '<span><i style="background:var(--red)"></i>Weight carried</span>' : '<span><i style="background:var(--red)"></i>Estimated max lift (from your best set)</span><span><i style="background:var(--surface);border:1.5px solid var(--muted)"></i>Heaviest weight used</span>'}</div>
   </section>
   <section class="sec"><h2>Every session <span class="aside">${h.length} logged</span></h2>
     <div class="card tablewrap"><table><thead><tr><th>Date</th><th>Sets</th></tr></thead><tbody>
@@ -1326,8 +1331,8 @@ function viewProgress() {
     </tbody></table></div>
   </section>
   <section class="sec"><h2>Your program, first log vs latest</h2>
-    <div class="card tablewrap"><table><thead><tr><th>Exercise</th><th>Latest top set</th><th class="r">e1RM</th><th class="r">Change</th></tr></thead><tbody>${sumRows || '<tr><td colspan="4" class="muted">No history for your current program exercises yet.</td></tr>'}</tbody></table></div>
-    <div class="small muted">Estimated 1RM uses the Epley formula on your best set (full reps only), so lifts at different rep counts compare fairly. Machine swaps show as separate exercises.</div>
+    <div class="card tablewrap"><table><thead><tr><th>Exercise</th><th>Best set last time</th><th class="r">Est. max</th><th class="r">Change</th></tr></thead><tbody>${sumRows || '<tr><td colspan="4" class="muted">No history for your current program exercises yet.</td></tr>'}</tbody></table></div>
+    <div class="small muted">Estimated max lift is the most you could likely lift for one rep, worked out from your best set with the Epley formula (full reps only), so lifts at different rep counts compare fairly. Machine swaps show as separate exercises.</div>
   </section>`;
 }
 
@@ -2224,10 +2229,10 @@ function spRefresh() { if (S.ob && S.ob.step === 4) openOnboarding(); else openS
 
 /* "What fits?": rank your meals, favourites and regulars against what's left today */
 function fitsCard() {
-  if (S.config?.fitsHidden) return `<section class="sec"><h2>What fits <button class="linkbtn h2btn push" data-act="fitsHide" data-v="0">Show</button></h2></section>`;
+  if (S.config?.fitsHidden) return `<section class="sec"><h2>Meal ideas for what's left <button class="linkbtn h2btn push" data-act="fitsHide" data-v="0">Show</button></h2></section>`;
   const T = targets(); const t = dayTotals(S.days[S.date]); const kLeft = T.kcal - t.kcal, pLeft = T.p - t.p;
-  if (!T.kcal) return `<section class="sec"><h2>What fits <button class="linkbtn h2btn push" data-act="fitsHide" data-v="1">Hide</button></h2><div class="card small muted">Set your daily targets in Settings and this suggests meals that fit what you've got left.</div></section>`;
-  const head = `<h2>What fits <span class="aside">${kLeft > 0 ? `${r0(kLeft).toLocaleString()} kcal${pLeft > 0 ? ` · ${r0(pLeft)} g protein` : ''} left` : ''}</span><button class="linkbtn h2btn" data-act="fitsHide" data-v="1">Hide</button></h2>`;
+  if (!T.kcal) return `<section class="sec"><h2>Meal ideas for what's left <button class="linkbtn h2btn push" data-act="fitsHide" data-v="1">Hide</button></h2><div class="card small muted">Set your daily targets in Settings and this suggests meals that fit what you've got left.</div></section>`;
+  const head = `<h2>Meal ideas for what's left <span class="aside">${kLeft > 0 ? `${r0(kLeft).toLocaleString()} kcal${pLeft > 0 ? ` · ${r0(pLeft)} g protein` : ''}` : ''}</span><button class="linkbtn h2btn" data-act="fitsHide" data-v="1">Hide</button></h2>`;
   if (kLeft < 120) return `<section class="sec">${head}<div class="card small muted">You're at your calories for ${S.date === todayISO() ? 'today' : 'this day'}${pLeft > 5 ? `, with ${r0(pLeft)} g protein still to go. Something like egg whites, a protein shake with water or 0% Greek yoghurt adds protein for few calories` : '. Water, black coffee and tea are free'}.</div></section>`;
   const seen = new Set(); const cands = [];
   const push = (it, key) => { if (!it || seen.has(it.name)) return; seen.add(it.name); cands.push({ it, key }); };
@@ -2427,7 +2432,7 @@ function detectPBs(doc, key) {
     const best = ex.sets.reduce((b, st) => e1rm(st) > e1rm(b) ? st : b, ex.sets[0]);
     const nowE = e1rm(best), nowMax = Math.max(...ex.sets.map(s => s.kg));
     if (nowMax > prevMax + 1e-9) pbs.push({ name: ex.name, text: `${kgFmt(nowMax)} kg, your heaviest yet (up from ${kgFmt(prevMax)} kg)` });
-    else if (nowE > prevBest + 0.25) pbs.push({ name: ex.name, text: `${kgFmt(best.kg)} kg × ${best.reps}: estimated 1RM ${kgFmt(r1(nowE))} kg (+${kgFmt(r1(nowE - prevBest))} kg)` });
+    else if (nowE > prevBest + 0.25) pbs.push({ name: ex.name, text: `${kgFmt(best.kg)} kg × ${best.reps}: estimated max lift ${kgFmt(r1(nowE))} kg (+${kgFmt(r1(nowE - prevBest))} kg)` });
   }
   return pbs;
 }
@@ -2949,12 +2954,12 @@ function openMethods() {
       </ul>`)}
     ${sec('Training, PBs and progression', `<ul class="ing-list">
         <li><b>Estimated 1-rep max:</b> the Epley formula, weight × (1 + reps ÷ 30), with reps capped at 15 so very high-rep sets don't inflate it.</li>
-        <li><b>Personal best:</b> either the heaviest weight you've ever done on that exercise, or an estimated 1RM more than 0.25 kg above your previous best.</li>
+        <li><b>Personal best:</b> either the heaviest weight you've ever done on that exercise, or an estimated max lift (one rep) more than 0.25 kg above your previous best.</li>
         <li><b>"Go up" hints:</b> once every set hits the top of the rep range, add 2.5 kg. That's 1.25 kg for small isolation lifts like curls, laterals and flyes under 12.5 kg, and 5 kg for leg press or anything at 100 kg or more.</li>
       </ul>`)}
     ${sec('Food tab colours and suggestions', `<ul class="ing-list">
         <li><b>Green:</b> within 150 kcal of your target and protein within 10 g of it. <b>Yellow:</b> under, or protein short. <b>Red:</b> more than 150 kcal over.</li>
-        <li><b>What fits:</b> your meals, favourites and regulars that fit the calories you have left. They're ranked by protein per calorie, with a bonus for meals that suit the time of day.</li>
+        <li><b>Meal ideas for what's left:</b> your meals, favourites and regulars that fit the calories you have left. They're ranked by protein per calorie, with a bonus for meals that suit the time of day.</li>
         <li><b>Your regulars:</b> anything logged at least twice in the last 30 days.</li>
       </ul>`)}
     ${sec('Weight trend advice', `<ul class="ing-list">
@@ -3027,7 +3032,7 @@ function openSettings() {
     </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Food page</div>
       <div class="small muted">Choose what shows on the Food tab. Everything you turn off still works, it's just out of the way.</div>
-      ${[['water', 'Water'], ['steps', 'Steps and cardio'], ['supps', 'Supplements'], ['week', 'Last 7 days'], ['fits', 'What fits (meal suggestions)']].map(([k, l]) => `<label class="tick"><input type="checkbox" data-food="${k}" ${foodShown()[k] ? 'checked' : ''}> ${l}</label>`).join('')}
+      ${[['water', 'Water'], ['steps', 'Steps and cardio'], ['supps', 'Supplements'], ['week', 'Last 7 days'], ['fits', "Meal ideas for what's left"]].map(([k, l]) => `<label class="tick"><input type="checkbox" data-food="${k}" ${foodShown()[k] ? 'checked' : ''}> ${l}</label>`).join('')}
     </div>
     ${growSettings()}
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Meal plan</div>
@@ -3049,6 +3054,10 @@ function openSettings() {
       <div id="t_warn">${lowKcalWarn(T.kcal)}</div>
       <div class="small muted">On days with extra exercise, like a long hike, swim or run, eat a bit more to fuel it.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ${T.kcal ? 'ghost ' : ''}sm" data-act="redoSetup">${T.kcal ? 'Recalculate from my stats' : 'Work out my targets'}</button><button type="button" class="btn ghost sm" data-act="openMethods">How it's calculated</button></div>
+    </div>
+    <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Logging sets</div>
+      <label class="tick"><input type="checkbox" data-food="halfReps" ${halfRepsOn() ? 'checked' : ''}> Show a Half reps column</label>
+      <div class="small muted">For partial reps: extra half-range reps done after the full ones, once you can't do another full rep.</div>
     </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Rest timer</div>
       <label class="f">Volume <span class="small muted" id="tv_show">${timerVol()}%</span><input type="range" id="tv_vol" min="0" max="100" step="5" value="${timerVol()}" class="range"></label>
@@ -3179,6 +3188,7 @@ document.addEventListener('change', e => {
   else if (k === 'supps') cfg.suppHidden = !on;
   else if (k === 'week') cfg.weekShown = on;
   else if (k === 'fits') cfg.fitsHidden = !on;
+  else if (k === 'halfReps') cfg.halfReps = on;
   saveConfig(cfg);
 });
 document.addEventListener('click', e => {

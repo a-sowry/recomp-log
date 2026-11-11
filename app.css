@@ -152,14 +152,16 @@ details.add > summary::-webkit-details-marker { display: none; }
 .hint.up { background: var(--green-soft); color: var(--green); font-weight: 600; }
 .hint.hold { background: var(--sunk); color: var(--muted); }
 .sets { display: grid; gap: 6px; }
-.setrow { display: grid; grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) 34px; gap: 6px; align-items: center; }
+.setrow { display: grid; grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr) 84px; gap: 6px; align-items: center; }
+.setrow.half, .sethead.half { grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) 84px; }
 .setrow .n { font-family: var(--font-display); font-weight: 700; color: var(--muted); text-align: center; }
 .setrow input { text-align: center; padding: 7px 4px; }
-.setrow .dropbtn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 11px; font-weight: 700; }
+.setrow .dropbtn { width: 100%; min-height: 34px; padding: 0 4px; border-radius: 8px; border: 1px dashed var(--line); background: none; color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .setrow .dropbtn[aria-pressed="true"] { background: var(--blue-soft); border-color: var(--blue); color: var(--blue); }
-.setrow.drop { grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) 34px; }
+.setrow .drop-lbl { text-align: center; color: var(--blue); }
+.day-hint { margin-top: 2px; }
 .setrow.drop .n { font-size: 11px; color: var(--blue); }
-.sethead { display: grid; grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) 34px; gap: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: center; font-weight: 600; }
+.sethead { display: grid; grid-template-columns: 26px minmax(0, 1fr) minmax(0, 1fr) 84px; gap: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: center; font-weight: 600; }
 .ex-foot { display: flex; gap: 12px; flex-wrap: wrap; }
 .savebar { position: sticky; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 5; display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; box-shadow: 0 6px 20px rgb(0 0 0 / .12); }
 .savebar > .btn { margin-left: auto; white-space: nowrap; }
