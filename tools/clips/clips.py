@@ -383,7 +383,7 @@ def main():
     platforms = a.platform or ['instagram', 'tiktok']
     for s in a.specs:
         spec = load(s); raw = OUT / f"{spec['id']}.raw.mp4"
-        if spec['duration'] > 20: sys.exit(f"{spec['id']}: {spec['duration']}s is over the 20 second limit")
+        if spec['duration'] > spec.get('max_duration', 20): sys.exit(f"{spec['id']}: {spec['duration']}s is over the {spec.get('max_duration', 20)} second limit")
         cb = check_captions(spec)
         if cb: print(f"{spec['id']}: caption rules FAILED {cb}"); bad = True; continue
         if a.cmd in ('build', 'record'): record(spec, raw)

@@ -1,0 +1,158 @@
+{
+ "id": "16-a-day-in-refyne",
+ "look": "light",
+ "max_duration": 60,
+ "config": {
+  "grow": "bonsai"
+ },
+ "garden_inbloom": 30,
+ "duration": 39,
+ "captions": [
+  {
+   "t": 0,
+   "title": "A day in Refyne",
+   "sub": "morning to evening"
+  },
+  {
+   "t": 2.0,
+   "title": "Morning: log your coffee"
+  },
+  {
+   "t": 8.2,
+   "title": "Lunch: search the takeaway",
+   "sub": "official published nutrition info"
+  },
+  {
+   "t": 15.8,
+   "title": "Afternoon: track your water"
+  },
+  {
+   "t": 21.0,
+   "title": "Evening: log your lift"
+  },
+  {
+   "t": 27.6,
+   "title": "New PB? Refyne celebrates it"
+  },
+  {
+   "t": 31.6,
+   "title": "And your bonsai keeps growing"
+  },
+  {
+   "t": 36.0,
+   "title": "Refyne fit",
+   "sub": "track your day"
+  }
+ ],
+ "steps": [
+  {
+   "at": 2.4,
+   "do": "tap",
+   "target": "[data-act='openAdd'][data-v='Drinks']"
+  },
+  {
+   "at": 3.8,
+   "do": "tap",
+   "target": "[data-act='drinkOpt'][data-v='flatwhite']"
+  },
+  {
+   "at": 4.9,
+   "do": "tap",
+   "target": "[data-act='drinkOpt'][data-v='large']"
+  },
+  {
+   "at": 6.0,
+   "do": "tap",
+   "target": "[data-act='drinkOpt'][data-v='oat']"
+  },
+  {
+   "at": 7.0,
+   "do": "tap",
+   "target": "[data-act='drinkAdd']"
+  },
+  {
+   "at": 8.8,
+   "do": "tap",
+   "target": "[data-act='closeAdd']"
+  },
+  {
+   "at": 9.6,
+   "do": "tap",
+   "target": "[data-act='openAdd']"
+  },
+  {
+   "at": 10.8,
+   "do": "tap",
+   "target": "[data-act='foodAdd'][data-v='search']"
+  },
+  {
+   "at": 11.8,
+   "do": "type",
+   "target": "#fs_q",
+   "text": "big mac"
+  },
+  {
+   "at": 13.8,
+   "do": "tap",
+   "target": "[data-act='searchGo']"
+  },
+  {
+   "at": 15.4,
+   "do": "tap",
+   "target": "[data-act='closeAdd']"
+  },
+  {
+   "at": 16.4,
+   "do": "tap",
+   "target": "[data-act='openPanel'][data-v='water']"
+  },
+  {
+   "at": 17.8,
+   "do": "tap",
+   "target": ".sheet [data-act='water']:has-text('+ 500')"
+  },
+  {
+   "at": 19.4,
+   "do": "tap",
+   "target": ".sheet [data-act='closePanel']"
+  },
+  {
+   "at": 21.4,
+   "do": "tap",
+   "target": "[data-tab='train']"
+  },
+  {
+   "at": 23.0,
+   "do": "type",
+   "target": "#kg_0_0",
+   "text": "50"
+  },
+  {
+   "at": 24.4,
+   "do": "type",
+   "target": "#rp_0_0",
+   "text": "9"
+  },
+  {
+   "at": 26.4,
+   "do": "tap",
+   "target": "[data-act='saveSession']"
+  },
+  {
+   "at": 30.4,
+   "do": "tap",
+   "target": "[data-act='closeCelebrate']"
+  },
+  {
+   "at": 31.8,
+   "do": "tap",
+   "target": "[data-tab='garden']"
+  },
+  {
+   "at": 33.2,
+   "do": "scroll",
+   "dy": 420,
+   "ms": 2000
+  }
+ ]
+}
