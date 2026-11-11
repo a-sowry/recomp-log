@@ -218,7 +218,7 @@ nav.tabs button[aria-current="page"] svg { stroke: var(--red); }
 .progrow { display: grid; grid-template-columns: minmax(0, 1fr) 48px 48px 48px 30px; gap: 6px; align-items: center; }
 .progrow input { padding: 6px; }
 .progrow .del { background: none; border: 0; color: var(--red); font-size: 18px; }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); background: var(--btn); color: var(--btn-ink); padding: 8px 14px; border-radius: 8px; z-index: 50; font-weight: 600; font-size: 14px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); background: var(--btn); color: var(--btn-ink); padding: 8px 14px; border-radius: 8px; z-index: 58; font-weight: 600; font-size: 14px; }
 .empty { text-align: center; padding: 18px 10px; color: var(--muted); }
 .empty b { color: var(--ink); display: block; margin-bottom: 2px; }
 @media (max-width: 420px) {
@@ -750,3 +750,19 @@ details.del summary { color: var(--red); }
 .sheet.ovl .sec h2 { margin-top: 0; }
 body.ovl-open { overflow: hidden; }
 .prog-seg { margin-bottom: 2px; }
+
+/* Sheets opened from inside Log food (planner, grocery, a meal page) sit on top of it. */
+#sheetRoot .sheet { z-index: 50; }
+
+/* Plan & shop */
+.groc { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
+.groc .gl { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; cursor: pointer; min-width: 0; }
+.groc span.gl { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
+.groc .linkbtn { white-space: nowrap; }
+.plan-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.plan-sum > div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; }
+.plan-sum b { font-size: 20px; }
+.plan-sum span { font-size: 12px; color: var(--muted); }
+.plan-row.on .t { font-weight: 700; }
+.stepper button:disabled { opacity: .35; }
+details.card summary { cursor: pointer; }

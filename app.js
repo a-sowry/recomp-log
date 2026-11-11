@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 42; // keep in step with VERSION in sw.js
+const APP_VERSION = 43; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -925,7 +925,7 @@ function viewToday() {
   const emptySlots = SLOTS.filter(sl => !meals.some(m => (m.slot || 'Snack') === sl));
   const addSheet = !S.addOpen ? '' : `<div class="sheet ovl" data-ovl="add"><div class="panel"><div class="wrap">
     <div class="ovl-head"><h3>Log food</h3><button type="button" class="btn ghost sm" data-act="closeAdd">Done</button></div>
-    <div class="ovl-sub"><span class="small muted">${r0(t.kcal).toLocaleString()} / ${T.kcal.toLocaleString()} kcal · P ${r0(t.p)} / ${T.p} g</span><span><button class="linkbtn groc-btn" data-act="openPlanner">Plan week</button></span></div>
+    <div class="ovl-sub"><span class="small muted">${r0(t.kcal).toLocaleString()} / ${T.kcal.toLocaleString()} kcal · P ${r0(t.p)} / ${T.p} g</span><span><button class="linkbtn groc-btn" data-act="openPlanner">Plan &amp; shop</button></span></div>
     ${quickCard()}
     <div class="seg" role="group" aria-label="Food source">
       <button data-act="foodAdd" data-v="plan" aria-pressed="${!['custom', 'scan', 'search', 'drinks'].includes(S.foodAdd)}">Meal plan</button>
@@ -2030,27 +2030,82 @@ function planOptions(slot) {
   const here = meals.filter(m => m.slot === slot), other = meals.filter(m => m.slot !== slot);
   return `<option value="">+ Add ${slot.toLowerCase()}</option>${here.length ? `<optgroup label="${slot}">${here.map(opt).join('')}</optgroup>` : ''}${favs().length ? `<optgroup label="Favourites">${favs().map(q => `<option value="Q:${q.id}">${esc(q.name)} (${r0(q.kcal)} kcal)</option>`).join('')}</optgroup>` : ''}${other.length ? `<optgroup label="Other meals">${other.map(opt).join('')}</optgroup>` : ''}`;
 }
+// Plan & shop: pick how many times you'll have each meal this week; the shopping list builds underneath.
+// config.plan = { 'YYYY-MM-DD' (week start): { key: count } }, keys as planMeals() (recipe id or 'f:<food id>').
+function planWs(off = S.planWeek || 0) { return addDays(weekStart(todayISO()), off * 7); }
+function weekCounts(ws) {
+  const saved = S.config?.plan?.[ws]; if (saved) return saved;
+  return planCounts(ws); // weeks planned the old way (day by day) still count
+}
+function savePlanCounts(ws, mut) {
+  const cfg = cfgCopy(); cfg.plan = cfg.plan || {}; const c = { ...(cfg.plan[ws] || weekCounts(ws)) }; mut(c);
+  for (const k of Object.keys(c)) if (!c[k]) delete c[k];
+  cfg.plan[ws] = c; const cut = addDays(weekStart(todayISO()), -28); for (const w of Object.keys(cfg.plan)) if (w < cut) delete cfg.plan[w];
+  S.config = cfg; store.set('config', 'settings', cfg);
+}
+function mealMacros(m) { const r = m.starter ? RECIPES.find(x => x.id === m.key) : m.food; return { kcal: r?.kcal || 0, p: r?.p || 0 }; }
 function openPlanner() {
-  const prevScroll = document.querySelector('.sheet .panel')?.scrollTop || 0;
-  const off = S.planWeek || 0; const ws = addDays(weekStart(todayISO()), off * 7); const T = targets();
-  const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i)).map(d => {
-    const pd = planDay(d); let kcal = 0, p = 0;
-    const slots = PLAN_SLOTS.map(slot => {
-      const items = (pd[slot] || []).map((key, i) => { const it = itemFromKey(key); if (!it) return ''; kcal += it.kcal; p += it.p; return `<span class="plan-chip">${esc(it.name)}<button type="button" data-act="planDel" data-d="${d}" data-s="${slot}" data-i="${i}" aria-label="Remove ${esc(it.name)}">×</button></span>`; }).join('');
-      return `<div class="plan-slot"><span class="ps-l">${slot}</span><div class="ps-items">${items}<select class="plan-add" data-plan-d="${d}" data-plan-s="${slot}" aria-label="Add ${slot.toLowerCase()} on ${fmtDay(d)}">${planOptions(slot)}</select></div></div>`;
-    }).join('');
-    const tot = kcal ? `<span class="aside ${kcal > T.kcal + 150 ? 'down-txt' : ''}">${r0(kcal).toLocaleString()} kcal · ${r0(p)} g protein</span>` : '';
-    return `<div class="card plan-day${d === todayISO() ? ' today' : ''}"><div class="plan-head"><b>${fmtDay(d, { weekday: 'long' })}</b> <span class="muted">${fmtDay(d, { day: 'numeric', month: 'short' })}</span>${tot}</div>${slots}</div>`;
-  }).join('');
+  const prevScroll = document.querySelector('#sheetRoot .sheet .panel')?.scrollTop || 0;
+  const off = S.planWeek || 0; const ws = planWs(off); const T = targets(); const counts = weekCounts(ws);
+  const meals = planMeals(); let kcal = 0, p = 0, n = 0;
+  for (const m of meals) { const c = counts[m.key] || 0; if (!c) continue; const mm = mealMacros(m); kcal += mm.kcal * c; p += mm.p * c; n += c; }
   const label = `${fmtDay(ws, { day: 'numeric', month: 'short' })} – ${fmtDay(addDays(ws, 6), { day: 'numeric', month: 'short' })}`;
+  const avg = n ? `<div class="plan-sum"><div><b>${r0(kcal / 7).toLocaleString()}</b><span>kcal a day</span></div><div><b>${r0(p / 7)}</b><span>g protein a day</span></div><div><b>${n}</b><span>meal${n > 1 ? 's' : ''} planned</span></div></div>
+    <div class="small muted">Your target is ${T.kcal.toLocaleString()} kcal and ${T.p} g protein a day. Anything you don't plan (snacks, eating out) fills the gap.</div>`
+    : `<div class="small muted">Tap + on the meals you'll have this week, as many times as you'll have them. Your shopping list builds underneath.</div>`;
+  const rows = SLOTS.map(slot => {
+    const ms = meals.filter(m => m.slot === slot); if (!ms.length) return '';
+    return `<div class="slotlabel">${slot}</div>` + ms.map(m => { const c = counts[m.key] || 0; const mm = mealMacros(m);
+      return `<div class="row plan-row${c ? ' on' : ''}"><div style="min-width:0"><div class="t">${esc(m.name)}</div><div class="small muted">${r0(mm.kcal)} kcal · ${r0(mm.p)} g protein${!m.starter && !(m.food.ing || []).length ? ' · no ingredients saved' : ''}</div></div>
+        <div class="stepper"><button type="button" data-act="planCount" data-k="${esc(m.key)}" data-d="-1" aria-label="Fewer ${esc(m.name)}"${c ? '' : ' disabled'}>−</button><span>${c}×</span><button type="button" data-act="planCount" data-k="${esc(m.key)}" data-d="1" aria-label="More ${esc(m.name)}">+</button></div></div>`; }).join('');
+  }).join('');
+  const spread = S.config?.planSpread?.[ws];
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet"><div class="panel"><div class="wrap planner">
-    <div style="display:flex;align-items:center;gap:10px"><h3>Plan the week</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSheet">Close</button></div>
+    <div style="display:flex;align-items:center;gap:10px"><h3>Plan &amp; shop</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSheet">Close</button></div>
     <div class="seg" role="group" aria-label="Week"><button type="button" data-act="planWeek" data-v="0" aria-pressed="${off === 0}">This week</button><button type="button" data-act="planWeek" data-v="1" aria-pressed="${off === 1}">Next week</button></div>
-    <div class="small muted">${label}. Pick meals for each day. Today's planned meals show up at the top of Log food for one-tap logging, and the grocery list can be built from this plan. Daily target: ${T.kcal.toLocaleString()} kcal, ${T.p} g protein.</div>
-    ${days}
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-act="planGroc">Grocery list for this week</button><button type="button" class="btn ghost sm" data-act="planCopy">Copy last week</button><button type="button" class="btn ghost sm" data-act="planClear">Clear week</button></div>
+    <div class="small"><b>${label}</b></div>
+    ${avg}
+    <div class="card rows">${rows || '<div class="empty"><b>Your meal plan is empty.</b>Add meals in Log food → Add a meal first.</div>'}</div>
+    ${n ? `<div class="card" style="display:grid;gap:8px"><div class="small">${spread ? `<b>On your days.</b> Each day's meals show at the top of Log food for one-tap logging.` : `Want each day's meals ready to tap in Log food? Spread them across the week.`}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ${spread ? 'ghost ' : ''}sm" data-act="planSpread">${spread ? 'Re-spread' : 'Spread across the week'}</button>${spread ? '<button type="button" class="btn ghost sm" data-act="planUnspread">Clear the days</button>' : ''}${off === 1 || Object.keys(S.config?.plan?.[planWs(off - 1)] || {}).length ? '' : ''}<button type="button" class="btn ghost sm" data-act="planCopy">Copy last week</button></div></div>` : `<div><button type="button" class="btn ghost sm" data-act="planCopy">Copy last week</button></div>`}
+    ${groceryHTML(ws)}
   </div></div></div>`;
-  const pn = document.querySelector('.sheet .panel'); if (pn) pn.scrollTop = prevScroll;
+  const pn = document.querySelector('#sheetRoot .sheet .panel'); if (pn) pn.scrollTop = prevScroll;
+}
+function groceryHTML(ws) {
+  const g = S.config?.grocery || {}; const checked = g.checked || {}; const have = g.have || {};
+  const items = groceryItems(ws); const need = items.filter(i => !have[i.key]); const had = items.filter(i => have[i.key]);
+  const left = need.filter(i => !checked[i.key]).length;
+  const row = i => `<div class="groc ${checked[i.key] ? 'done' : ''}"><label class="gl"><input type="checkbox" data-groc="${esc(i.key)}" ${checked[i.key] ? 'checked' : ''}><span class="gn">${esc(i.name)}</span><span class="gq">${esc(i.qty)}</span></label>${i.extra ? `<button type="button" class="linkbtn small" data-act="grocDelExtra" data-v="${i.extra}" aria-label="Remove ${esc(i.name)}">×</button>` : `<button type="button" class="linkbtn small" data-act="grocHave" data-k="${esc(i.key)}">Have it</button>`}</div>`;
+  const list = need.length ? AISLES.map(a => {
+    const xs = need.filter(i => i.aisle === a); if (!xs.length) return '';
+    return `<div class="slotlabel">${a}</div>` + xs.map(row).join('');
+  }).join('') : `<div class="empty">${items.length ? '<b>Nothing left to buy.</b>Everything is ticked off or already in your pantry.' : '<b>Your list is empty.</b>Plan some meals above and their ingredients add up here.'}</div>`;
+  return `<section class="sec"><h2>Shopping list <span class="aside">${need.length ? `${left} of ${need.length} left` : ''}</span></h2>
+    <div class="card">${list}
+      <div class="formrow" style="margin-top:10px"><label class="f">Add something else<input type="text" id="groc_extra" placeholder="e.g. paper towel"></label><button type="button" class="btn ghost" data-act="grocAddExtra">Add</button></div>
+    </div>
+    ${had.length ? `<details class="card small"><summary><b>Already have (${had.length})</b> <span class="muted">· left off the list</span></summary>${had.map(i => `<div class="groc"><span class="gl"><span class="gn">${esc(i.name)}</span><span class="gq">${esc(i.qty)}</span></span><button type="button" class="linkbtn small" data-act="grocHave" data-k="${esc(i.key)}">Need it</button></div>`).join('')}</details>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm" data-act="grocShare"${need.length ? '' : ' disabled'}>Share list</button><button type="button" class="btn ghost sm" data-act="grocUntick">Untick all</button></div>
+  </section>`;
+}
+function groceryText(ws) {
+  const g = S.config?.grocery || {}; const checked = g.checked || {}; const have = g.have || {};
+  const need = groceryItems(ws).filter(i => !have[i.key] && !checked[i.key]);
+  const label = `${fmtDay(ws, { day: 'numeric', month: 'short' })} – ${fmtDay(addDays(ws, 6), { day: 'numeric', month: 'short' })}`;
+  return `Shopping list (${label})\n` + AISLES.map(a => { const xs = need.filter(i => i.aisle === a); return xs.length ? `\n${a}\n` + xs.map(i => `- ${i.name}${i.qty ? ' (' + i.qty + ')' : ''}`).join('\n') : ''; }).join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+}
+function spreadPlan(ws) {
+  const counts = weekCounts(ws); const meals = planMeals();
+  savePlan(wp => {
+    for (let i = 0; i < 7; i++) delete wp[addDays(ws, i)];
+    for (const slot of SLOTS) {
+      const queue = []; for (const m of meals.filter(x => x.slot === slot)) for (let k = 0; k < (counts[m.key] || 0); k++) queue.push(m.starter ? 'R:' + m.key : 'F:' + m.food.id);
+      const pslot = PLAN_SLOTS.includes(slot) ? slot : 'Snack';
+      queue.forEach((key, j) => { const d = addDays(ws, j % 7); wp[d] = wp[d] || {}; (wp[d][pslot] = wp[d][pslot] || []).push(key); });
+    }
+  });
+  const cfg = cfgCopy(); cfg.planSpread = { ...(cfg.planSpread || {}), [ws]: true }; S.config = cfg; store.set('config', 'settings', cfg);
 }
 
 /* "What fits?": rank your meals, favourites and regulars against what's left today */
@@ -2204,8 +2259,8 @@ function planMeals() {
     ...(S.config?.foods || []).map(f => ({ key: 'f:' + f.id, name: f.name, slot: f.slot || 'Snack', food: f }))];
 }
 function grocPlanMode() { const g = S.config?.grocery || {}; return g.mode ? g.mode === 'plan' : Object.keys(planCounts(addDays(weekStart(todayISO()), (S.grocWeek || 0) * 7))).length > 0; }
-function groceryItems() {
-  const g = S.config?.grocery || {}; const counts = grocPlanMode() ? planCounts(addDays(weekStart(todayISO()), (S.grocWeek || 0) * 7)) : (g.counts || {});
+function groceryItems(ws = planWs()) {
+  const g = S.config?.grocery || {}; const counts = weekCounts(ws);
   const sums = {}; const loose = {};
   for (const m of planMeals()) {
     const n = counts[m.key] || 0; if (!n) continue;
@@ -2237,37 +2292,7 @@ function groceryItems() {
   for (const x of g.extra || []) out.push({ key: 'e:' + x.id, name: x.text, aisle: 'Other', qty: '', extra: x.id });
   return out;
 }
-function openGrocery() {
-  const prevScroll = document.querySelector('.sheet .panel')?.scrollTop || 0;
-  const g = S.config?.grocery || {}; const counts = g.counts || {}; const checked = g.checked || {};
-  const meals = planMeals();
-  const mealRows = SLOTS.map(slot => {
-    const ms = meals.filter(m => m.slot === slot); if (!ms.length) return '';
-    return `<div class="slotlabel">${slot}</div>` + ms.map(m => `<div class="row"><div class="t" style="min-width:0">${esc(m.name)}${!m.starter && !(m.food.ing || []).length ? '<div class="small muted">No ingredients saved for this meal</div>' : ''}</div>
-      <div class="stepper"><button type="button" data-act="grocCount" data-k="${esc(m.key)}" data-d="-1" aria-label="Fewer">−</button><span>${counts[m.key] || 0}×</span><button type="button" data-act="grocCount" data-k="${esc(m.key)}" data-d="1" aria-label="More">+</button></div></div>`).join('');
-  }).join('');
-  const items = groceryItems();
-  const left = items.filter(i => !checked[i.key]).length;
-  const list = items.length ? AISLES.map(a => {
-    const xs = items.filter(i => i.aisle === a); if (!xs.length) return '';
-    return `<div class="slotlabel">${a}</div>` + xs.map(i => `<label class="groc ${checked[i.key] ? 'done' : ''}"><input type="checkbox" data-groc="${esc(i.key)}" ${checked[i.key] ? 'checked' : ''}><span class="gn">${esc(i.name)}</span><span class="gq">${esc(i.qty)}</span>${i.extra ? `<button type="button" class="xbtn sm" data-act="grocDelExtra" data-v="${i.extra}" aria-label="Remove ${esc(i.name)}">×</button>` : ''}</label>`).join('');
-  }).join('') : `<div class="empty"><b>Your list is empty.</b>Tap + on the meals you'll make this week and their ingredients add up here.</div>`;
-  document.getElementById('sheetRoot').innerHTML = `<div class="sheet"><div class="panel"><div class="wrap">
-    <div style="display:flex;align-items:center;gap:10px"><h3>Grocery list</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSheet">Close</button></div>
-    <div class="seg" role="group" aria-label="Where the list comes from"><button type="button" data-act="grocMode" data-v="plan" aria-pressed="${grocPlanMode()}">From my week plan</button><button type="button" data-act="grocMode" data-v="manual" aria-pressed="${!grocPlanMode()}">Pick meals</button></div>
-    ${grocPlanMode() ? (() => { const off = S.grocWeek || 0; const ws = addDays(weekStart(todayISO()), off * 7); const pc = planCounts(ws); const n = Object.values(pc).reduce((a, b) => a + b, 0);
-      return `<div class="card" style="display:grid;gap:8px"><div class="seg"><button type="button" data-act="grocWeek" data-v="0" aria-pressed="${off === 0}">This week</button><button type="button" data-act="grocWeek" data-v="1" aria-pressed="${off === 1}">Next week</button></div>
-        <div class="small muted">${n ? `Built from the ${n} meal${n > 1 ? 's' : ''} planned for ${fmtDay(ws, { day: 'numeric', month: 'short' })} – ${fmtDay(addDays(ws, 6), { day: 'numeric', month: 'short' })}.` : 'Nothing planned for that week yet.'} </div><div><button type="button" class="btn ghost sm" data-act="openPlanner">Plan the week</button></div></div>`; })()
-    : `<div class="card" style="display:grid;gap:4px"><div class="small muted">How many times will you have each meal this week?</div><div class="rows">${mealRows || '<div class="empty">Your meal plan is empty.</div>'}</div></div>`}
-    <section class="sec"><h2>Shopping list <span class="aside">${items.length ? `${left} of ${items.length} left` : ''}</span></h2>
-      <div class="card">${list}
-        <div class="formrow" style="margin-top:10px"><label class="f">Add something else<input type="text" id="groc_extra" placeholder="e.g. paper towel"></label><button type="button" class="btn ghost" data-act="grocAddExtra">Add</button></div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost sm" data-act="grocUntick">Untick all</button><button type="button" class="btn ghost sm" data-act="grocReset">Start a new week</button></div>
-    </section>
-  </div></div></div>`;
-  const pn = document.querySelector('.sheet .panel'); if (pn) pn.scrollTop = prevScroll;
-}
+function openGrocery() { openPlanner(); }
 function saveGrocery(mut) { const cfg = cfgCopy(); cfg.grocery = cfg.grocery || { counts: {}, checked: {}, extra: [] }; cfg.grocery.counts ||= {}; cfg.grocery.checked ||= {}; cfg.grocery.extra ||= []; mut(cfg.grocery); store.set('config', 'settings', cfg); openGrocery(); }
 
 /* ---------- personal bests + confetti ---------- */
@@ -3204,12 +3229,20 @@ document.addEventListener('click', async e => {
     case 'fitsHide': { const cfg = cfgCopy(); cfg.fitsHidden = b.dataset.v === '1'; saveConfig(cfg); break; }
     case 'openPlanner': openPlanner(); break;
     case 'planWeek': S.planWeek = +b.dataset.v; openPlanner(); break;
-    case 'planDel': savePlan(wp => { const a = wp[b.dataset.d]?.[b.dataset.s]; if (a) a.splice(+b.dataset.i, 1); }); render(); openPlanner(); break;
-    case 'planCopy': {
-      const ws = addDays(weekStart(todayISO()), (S.planWeek || 0) * 7);
-      savePlan(wp => { for (let i = 0; i < 7; i++) { const src = wp[addDays(ws, i - 7)]; if (src) wp[addDays(ws, i)] = JSON.parse(JSON.stringify(src)); } });
-      render(); openPlanner(); toast('Copied last week'); break;
+    case 'planCount': { const ws = planWs(); savePlanCounts(ws, c => { c[b.dataset.k] = Math.max(0, Math.min(21, (c[b.dataset.k] || 0) + Number(b.dataset.d))); });
+      if (S.config?.planSpread?.[ws]) spreadPlan(ws); render(); openPlanner(); break; }
+    case 'planSpread': spreadPlan(planWs()); render(); openPlanner(); toast('Meals spread across the week'); break;
+    case 'planUnspread': { const ws = planWs(); savePlan(wp => { for (let i = 0; i < 7; i++) delete wp[addDays(ws, i)]; }); const cfg = cfgCopy(); if (cfg.planSpread) delete cfg.planSpread[ws]; S.config = cfg; store.set('config', 'settings', cfg); render(); openPlanner(); break; }
+    case 'grocHave': saveGrocery(gr => { gr.have = gr.have || {}; if (gr.have[b.dataset.k]) delete gr.have[b.dataset.k]; else gr.have[b.dataset.k] = true; }); break;
+    case 'grocShare': {
+      const text = groceryText(planWs());
+      try { if (navigator.share) { await navigator.share({ title: 'Shopping list', text }); break; } } catch (err) { if (err?.name === 'AbortError') break; }
+      try { await navigator.clipboard.writeText(text); toast('List copied. Paste it into Messages or Notes.'); } catch { toast('Couldn\'t share the list on this device.'); }
+      break;
     }
+    case 'planDel': savePlan(wp => { const a = wp[b.dataset.d]?.[b.dataset.s]; if (a) a.splice(+b.dataset.i, 1); }); render(); openPlanner(); break;
+    case 'planCopy': { const ws = planWs(); const prev = weekCounts(addDays(ws, -7)); if (!Object.keys(prev).length) { toast('Nothing was planned the week before'); break; }
+      savePlanCounts(ws, c => { for (const k of Object.keys(c)) delete c[k]; Object.assign(c, prev); }); if (S.config?.planSpread?.[ws]) spreadPlan(ws); render(); openPlanner(); toast('Copied last week'); break; }
     case 'planClear': { const ws = addDays(weekStart(todayISO()), (S.planWeek || 0) * 7); savePlan(wp => { for (let i = 0; i < 7; i++) delete wp[addDays(ws, i)]; }); render(); openPlanner(); break; }
     case 'planGroc': S.grocWeek = S.planWeek || 0; saveGrocery(gr => { gr.mode = 'plan'; }); break;
     case 'grocMode': saveGrocery(gr => { gr.mode = b.dataset.v; }); break;
