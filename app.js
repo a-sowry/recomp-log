@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 49; // keep in step with VERSION in sw.js
+const APP_VERSION = 50; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1498,7 +1498,7 @@ function calcTargets(p) {
 }
 function needsOnboarding() { return !!(S.user && S.lastPull && !S.config?.onboarded && !S.config?.targets); }
 function openOnboarding(step) {
-  S.ob = S.ob || { step: 1, d: { sex: 'female', activity: 'light', goal: 'recomp', theme: S.config?.theme || 'pink', flower: S.config?.flower || DEFAULT_FLOWER } };
+  S.ob = S.ob || { step: 1, d: { sex: 'female', activity: 'light', goal: 'recomp', theme: S.config?.theme || 'auto', flower: S.config?.flower || DEFAULT_FLOWER } };
   if (step) S.ob.step = step;
   const d = S.ob.d; const st = S.ob.step;
   const dots = [1, 2, 3, 4, 5].map(i => `<span class="ob-dot${i === st ? ' on' : ''}${i < st ? ' done' : ''}"></span>`).join('');
