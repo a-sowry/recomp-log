@@ -815,3 +815,5 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .sp-entry { padding: 4px 0 2px; }
 .cutemoji { width: 1.35em; height: 1.35em; vertical-align: -0.3em; display: inline-block; }
 .ob-grow-note { line-height: 1.45; }
+.no-targets { background: var(--sunk); border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.45; display: grid; gap: 10px; }
+.no-targets-btns { display: flex; gap: 8px; flex-wrap: wrap; }

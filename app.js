@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 50; // keep in step with VERSION in sw.js
+const APP_VERSION = 51; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -486,11 +486,11 @@ function render() {
 /* ---------- FOOD ---------- */
 function macroRow(label, val, target, color, unit) {
   const pct = target ? Math.min(100, (val / target) * 100) : 0;
-  const over = val > target * 1.05;
+  const over = !!target && val > target * 1.05;
   return `<div class="macro" style="--c: var(${color})">
     <span class="k">${label}</span>
     <div class="bar${over ? ' over' : ''}" role="img" aria-label="${label} ${r0(val)} of ${target}${unit}"><i style="width:${pct}%"></i></div>
-    <span class="v"><b>${r0(val)}</b> / ${target}${unit}</span>
+    <span class="v"><b>${r0(val)}</b>${target ? ` / ${target}` : ''}${unit}</span>
   </div>`;
 }
 function weekStrip() {
@@ -498,7 +498,7 @@ function weekStrip() {
   for (let i = 0; i < 7; i++) {
     const d = addDays(start, i); const day = S.days[d]; const t = dayTotals(day);
     let cls = '';
-    if (day && day.meals?.length) {
+    if (day && day.meals?.length && T.kcal) {
       const kOk = Math.abs(t.kcal - T.kcal) <= 150; const pOk = t.p >= T.p - 10;
       cls = t.kcal > T.kcal + 150 ? 'over' : (kOk && pOk ? 'hit' : 'part');
     }
@@ -526,7 +526,7 @@ function gardenStats() {
   for (const d of Object.values(S.days)) {
     if (d.meals?.length) {
       add(GARDEN.FOOD_DAY, d.date);
-      if (dayTotals(d).p >= T.p - 10) add(GARDEN.PROTEIN_DAY, d.date);
+      if (T.p && dayTotals(d).p >= T.p - 10) add(GARDEN.PROTEIN_DAY, d.date);
     }
     if (d.cardio?.length) add(GARDEN.CARDIO * Math.min(d.cardio.length, 2), d.date);
   }
@@ -926,7 +926,7 @@ function viewToday() {
   const emptySlots = SLOTS.filter(sl => !meals.some(m => (m.slot || 'Snack') === sl));
   const addSheet = !S.addOpen ? '' : `<div class="sheet ovl" data-ovl="add"><div class="panel"><div class="wrap">
     <div class="ovl-head"><h3>Log food</h3><button type="button" class="btn ghost sm" data-act="closeAdd">Done</button></div>
-    <div class="ovl-sub"><span class="small muted">${r0(t.kcal).toLocaleString()} / ${T.kcal.toLocaleString()} kcal · P ${r0(t.p)} / ${T.p} g</span><span><button class="linkbtn groc-btn" data-act="openPlanner">Plan &amp; shop</button></span></div>
+    <div class="ovl-sub"><span class="small muted">${T.kcal ? `${r0(t.kcal).toLocaleString()} / ${T.kcal.toLocaleString()} kcal · P ${r0(t.p)} / ${T.p} g` : `${r0(t.kcal).toLocaleString()} kcal · P ${r0(t.p)} g`}</span><span><button class="linkbtn groc-btn" data-act="openPlanner">Plan &amp; shop</button></span></div>
     ${quickCard()}
     <div class="seg" role="group" aria-label="Food source">
       <button data-act="foodAdd" data-v="plan" aria-pressed="${!['custom', 'scan', 'search', 'drinks'].includes(S.foodAdd)}">Meal plan</button>
@@ -953,8 +953,11 @@ function viewToday() {
   return `<section class="sec">
     <div class="card tapcard hero" style="display:grid;gap:14px" data-act="openNutrients" role="button" tabindex="0" aria-label="Show all nutrients for this day">
       ${growChip()}
-      <div class="kcal-big"><span class="n">${r0(t.kcal).toLocaleString()}</span><span class="of">/ ${T.kcal.toLocaleString()} kcal</span>
-        <span class="left ${left < -150 ? 'down-txt' : ''}">${left >= 0 ? `${r0(left)} kcal left` : `${r0(-left)} kcal over`}${pLeft > 0 ? ` · ${r0(pLeft)} g protein to go` : ' · protein hit'}</span></div>
+      ${T.kcal ? `<div class="kcal-big"><span class="n">${r0(t.kcal).toLocaleString()}</span><span class="of">/ ${T.kcal.toLocaleString()} kcal</span>
+        <span class="left ${left < -150 ? 'down-txt' : ''}">${left >= 0 ? `${r0(left)} kcal left` : `${r0(-left)} kcal over`}${pLeft > 0 ? ` · ${r0(pLeft)} g protein to go` : ' · protein hit'}</span></div>`
+      : `<div class="kcal-big"><span class="n">${r0(t.kcal).toLocaleString()}</span><span class="of">kcal eaten</span></div>
+      <div class="no-targets"><b>No daily targets yet.</b> Work them out from your age, height, weight and goal, or type in your own, in Settings.
+        <div class="no-targets-btns"><button type="button" class="btn sm" data-act="redoSetup">Work out my targets</button><button type="button" class="btn ghost sm" data-act="openSettingsTargets">Enter my own</button></div></div>`}
       <div class="macros">
         ${macroRow('Protein', t.p, T.p, '--red', ' g')}
         ${macroRow('Carbs', t.c, T.c, '--blue', ' g')}
@@ -1594,6 +1597,7 @@ function obReadStep() {
 function obFinish(skip) {
   const cfg = cfgCopy();
   cfg.onboarded = true;
+  if (skip && !cfg.targets) cfg.targets = { kcal: 0, p: 0, c: 0, f: 0 }; // skipped setup: no targets until they work them out in Settings
   if (!skip) {
     const d = S.ob.d; const t = d.targets || calcTargets(d);
     cfg.targets = { kcal: t.kcal, p: t.p, c: t.c, f: t.f };
@@ -2095,7 +2099,7 @@ function openPlanner() {
   for (const m of meals) { const c = counts[m.key] || 0; if (!c) continue; const mm = mealMacros(m); kcal += mm.kcal * c; p += mm.p * c; n += c; }
   const label = `${fmtDay(ws, { day: 'numeric', month: 'short' })} – ${fmtDay(addDays(ws, 6), { day: 'numeric', month: 'short' })}`;
   const avg = n ? `<div class="plan-sum"><div><b>${r0(kcal / 7).toLocaleString()}</b><span>kcal a day</span></div><div><b>${r0(p / 7)}</b><span>g protein a day</span></div><div><b>${n}</b><span>meal${n > 1 ? 's' : ''} planned</span></div></div>
-    <div class="small muted">Your target is ${T.kcal.toLocaleString()} kcal and ${T.p} g protein a day. Anything you don't plan (snacks, eating out) fills the gap.</div>`
+    <div class="small muted">${T.kcal ? `Your target is ${T.kcal.toLocaleString()} kcal and ${T.p} g protein a day. Anything you don't plan (snacks, eating out) fills the gap.` : 'Set your daily targets in Settings to see how this week compares.'}</div>`
     : `<div class="small muted">Tap + on the meals you'll have this week, as many times as you'll have them. Your shopping list builds underneath.</div>`;
   const rows = SLOTS.map(slot => {
     const ms = meals.filter(m => m.slot === slot); if (!ms.length) return '';
@@ -2222,6 +2226,7 @@ function spRefresh() { if (S.ob && S.ob.step === 4) openOnboarding(); else openS
 function fitsCard() {
   if (S.config?.fitsHidden) return `<section class="sec"><h2>What fits <button class="linkbtn h2btn push" data-act="fitsHide" data-v="0">Show</button></h2></section>`;
   const T = targets(); const t = dayTotals(S.days[S.date]); const kLeft = T.kcal - t.kcal, pLeft = T.p - t.p;
+  if (!T.kcal) return `<section class="sec"><h2>What fits <button class="linkbtn h2btn push" data-act="fitsHide" data-v="1">Hide</button></h2><div class="card small muted">Set your daily targets in Settings and this suggests meals that fit what you've got left.</div></section>`;
   const head = `<h2>What fits <span class="aside">${kLeft > 0 ? `${r0(kLeft).toLocaleString()} kcal${pLeft > 0 ? ` · ${r0(pLeft)} g protein` : ''} left` : ''}</span><button class="linkbtn h2btn" data-act="fitsHide" data-v="1">Hide</button></h2>`;
   if (kLeft < 120) return `<section class="sec">${head}<div class="card small muted">You're at your calories for ${S.date === todayISO() ? 'today' : 'this day'}${pLeft > 5 ? `, with ${r0(pLeft)} g protein still to go. Something like egg whites, a protein shake with water or 0% Greek yoghurt adds protein for few calories` : '. Water, black coffee and tea are free'}.</div></section>`;
   const seen = new Set(); const cands = [];
@@ -2475,8 +2480,8 @@ function weekSummary(ws) {
   const pbs = sess.flatMap(s => (s.pbs || []).map(n => ({ name: n, date: s.date })));
   const supps = S.config?.supps || [];
   const suppTaken = days.reduce((n, d) => n + (d.supps || []).filter(id => supps.some(s => s.id === id)).length, 0);
-  let gpts = 0; if (gardenOn()) { for (const s of sess) gpts += GARDEN.WORKOUT; for (const d of logged) { gpts += GARDEN.FOOD_DAY; if (dayTotals(d).p >= T.p - 10) gpts += GARDEN.PROTEIN_DAY; } for (const d of days) if (d.cardio?.length) gpts += GARDEN.CARDIO * Math.min(d.cardio.length, 2); gpts += list.filter(w => inWeek(w.date)).length * GARDEN.WEIGH_IN; }
-  return { ws, we, loggedDays: logged.length, avgKcal: avg(kcals), avgP: avg(prots), proteinHit: prots.filter(p => p >= T.p - 10).length, workouts: sess.length, workoutDays: sess.map(s => s.day === 'Custom' ? (s.name || 'Custom') : s.day).filter(Boolean), cardioMin: cardio.reduce((n, c) => n + (c.minutes || 0), 0), cardioN: cardio.length, wNow, wPrev, waistNow, waistPrev, pbs, suppTaken, suppPossible: supps.length * 7, gpts };
+  let gpts = 0; if (gardenOn()) { for (const s of sess) gpts += GARDEN.WORKOUT; for (const d of logged) { gpts += GARDEN.FOOD_DAY; if (T.p && dayTotals(d).p >= T.p - 10) gpts += GARDEN.PROTEIN_DAY; } for (const d of days) if (d.cardio?.length) gpts += GARDEN.CARDIO * Math.min(d.cardio.length, 2); gpts += list.filter(w => inWeek(w.date)).length * GARDEN.WEIGH_IN; }
+  return { ws, we, loggedDays: logged.length, avgKcal: avg(kcals), avgP: avg(prots), proteinHit: T.p ? prots.filter(p => p >= T.p - 10).length : 0, workouts: sess.length, workoutDays: sess.map(s => s.day === 'Custom' ? (s.name || 'Custom') : s.day).filter(Boolean), cardioMin: cardio.reduce((n, c) => n + (c.minutes || 0), 0), cardioN: cardio.length, wNow, wPrev, waistNow, waistPrev, pbs, suppTaken, suppPossible: supps.length * 7, gpts };
 }
 function weeklyCard() {
   S.weekOff = S.weekOff || 0;
@@ -2490,8 +2495,8 @@ function weeklyCard() {
     <div class="card wk">
       <div class="wk-grid">
         ${tile('Workouts', w.workouts, w.workoutDays.length ? w.workoutDays.join(', ') : 'none yet')}
-        ${tile('Avg calories', w.avgKcal != null ? r0(w.avgKcal).toLocaleString() : '–', `${w.loggedDays}/7 days logged · target ${T.kcal.toLocaleString()}`)}
-        ${tile('Protein hit', `${w.proteinHit}/7`, w.avgP != null ? `avg ${r0(w.avgP)} g of ${T.p} g` : 'days on target')}
+        ${tile('Avg calories', w.avgKcal != null ? r0(w.avgKcal).toLocaleString() : '–', `${w.loggedDays}/7 days logged${T.kcal ? ` · target ${T.kcal.toLocaleString()}` : ''}`)}
+        ${tile('Protein hit', `${w.proteinHit}/7`, w.avgP != null ? (T.p ? `avg ${r0(w.avgP)} g of ${T.p} g` : `avg ${r0(w.avgP)} g`) : 'days on target')}
         ${tile('Cardio', w.cardioMin ? `${w.cardioMin} min` : w.cardioN ? `${w.cardioN}×` : '–', w.cardioN ? `${w.cardioN} session${w.cardioN > 1 ? 's' : ''}` : '')}
         ${tile('Weight', w.wNow != null ? `${r1(w.wNow)} kg` : '–', wDiff != null ? `${wDiff > 0 ? '+' : ''}${r1(wDiff)} kg vs week before` : 'weekly average')}
         ${tile('Waist', w.waistNow ? `${w.waistNow.waist} cm` : '–', waistDiff != null ? `${waistDiff > 0 ? '+' : ''}${r1(waistDiff)} cm` : '', waistDiff != null ? (waistDiff <= 0 ? 'up-txt' : 'down-txt') : '')}
@@ -2596,7 +2601,7 @@ function nutrientTargets() {
   const pr = S.config?.profile || {}; const fem = pr.sex === 'female'; const age = +pr.age || 25; const T = targets();
   return [
     { k: 'fib', name: 'Fibre', u: 'g', min: fem ? 25 : 30, grp: 'Everyday' },
-    { k: 'sat', name: 'Saturated fat', u: 'g', max: Math.round(T.kcal * 0.1 / 9), grp: 'Everyday' },
+    { k: 'sat', name: 'Saturated fat', u: 'g', max: Math.round((T.kcal || 2000) * 0.1 / 9), grp: 'Everyday' },
     { k: 'sug', name: 'Sugars', u: 'g', info: 'Total sugars, including fruit and dairy', grp: 'Everyday' },
     { k: 'na', name: 'Sodium', u: 'mg', max: 2000, grp: 'Everyday' },
     { k: 'ca', name: 'Calcium', u: 'mg', min: (fem && age > 50) || age > 70 ? 1300 : 1000, grp: 'Minerals' },
@@ -2775,7 +2780,7 @@ function bloomEvents() {
   const T = targets(); const ev = [];
   for (const s of Object.values(S.sessions)) if (s.source !== 'spreadsheet' && s.exercises?.length) ev.push([s.date, GARDEN.WORKOUT]);
   for (const d of Object.values(S.days)) {
-    if (d.meals?.length) { ev.push([d.date, GARDEN.FOOD_DAY]); if (dayTotals(d).p >= T.p - 10) ev.push([d.date, GARDEN.PROTEIN_DAY]); }
+    if (d.meals?.length) { ev.push([d.date, GARDEN.FOOD_DAY]); if (T.p && dayTotals(d).p >= T.p - 10) ev.push([d.date, GARDEN.PROTEIN_DAY]); }
     if (d.cardio?.length) ev.push([d.date, GARDEN.CARDIO * Math.min(d.cardio.length, 2)]);
   }
   for (const w of Object.values(S.weights)) if (w.kg) ev.push([w.date, GARDEN.WEIGH_IN]);
@@ -2903,7 +2908,7 @@ function openMethods() {
     </ol>
     <div class="small muted">Your saved targets are ${n(T.kcal)} kcal, ${T.p} g protein, ${T.c} g carbs and ${T.f} g fat. If they differ from the above, they were set or edited by hand, or your weight has changed since. Tap "Recalculate from my stats" in Settings to update them.</div>`;
   } else {
-    worked = `<div class="small">Your targets are ${n(T.kcal)} kcal, ${T.p} g protein, ${T.c} g carbs and ${T.f} g fat. They were entered directly rather than worked out in setup, so there's no working to show here. Tap "Recalculate from my stats" in Settings to enter your age, height and sex, and the full working will appear here.</div>`;
+    worked = !T.kcal ? `<div class="small">You haven't set daily targets yet. Tap "Work out my targets" in Settings and the full working will appear here.</div>` : `<div class="small">Your targets are ${n(T.kcal)} kcal, ${T.p} g protein, ${T.c} g carbs and ${T.f} g fat. They were entered directly rather than worked out in setup, so there's no working to show here. Tap "Recalculate from my stats" in Settings to enter your age, height and sex, and the full working will appear here.</div>`;
   }
   const milk = Object.values(MILKS).map(m => `${m[0]} ${m[1]} kcal`).join(', ');
   const cafe = Object.values(CAFE).filter(c => c[1] > 0 && !c[3]).map(c => `${c[0].toLowerCase()} ${Math.round(c[1] * 100)}%`).join(', ');
@@ -3035,14 +3040,15 @@ function openSettings() {
     </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Daily targets</div>
       <div class="grid4">
-        <label class="f">kcal<input type="number" id="t_kcal" value="${T.kcal}" min="1000" max="5000"></label>
+        <label class="f">kcal<input type="number" id="t_kcal" value="${T.kcal}" min="0" max="5000"></label>
         <label class="f">Protein g<input type="number" id="t_p" value="${T.p}" min="0" max="400"></label>
         <label class="f">Carbs g<input type="number" id="t_c" value="${T.c}" min="0" max="800"></label>
         <label class="f">Fat g<input type="number" id="t_f" value="${T.f}" min="0" max="300"></label>
       </div>
+      ${T.kcal ? '' : '<div class="banner warn-soft" id="t_none">No targets set yet. Tap "Work out my targets" to calculate them from your age, height, weight, activity and goal, or type your own in above.</div>'}
       <div id="t_warn">${lowKcalWarn(T.kcal)}</div>
       <div class="small muted">On days with extra exercise, like a long hike, swim or run, eat a bit more to fuel it.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost sm" data-act="redoSetup">Recalculate from my stats</button><button type="button" class="btn ghost sm" data-act="openMethods">How it's calculated</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ${T.kcal ? 'ghost ' : ''}sm" data-act="redoSetup">${T.kcal ? 'Recalculate from my stats' : 'Work out my targets'}</button><button type="button" class="btn ghost sm" data-act="openMethods">How it's calculated</button></div>
     </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Rest timer</div>
       <label class="f">Volume <span class="small muted" id="tv_show">${timerVol()}%</span><input type="range" id="tv_vol" min="0" max="100" step="5" value="${timerVol()}" class="range"></label>
@@ -3318,6 +3324,7 @@ document.addEventListener('click', async e => {
     case 'ob-next': { const err = obReadStep(); if (err) { S.ob.err = err; openOnboarding(); break; } S.ob.err = null; openOnboarding(S.ob.step + 1); document.querySelector('.sheet .panel')?.scrollTo(0, 0); break; }
     case 'ob-back': { if (S.ob.step === 3) obReadStep(); openOnboarding(S.ob.step - 1); break; }
     case 'ob-skip': obFinish(true); break;
+    case 'openSettingsTargets': { openSettings(); setTimeout(() => { const el = document.getElementById('t_kcal'); el?.scrollIntoView({ block: 'center' }); el?.focus(); }, 60); break; }
     case 'ob-finish': obFinish(false); break;
     case 'ob-theme': { S.ob.d.theme = b.dataset.v; appliedTheme = null; applyTheme(b.dataset.v); openOnboarding(); break; }
     case 'ob-flower': { S.ob.d.flower = b.dataset.v; openOnboarding(); break; }
@@ -3612,7 +3619,7 @@ document.addEventListener('submit', async e => {
     } finally { S.uploading = false; render(); }
   } else if (f.id === 'settingsForm') {
     const cfg = JSON.parse(JSON.stringify(S.config || {}));
-    cfg.targets = { kcal: +v('t_kcal') || DEFAULT_TARGETS.kcal, p: +v('t_p') || 0, c: +v('t_c') || 0, f: +v('t_f') || 0 };
+    cfg.targets = { kcal: +v('t_kcal') || 0, p: +v('t_p') || 0, c: +v('t_c') || 0, f: +v('t_f') || 0 };
     const sp = readSplitFromSheet(); cfg.split = sp.split; cfg.program = sp.program; S.trainDay = null; S.splitClash = sp.clash;
     document.getElementById('sheetRoot').innerHTML = '';
     S.drafts = {}; saveConfig(cfg); toast(S.splitClash?.length ? `Saved. Each weekday can only open one day, so ${S.splitClash.join('; ')}.` : 'Targets and split saved'); S.splitClash = null;
