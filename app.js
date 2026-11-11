@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 48; // keep in step with VERSION in sw.js
+const APP_VERSION = 49; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1550,15 +1550,31 @@ function openOnboarding(step) {
     body = `<h3>Make it yours</h3>
       <div class="f"><span>Colour</span><div class="swatches">${THEMES.map(t => `<button type="button" class="swatch" data-act="ob-theme" data-v="${t.id}" aria-pressed="${d.theme === t.id}" title="${t.name}">
         <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div></div>
-      ${(() => { const soft = isSoftId(d.theme); const g = growKind(d.theme, soft ? d.growSoft : d.grow); return `<div class="f"><span>What you grow. It grows every time you log, and fastest when you work out.</span>${growPicker(g, 'ob-grow', g, soft)}</div>` + (g === 'flower' ? `<div class="f"><span>Your flower</span>${flowerPicker('ob-flower', d.flower)}</div>` : ''); })()}
+      ${obGrowHTML(d)}
       ${d.redo ? '' : `<div class="f"><span>Your training</span><div class="start-pick">
         <button type="button" class="card start-opt" data-act="ob-start" data-v="blank" aria-pressed="${(d.start || 'blank') === 'blank'}"><b>Build my own split</b><span class="small muted">Start with no workouts and set up your own training days in Settings.</span></button>
         <button type="button" class="card start-opt" data-act="ob-start" data-v="starter" aria-pressed="${d.start === 'starter'}"><b>Use the starter split</b><span class="small muted">A 5-day Push / Pull / Legs / Upper / Lower split. Everything's editable.</span></button></div></div>`}
       <div class="ob-actions"><button type="button" class="btn ghost" data-act="ob-back">Back</button><button type="button" class="btn" data-act="ob-finish">Start logging</button></div>`;
   }
-  const prevScroll = st === 4 && S.ob.lastStep === 4 ? (document.querySelector('#sheetRoot .sheet .panel')?.scrollTop || 0) : 0; S.ob.lastStep = st;
+  const prevScroll = st >= 4 && S.ob.lastStep === st ? (document.querySelector('#sheetRoot .sheet .panel')?.scrollTop || 0) : 0; S.ob.lastStep = st;
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet ob"><div class="panel"><div class="wrap ob-wrap"><div class="ob-dots" aria-label="Step ${st} of 5">${dots}</div>${body}</div></div></div>`;
   const pn = document.querySelector('#sheetRoot .sheet .panel'); if (pn) pn.scrollTop = prevScroll;
+}
+// A tiny hand-drawn heart with sparkles, for the soft themes.
+function cuteMoji() { return `<svg class="cutemoji" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7.5 2.5c0 5.4-7.5 10-7.5 10z" fill="#F4A6C6" stroke="#E86CA2" stroke-width="1.3" stroke-linejoin="round"/><path d="M9.2 11.2a1.8 1.8 0 0 1 1.6-1.4" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/><path d="M20 2.5l.6 1.5 1.5.6-1.5.6-.6 1.5-.6-1.5-1.5-.6 1.5-.6z" fill="#C9B6F2"/><path d="M4 2.8l.4 1 1 .4-1 .4-.4 1-.4-1-1-.4 1-.4z" fill="#FFC4A3"/></svg>`; }
+function obGrowHTML(d) {
+  const soft = isSoftId(d.theme); const on = d.garden !== false;
+  const g = growKind(d.theme, soft ? d.growSoft : d.grow);
+  const vb = BONSAI[d.bonsai] ? d.bonsai : soft ? DEFAULT_BONSAI_SOFT : DEFAULT_BONSAI;
+  const vc = CAR_STYLES[d.car] && !!CAR_STYLES[d.car].soft === soft ? d.car : soft ? DEFAULT_CAR_SOFT : DEFAULT_CAR;
+  const sub = !on ? '' : g === 'flower' ? `<div class="f"><span>Your flower</span>${flowerPicker('ob-flower', d.flower)}</div>`
+    : g === 'bonsai' ? `<div class="f"><span>Bonsai type</span>${bonsaiPicker('ob-bonsai', vb)}</div>`
+    : `<div class="f"><span>Car style</span>${carPicker('ob-car', vc, soft)}</div>`;
+  return `<div class="f"><span>Grow something</span>
+      <div class="small muted ob-grow-note">${soft ? `Just a little extra motivation for the girls ${cuteMoji()}` : 'Just a bit of extra motivation.'} It grows every time you log, and fastest when you work out. Finished ones get their own tab.</div>
+      <div class="seg" role="group" aria-label="Grow something"><button type="button" data-act="ob-garden" data-v="on" aria-pressed="${on}">Show it</button><button type="button" data-act="ob-garden" data-v="off" aria-pressed="${!on}">Hide it</button></div>
+      <div class="small muted">${on ? 'Not your thing? Hide it now.' : 'Hidden.'} You can turn it ${on ? 'off' : 'back on'} any time in Settings → Grow something.</div>
+      ${on ? growPicker(g, 'ob-grow', g, soft, vb, vc) : ''}</div>${sub}`;
 }
 function obReadStep() {
   const d = S.ob.d; const v = id => document.getElementById(id)?.value;
@@ -1583,6 +1599,7 @@ function obFinish(skip) {
     cfg.targets = { kcal: t.kcal, p: t.p, c: t.c, f: t.f };
     cfg.profile = { name: d.name || '', sex: d.sex, age: d.age, height: d.height, weight: d.weight, activity: d.activity, goal: d.goal };
     cfg.theme = d.theme; cfg.flower = d.flower; if (d.grow) cfg.grow = d.grow; if (d.growSoft) cfg.growSoft = d.growSoft;
+    if (d.garden != null) cfg.garden = d.garden; if (d.bonsai) cfg.bonsai = d.bonsai; if (d.car) cfg[CAR_STYLES[d.car].soft ? 'carSoft' : 'car'] = d.car;
     if (d.weight && !S.weights[todayISO()]) store.set('weights', todayISO(), { date: todayISO(), kg: d.weight });
   }
   // brand-new accounts start blank unless they chose the starter plan (redoing setup never touches meals or the split)
@@ -2947,9 +2964,9 @@ function openMethods() {
 }
 
 /* ---------- SETTINGS ---------- */
-function growPicker(kind, act, cur, soft = softTheme()) {
+function growPicker(kind, act, cur, soft = softTheme(), vb = bonsaiSp(), vc = carStyle()) {
   return `<div class="flower-pick grow-pick" role="group" aria-label="What you grow">${(soft ? ['flower', 'bonsai', 'car'] : ['bonsai', 'car', 'flower']).map(k => `<button type="button" class="fp" data-act="${act}" data-v="${k}" aria-pressed="${cur === k}">
-    <span class="fp-art">${k === 'flower' ? flowerSVG(5, false, { type: flowerType(), label: 'Flower' }) : growSVG(k, 5, false, { i: 0, label: GROWS[k].label, v: k === 'bonsai' ? bonsaiSp() : carStyle() })}</span><span class="fp-name">${GROWS[k].label}</span></button>`).join('')}</div>`;
+    <span class="fp-art">${k === 'flower' ? flowerSVG(5, false, { type: flowerType(), label: 'Flower' }) : growSVG(k, 5, false, { i: 0, label: GROWS[k].label, v: k === 'bonsai' ? vb : vc })}</span><span class="fp-name">${GROWS[k].label}</span></button>`).join('')}</div>`;
 }
 function flowerPicker(act, cur) {
   return `<div class="flower-pick" role="group" aria-label="Choose your flower">${Object.entries(FLOWERS).map(([id, f]) => `<button type="button" class="fp" data-act="${act}" data-v="${id}" aria-pressed="${cur === id}">
@@ -2959,8 +2976,8 @@ function bonsaiPicker(act, cur) {
   return `<div class="flower-pick" role="group" aria-label="Bonsai type">${Object.entries(BONSAI).map(([id, b]) => `<button type="button" class="fp" data-act="${act}" data-v="${id}" aria-pressed="${cur === id}">
     <span class="fp-art">${bonsaiSVG(5, false, b.name, id)}</span><span class="fp-name">${b.name}</span></button>`).join('')}</div>`;
 }
-function carPicker(act, cur) {
-  return `<div class="flower-pick car-pick" role="group" aria-label="Car style">${Object.entries(CAR_STYLES).filter(([, c]) => !!c.soft === softTheme()).map(([id, c], k) => `<button type="button" class="fp" data-act="${act}" data-v="${id}" aria-pressed="${cur === id}">
+function carPicker(act, cur, soft = softTheme()) {
+  return `<div class="flower-pick car-pick" role="group" aria-label="Car style">${Object.entries(CAR_STYLES).filter(([, c]) => !!c.soft === soft).map(([id, c], k) => `<button type="button" class="fp" data-act="${act}" data-v="${id}" aria-pressed="${cur === id}">
     <span class="fp-art">${carSVG(5, false, carColour(k, id), c.name, id)}</span><span class="fp-name">${c.name}</span></button>`).join('')}</div>`;
 }
 function growSettings() {
@@ -3304,6 +3321,9 @@ document.addEventListener('click', async e => {
     case 'ob-finish': obFinish(false); break;
     case 'ob-theme': { S.ob.d.theme = b.dataset.v; appliedTheme = null; applyTheme(b.dataset.v); openOnboarding(); break; }
     case 'ob-flower': { S.ob.d.flower = b.dataset.v; openOnboarding(); break; }
+    case 'ob-bonsai': { S.ob.d.bonsai = b.dataset.v; openOnboarding(); break; }
+    case 'ob-car': { S.ob.d.car = b.dataset.v; openOnboarding(); break; }
+    case 'ob-garden': { S.ob.d.garden = b.dataset.v === 'on'; openOnboarding(); break; }
     case 'ob-start': { S.ob.d.start = b.dataset.v; openOnboarding(); break; }
     case 'ob-skipmeals': { S.sp = null; openOnboarding(5); document.querySelector('.sheet .panel')?.scrollTo(0, 0); break; }
     case 'spStyle': { spState().style = b.dataset.v; spRefresh(); break; }
@@ -3314,7 +3334,7 @@ document.addEventListener('click', async e => {
     case 'spAddApp': { const cfg = cfgCopy(); const n = addStarterMeals(cfg, targets().kcal); if (!n) break; document.getElementById('sheetRoot').innerHTML = ''; saveConfig(cfg); toast(`${n} meal${n > 1 ? 's' : ''} added to your meal plan`); break; }
     case 'openStarters': { S.sp = null; openStarterSheet(); break; }
     case 'ob-grow': { S.ob.d[isSoftId(S.ob.d.theme) ? 'growSoft' : 'grow'] = b.dataset.v; openOnboarding(); break; }
-    case 'redoSetup': { const pr = S.config?.profile || {}; S.ob = { step: 1, d: { redo: true, sex: pr.sex || 'female', age: pr.age, height: pr.height, weight: weightList().slice(-1)[0]?.kg || pr.weight, name: pr.name, activity: pr.activity || 'light', goal: pr.goal || 'recomp', theme: S.config?.theme || 'auto', flower: flowerType(), grow: S.config?.grow } }; openOnboarding(); break; }
+    case 'redoSetup': { const pr = S.config?.profile || {}; S.ob = { step: 1, d: { redo: true, sex: pr.sex || 'female', age: pr.age, height: pr.height, weight: weightList().slice(-1)[0]?.kg || pr.weight, name: pr.name, activity: pr.activity || 'light', goal: pr.goal || 'recomp', theme: S.config?.theme || 'auto', flower: flowerType(), grow: S.config?.grow, growSoft: S.config?.growSoft, garden: gardenOn(), bonsai: S.config?.bonsai, car: S.config?.car || S.config?.carSoft } }; openOnboarding(); break; }
     case 'changePw': changePassword(); break;
     case 'openScanner': openScanner(); break;
     case 'closeScanner': closeScanner(); break;
