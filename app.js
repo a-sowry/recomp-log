@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 41; // keep in step with VERSION in sw.js
+const APP_VERSION = 42; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -462,8 +462,18 @@ function render() {
   const gBtn = document.querySelector('nav.tabs button[data-tab="garden"]'); if (gBtn) gBtn.hidden = !gOn;
   if (gBtn && gBtn.dataset.kind !== growKind()) { gBtn.dataset.kind = growKind(); gBtn.innerHTML = `<svg viewBox="0 0 24 24">${gm().icon}</svg>${gm().tab}`; }
   if (S.tab === 'garden' && !gOn) S.tab = 'today';
-  const html = { today: viewToday, train: viewTrain, progress: viewProgress, body: viewBody, photos: viewPhotos, garden: viewGarden }[S.tab]();
+  if (S.tab === 'body' || S.tab === 'photos') { S.progView = S.tab; S.tab = 'progress'; }
+  if (S.tab !== 'today') { S.addOpen = false; S.panel = null; }
+  document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab === S.tab ? 'page' : 'false'));
+  const html = { today: viewToday, train: viewTrain, progress: viewProgressAll, garden: viewGarden }[S.tab]();
+  const ovlScroll = view.querySelector('.sheet.ovl .panel')?.scrollTop || 0;
   view.innerHTML = banner + html;
+  const ovl = view.querySelector('.sheet.ovl .panel');
+  document.body.classList.toggle('ovl-open', !!ovl);
+  if (ovl) {
+    if (S.addFocus) { const el = ovl.querySelector(`[data-slot="${S.addFocus}"]`); S.addFocus = null; if (el) ovl.scrollTop = el.offsetTop - 12; }
+    else ovl.scrollTop = ovlScroll;
+  }
   if (S.tab === 'train') tickTimer();
   updateSync();
   syncBlooms();
@@ -847,7 +857,7 @@ function viewToday() {
   const meals = day?.meals || [];
   let log = '';
   if (!meals.length) {
-    log = `<div class="empty"><b>Nothing logged for ${S.date === todayISO() ? 'today' : fmtDay(S.date)} yet.</b>Tap a meal from your plan below to add it.</div>`;
+    log = `<div class="empty"><b>Nothing logged for ${S.date === todayISO() ? 'today' : fmtDay(S.date)} yet.</b>Tap "Log food or drink" to add your first meal.</div>`;
   } else {
     for (const slot of SLOTS) {
       const items = meals.filter(m => (m.slot || 'Snack') === slot);
@@ -879,7 +889,7 @@ function viewToday() {
       const mine = myFoods.filter(f => (f.slot || 'Snack') === slot);
       if (!starters.length && !mine.length) continue;
       any = true;
-      add += `<div class="slotlabel">${slot}</div>`;
+      add += `<div class="slotlabel" data-slot="${slot}">${slot}</div>`;
       for (const f of mine) {
         add += `<div class="row"><div class="meal-open" style="min-width:0" data-act="openMeal" data-k="F:${f.id}" role="button" tabindex="0"><div class="t">${esc(f.name)} <span class="open-hint" aria-hidden="true">›</span></div>${chipRow(f)}</div>
           <span class="rowbtns"><button class="xbtn" data-act="forgetFood" data-id="${f.id}" aria-label="Delete ${esc(f.name)} from your meal plan" title="Delete">×</button><button class="btn sm" data-act="addMine" data-id="${f.id}">Add</button></span></div>`;
@@ -911,9 +921,37 @@ function viewToday() {
       </div></form>`;
   }
   const cardio = day?.cardio || [];
-  return `${gardenCard()}
-  <section class="sec">
-    <div class="card tapcard" style="display:grid;gap:14px" data-act="openNutrients" role="button" tabindex="0" aria-label="Show all nutrients for this day">
+  const shown = foodShown();
+  const emptySlots = SLOTS.filter(sl => !meals.some(m => (m.slot || 'Snack') === sl));
+  const addSheet = !S.addOpen ? '' : `<div class="sheet ovl" data-ovl="add"><div class="panel"><div class="wrap">
+    <div class="ovl-head"><h3>Log food</h3><button type="button" class="btn ghost sm" data-act="closeAdd">Done</button></div>
+    <div class="ovl-sub"><span class="small muted">${r0(t.kcal).toLocaleString()} / ${T.kcal.toLocaleString()} kcal · P ${r0(t.p)} / ${T.p} g</span><span><button class="linkbtn groc-btn" data-act="openPlanner">Plan week</button></span></div>
+    ${quickCard()}
+    <div class="seg" role="group" aria-label="Food source">
+      <button data-act="foodAdd" data-v="plan" aria-pressed="${!['custom', 'scan', 'search', 'drinks'].includes(S.foodAdd)}">Meal plan</button>
+      <button data-act="foodAdd" data-v="search" aria-pressed="${S.foodAdd === 'search'}">Search</button>
+      <button data-act="foodAdd" data-v="drinks" aria-pressed="${S.foodAdd === 'drinks'}">Drinks</button>
+      <button data-act="foodAdd" data-v="scan" aria-pressed="${S.foodAdd === 'scan'}">Scan</button>
+      <button data-act="foodAdd" data-v="custom" aria-pressed="${S.foodAdd === 'custom'}">Add a meal</button>
+    </div>
+    <div class="card rows">${add}</div>
+  </div></div></div>`;
+  const panelSheet = S.panel === 'water' ? `<div class="sheet ovl" data-ovl="panel"><div class="panel"><div class="wrap">
+      <div class="ovl-head"><h3>Water</h3><button type="button" class="btn ghost sm" data-act="closePanel">Done</button></div>${waterCard(true)}</div></div></div>`
+    : S.panel === 'steps' ? `<div class="sheet ovl" data-ovl="panel"><div class="panel"><div class="wrap">
+      <div class="ovl-head"><h3>Steps &amp; cardio</h3><button type="button" class="btn ghost sm" data-act="closePanel">Done</button></div>
+      <div class="card" style="display:grid;gap:10px">
+      ${stepsCard(day)}
+      ${cardio.length ? `<div class="rows">${cardio.map(c => `<div class="row"><div><span class="t">${esc(c.type)}</span> <span class="muted">${c.minutes ? c.minutes + ' min' : ''}${c.note ? ' · ' + esc(c.note) : ''}</span></div><button class="btn sm ghost" data-act="delCardio" data-id="${c.id}">Remove</button></div>`).join('')}</div>` : ''}
+      <form id="cardioForm" class="formrow">
+        <label class="f">Activity<select id="cd_type">${CARDIO_TYPES.map(c => `<option>${c}</option>`).join('')}</select></label>
+        <label class="f">Minutes<input type="number" id="cd_min" inputmode="numeric" min="0"></label>
+        <label class="f">Note<input type="text" id="cd_note" placeholder="e.g. run club 5 km"></label>
+        <button class="btn ghost" type="submit">Add</button>
+      </form></div></div></div></div>` : '';
+  return `<section class="sec">
+    <div class="card tapcard hero" style="display:grid;gap:14px" data-act="openNutrients" role="button" tabindex="0" aria-label="Show all nutrients for this day">
+      ${growChip()}
       <div class="kcal-big"><span class="n">${r0(t.kcal).toLocaleString()}</span><span class="of">/ ${T.kcal.toLocaleString()} kcal</span>
         <span class="left ${left < -150 ? 'down-txt' : ''}">${left >= 0 ? `${r0(left)} kcal left` : `${r0(-left)} kcal over`}${pLeft > 0 ? ` · ${r0(pLeft)} g protein to go` : ' · protein hit'}</span></div>
       <div class="macros">
@@ -924,37 +962,50 @@ function viewToday() {
       <div class="tap-hint"><span>Fibre, vitamins, minerals and more</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></div>
     </div>
   </section>
-  ${waterCard()}
-  ${suppCard()}
-  <section class="sec"><h2>Last 7 days</h2>
+  ${shown.water || shown.steps ? `<div class="tiles${shown.water && shown.steps ? '' : ' one'}">${shown.water ? waterTile() : ''}${shown.steps ? stepsTile(day) : ''}</div>` : ''}
+  ${shown.supps ? suppCard() : ''}
+  ${shown.week ? `<section class="sec"><h2>Last 7 days</h2>
     <div class="week">${weekStrip()}</div>
     <div class="legend"><span><i style="background:var(--green)"></i>On target</span><span><i style="background:var(--yellow)"></i>Under, or protein short</span><span><i style="background:var(--red)"></i>Over by 150+</span></div>
-  </section>
-  <section class="sec"><h2>Logged</h2><div class="card rows">${log}</div></section>
-  ${fitsCard()}
-  ${quickCard()}
-  <section class="sec"><h2>Add food <button class="linkbtn h2btn push groc-btn" data-act="openPlanner"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Plan week</button><button class="linkbtn h2btn groc-btn" data-act="openGrocery"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.4 11h10.2L20 7H7"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>Grocery</button></h2>
-    <div class="seg" role="group" aria-label="Food source">
-      <button data-act="foodAdd" data-v="plan" aria-pressed="${!['custom', 'scan', 'search', 'drinks'].includes(S.foodAdd)}">Meal plan</button>
-      <button data-act="foodAdd" data-v="search" aria-pressed="${S.foodAdd === 'search'}">Search</button>
-      <button data-act="foodAdd" data-v="drinks" aria-pressed="${S.foodAdd === 'drinks'}">Drinks</button>
-      <button data-act="foodAdd" data-v="scan" aria-pressed="${S.foodAdd === 'scan'}">Scan</button>
-      <button data-act="foodAdd" data-v="custom" aria-pressed="${S.foodAdd === 'custom'}">Add a meal</button>
-    </div>
-    <div class="card rows">${add}</div>
-  </section>
-  <section class="sec"><h2>Steps &amp; cardio</h2>
-    <div class="card" style="display:grid;gap:10px">
-      ${stepsCard(day)}
-      ${cardio.length ? `<div class="rows">${cardio.map(c => `<div class="row"><div><span class="t">${esc(c.type)}</span> <span class="muted">${c.minutes ? c.minutes + ' min' : ''}${c.note ? ' · ' + esc(c.note) : ''}</span></div><button class="btn sm ghost" data-act="delCardio" data-id="${c.id}">Remove</button></div>`).join('')}</div>` : ''}
-      <form id="cardioForm" class="formrow">
-        <label class="f">Activity<select id="cd_type">${CARDIO_TYPES.map(c => `<option>${c}</option>`).join('')}</select></label>
-        <label class="f">Minutes<input type="number" id="cd_min" inputmode="numeric" min="0"></label>
-        <label class="f">Note<input type="text" id="cd_note" placeholder="e.g. run club 5 km"></label>
-        <button class="btn ghost" type="submit">Add</button>
-      </form>
-    </div>
-  </section>`;
+  </section>` : ''}
+  <section class="sec"><h2>${S.date === todayISO() ? "Today's food" : 'Food'}</h2><div class="card rows">${log}
+    ${emptySlots.length && meals.length ? `<div class="slot-adds">${emptySlots.map(sl => `<button type="button" class="chip chipbtn" data-act="openAdd" data-v="${sl}">+ ${sl}</button>`).join('')}</div>` : ''}
+  </div></section>
+  ${shown.fits ? fitsCard() : ''}
+  <div class="log-cta"><button type="button" class="btn log-btn" data-act="openAdd"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Log food or drink</button></div>
+  ${addSheet}${panelSheet}`;
+}
+
+// What shows on the Food page. Water and steps show unless turned off; the rest are opt-in.
+function foodShown() {
+  const c = S.config || {};
+  return { water: !c.water?.hidden, steps: !c.stepsHidden, supps: c.suppHidden === false, week: !!c.weekShown, fits: c.fitsHidden === false };
+}
+function growChip() {
+  if (!gardenOn() || S.date !== todayISO()) return '';
+  const g = gardenStats(); const M = gm(); const type = growType(); const blooms = S.config?.blooms || [];
+  return `<button type="button" class="grow-chip" data-act="tab" data-v="garden" aria-label="${M.label}: ${g.wilting ? 'needs a workout' : M.names[g.stage]}">
+    <span class="gc-art">${growSVG(type, g.stage, g.wilting, { label: M.names[g.stage], i: blooms.length, v: growVariant() })}</span>
+    <span class="gc-text"><b>${g.wilting ? 'Needs a workout' : M.names[g.stage]}</b><span class="garden-bar"><i style="width:${(g.inBloom / GARDEN.PER_BLOOM) * 100}%"></i></span></span>
+    <svg class="gc-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`;
+}
+function waterTile() {
+  const ml = S.days[S.date]?.water || 0; const goal = waterGoal(); const f = Math.min(1, ml / goal); const soft = softTheme(); const bs = bottleSize();
+  return `<div class="tile${ml >= goal ? ' done' : ''}">
+    <button type="button" class="tile-main" data-act="openPanel" data-v="water" aria-label="Water: ${fmtL(ml)} of ${fmtL(goal)} litres. Open water">
+      <span class="tile-art">${soft ? stanleySVG(f, stanleyColour()) : plainBottleSVG(f)}</span>
+      <span class="tile-txt"><span class="tile-k">Water</span><b>${fmtL(ml)}</b><span class="tile-of">/ ${fmtL(goal)} L</span></span></button>
+    <div class="tile-btns"><button type="button" class="chip chipbtn" data-act="water" data-d="250">+250</button><button type="button" class="chip chipbtn" data-act="water" data-d="${bs}">+${soft ? 'Tumbler' : 'Bottle'}</button></div>
+  </div>`;
+}
+function stepsTile(day) {
+  const n = day?.steps || 0; const goal = stepGoal(); const pct = Math.min(100, n / goal * 100); const cardio = day?.cardio || [];
+  return `<div class="tile${n >= goal ? ' done' : ''}">
+    <button type="button" class="tile-main" data-act="openPanel" data-v="steps" aria-label="Steps: ${n} of ${goal}. Open steps and cardio">
+      <span class="tile-txt"><span class="tile-k">Steps${cardio.length ? ` · ${cardio.length} cardio` : ''}</span><b>${n.toLocaleString()}</b><span class="tile-of">/ ${goal.toLocaleString()}</span></span>
+      <span class="garden-bar steps-bar"><i style="width:${pct}%"></i></span></button>
+    <div class="tile-btns"><button type="button" class="chip chipbtn" data-act="stepsAdd" data-v="1000">+1,000</button><button type="button" class="chip chipbtn" data-act="openPanel" data-v="steps">More</button></div>
+  </div>`;
 }
 
 /* ---------- TRAIN ---------- */
@@ -1225,6 +1276,11 @@ function lineChart(points, opts) {
   const last = points[points.length - 1];
   g += `<g class="end"><text x="${X(last.x) + 8}" y="${Y(last.y) + 5}">${kgFmt(r1(last.y))}${opts.unit || ''}</text></g>`;
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">${g}</svg></div>`;
+}
+function viewProgressAll() {
+  const v = ['body', 'photos'].includes(S.progView) ? S.progView : 'lifts';
+  const seg = `<div class="seg prog-seg" role="group" aria-label="Progress view">${[['lifts', 'Lifts'], ['body', 'Body'], ['photos', 'Photos']].map(([k, l]) => `<button data-act="progView" data-v="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</div>`;
+  return seg + (v === 'body' ? viewBody() : v === 'photos' ? viewPhotos() : viewProgress());
 }
 function viewProgress() {
   const sess = sessionsSorted();
@@ -1990,7 +2046,7 @@ function openPlanner() {
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet"><div class="panel"><div class="wrap planner">
     <div style="display:flex;align-items:center;gap:10px"><h3>Plan the week</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSheet">Close</button></div>
     <div class="seg" role="group" aria-label="Week"><button type="button" data-act="planWeek" data-v="0" aria-pressed="${off === 0}">This week</button><button type="button" data-act="planWeek" data-v="1" aria-pressed="${off === 1}">Next week</button></div>
-    <div class="small muted">${label}. Pick meals for each day. Today's planned meals show up on the Food tab for one-tap logging, and the grocery list can be built from this plan. Daily target: ${T.kcal.toLocaleString()} kcal, ${T.p} g protein.</div>
+    <div class="small muted">${label}. Pick meals for each day. Today's planned meals show up at the top of Log food for one-tap logging, and the grocery list can be built from this plan. Daily target: ${T.kcal.toLocaleString()} kcal, ${T.p} g protein.</div>
     ${days}
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-act="planGroc">Grocery list for this week</button><button type="button" class="btn ghost sm" data-act="planCopy">Copy last week</button><button type="button" class="btn ghost sm" data-act="planClear">Clear week</button></div>
   </div></div></div>`;
@@ -2514,14 +2570,14 @@ function plainBottleSVG(f) {
     <rect x="50" y="8" width="20" height="14" rx="4" fill="var(--btn)" opacity=".85"/>
   </svg>`;
 }
-function waterCard() {
-  if (S.config?.water?.hidden) return `<section class="sec"><h2>Water <button class="linkbtn h2btn push" data-act="waterHide" data-v="0" aria-expanded="false">Show</button></h2></section>`;
+function waterCard(inPanel) {
+  if (!inPanel && S.config?.water?.hidden) return `<section class="sec"><h2>Water <button class="linkbtn h2btn push" data-act="waterHide" data-v="0" aria-expanded="false">Show</button></h2></section>`;
   const ml = S.days[S.date]?.water || 0; const goal = waterGoal(); const f = Math.min(1, ml / goal);
   const soft = softTheme(); const bs = bottleSize(); const left = Math.max(0, goal - ml);
   const msg = ml >= goal ? 'Goal hit. Nicely done.'
     : ml === 0 ? `Start with a glass. Your goal is ${fmtL(goal)} L.`
     : `${fmtL(left)} L to go, about ${Math.max(1, Math.round(left / bs * 2) / 2)} ${soft ? 'tumbler' : 'bottle'}${left / bs > 1 ? 's' : ''}.`;
-  return `<section class="sec"><h2>Water <span class="aside">${fmtL(ml)} / ${fmtL(goal)} L</span><button class="linkbtn h2btn" data-act="waterHide" data-v="1" aria-expanded="true">Hide</button></h2>
+  return `<section class="sec">${inPanel ? '' : `<h2>Water <span class="aside">${fmtL(ml)} / ${fmtL(goal)} L</span><button class="linkbtn h2btn" data-act="waterHide" data-v="1" aria-expanded="true">Hide</button></h2>`}
     <div class="card water${ml >= goal ? ' done' : ''}">
       <div class="water-art">${soft ? stanleySVG(f, stanleyColour()) : plainBottleSVG(f)}</div>
       <div class="water-side">
@@ -2661,6 +2717,9 @@ function gardenScene() {
   return `<svg class="garden-scene" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${gm().section}: ${blooms.length} ${gm().grownLabel.toLowerCase()}">${svg}</svg>`;
 }
 function viewGarden() {
+  return gardenCard() + viewGardenRest();
+}
+function viewGardenRest() {
   const s = streakStats(); const g = gardenStats(); const blooms = S.config?.blooms || [];
   const ws = weekStart(todayISO());
   const dots = Array.from({ length: 7 }, (_, i) => {
@@ -2818,6 +2877,10 @@ function openSettings() {
         <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div>
       <div class="icon-note"><img src="icons/t/${findTheme(S.config?.theme)?.id || 'auto'}-180.png" alt="" width="40" height="40"><span class="small muted">Your home-screen icon matches this colour. Phones lock the icon in when you add the app, so to update it, remove Refyne from your home screen and add it again from ${/iPhone|iPad/.test(navigator.userAgent) ? 'Safari (Share → Add to Home Screen)' : 'your browser menu'}. Your data stays.</span></div>
     </div>
+    <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Food page</div>
+      <div class="small muted">Choose what shows on the Food tab. Everything you turn off still works, it's just out of the way.</div>
+      ${[['water', 'Water'], ['steps', 'Steps and cardio'], ['supps', 'Supplements'], ['week', 'Last 7 days'], ['fits', 'What fits (meal suggestions)']].map(([k, l]) => `<label class="tick"><input type="checkbox" data-food="${k}" ${foodShown()[k] ? 'checked' : ''}> ${l}</label>`).join('')}
+    </div>
     ${growSettings()}
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Meal plan</div>
       <div class="small muted">${(S.config?.hiddenRecipes || []).length ? `${(S.config.hiddenRecipes).length} of ${RECIPES.length} starter meals removed.` : `Showing all ${RECIPES.length} starter meals.`} Your own meals: ${(S.config?.foods || []).length}. Tap × on any meal to remove it.</div>
@@ -2944,13 +3007,32 @@ document.getElementById('nextDay').onclick = () => { S.date = addDays(S.date, 1)
 document.getElementById('todayBtn').onclick = () => { S.date = todayISO(); S.trainDay = null; render(); };
 document.getElementById('openSettings').onclick = openSettings;
 
+document.addEventListener('change', e => {
+  const k = e.target.dataset?.food; if (!k) return;
+  const cfg = cfgCopy(); const on = e.target.checked;
+  if (k === 'water') cfg.water = { ...(cfg.water || {}), hidden: !on };
+  else if (k === 'steps') cfg.stepsHidden = !on;
+  else if (k === 'supps') cfg.suppHidden = !on;
+  else if (k === 'week') cfg.weekShown = on;
+  else if (k === 'fits') cfg.fitsHidden = !on;
+  saveConfig(cfg);
+});
+document.addEventListener('click', e => {
+  const o = e.target.classList?.contains('ovl') ? e.target : null;
+  if (o) { if (o.dataset.ovl === 'add') S.addOpen = false; else S.panel = null; render(); }
+});
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act;
   const D = () => getDraft();
   switch (a) {
     case 'goto': S.date = b.dataset.date; S.trainDay = null; render(); break;
-    case 'tab': S.tab = b.dataset.v; render(); break;
+    case 'tab': S.tab = b.dataset.v; render(); window.scrollTo(0, 0); break;
+    case 'openAdd': S.addOpen = true; S.panel = null; if (b.dataset.v === 'Drinks') S.foodAdd = 'drinks'; else if (b.dataset.v) { S.foodAdd = 'plan'; S.addFocus = b.dataset.v; } render(); break;
+    case 'closeAdd': S.addOpen = false; if (S.foodAdd === 'scan') { try { closeScanner(); } catch {} } render(); break;
+    case 'openPanel': S.panel = b.dataset.v; S.addOpen = false; render(); break;
+    case 'closePanel': S.panel = null; render(); break;
+    case 'progView': S.progView = b.dataset.v; render(); window.scrollTo(0, 0); break;
     case 'foodAdd': S.foodAdd = b.dataset.v; render(); break;
     case 'addRecipe': {
       const r = RECIPES.find(x => x.id === b.dataset.id); const day = localDay(S.date);

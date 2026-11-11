@@ -715,3 +715,38 @@ details.privacy p { margin: 8px 0 0; line-height: 1.45; }
 details.fb summary, details.del summary { cursor: pointer; font-weight: 600; }
 details.del summary { color: var(--red); }
 #fb_text { width: 100%; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); resize: vertical; box-sizing: border-box; }
+
+/* ---------- Food tab: hero, tiles, log button, overlay sheets ---------- */
+.grow-chip { display: grid; grid-template-columns: 44px minmax(0, 1fr) 18px; gap: 10px; align-items: center; width: 100%; background: var(--sunk); border: 0; border-radius: 12px; padding: 6px 10px 6px 6px; color: var(--ink); text-align: left; font: inherit; cursor: pointer; }
+.grow-chip .gc-art { width: 44px; height: 44px; display: grid; place-items: center; overflow: hidden; }
+.grow-chip .gc-art svg { width: 44px; height: 44px; }
+.grow-chip .gc-text { display: grid; gap: 5px; min-width: 0; font-size: 14px; }
+.grow-chip .gc-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grow-chip .garden-bar { height: 6px; }
+.grow-chip .gc-go { width: 18px; height: 18px; stroke: var(--muted); fill: none; stroke-width: 2; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tiles.one { grid-template-columns: 1fr; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r, 12px); padding: 10px; display: grid; gap: 8px; align-content: space-between; }
+.tile.done { border-color: var(--green); }
+.tile-main { display: flex; gap: 8px; align-items: center; background: none; border: 0; padding: 0; color: var(--ink); text-align: left; font: inherit; cursor: pointer; flex-wrap: wrap; }
+.tile-main .steps-bar { flex: 1 0 100%; height: 6px; }
+.tile-art { width: 30px; height: 48px; flex: none; display: grid; place-items: center; }
+.tile-art svg { width: 30px; height: 48px; }
+.tile-txt { display: grid; line-height: 1.15; min-width: 0; }
+.tile-k { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-txt b { font-size: 24px; }
+.tile-of { font-size: 12.5px; color: var(--muted); }
+.tile-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.tile-btns .chip { font-size: 13px; padding: 5px 10px; }
+.slot-adds { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 0 2px; border-top: 1px solid var(--line); margin-top: 6px; }
+.slot-adds .chip { font-size: 13px; padding: 5px 10px; background: var(--sunk); color: var(--ink); }
+.log-cta { position: sticky; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 20; display: grid; padding-top: 4px; }
+[data-style="soft"] .log-cta { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.log-btn { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 14px; font-size: 16px; box-shadow: 0 8px 24px rgb(0 0 0 / .18); }
+.log-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.4; }
+.sheet.ovl { z-index: 45; }
+.ovl-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ovl-sub { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: -8px; }
+.sheet.ovl .sec h2 { margin-top: 0; }
+body.ovl-open { overflow: hidden; }
+.prog-seg { margin-bottom: 2px; }
