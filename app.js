@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 53; // keep in step with VERSION in sw.js
+const APP_VERSION = 54; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1838,15 +1838,17 @@ function searchPanel(build) {
 }
 function productPanel(s, src, build) {
   const p = s.product; const g = s.grams || 100; const k = g / 100;
+  const presets = p.serving ? [p.serving, ...(p.unitLabel && !/^\d/.test(p.unitLabel) ? [p.serving * 2] : [])] : [];
+  const custom = s.custom || !presets.includes(g);
   const note = src === 'common' ? 'Typical values for this food. Brands and recipes vary.' : 'Nutrition from Open Food Facts. Check it against the packet if it looks off.';
   return `<div class="scan-result">
       <div><div class="t">${esc(p.name)}</div><div class="small muted">${esc([p.brand, p.size].filter(Boolean).join(' · '))}</div></div>
       <div class="small muted">Per 100 g: ${r0(p.kcal)} kcal · P ${r1(p.p)} · C ${r1(p.c)} · F ${r1(p.f)}</div>
       <div class="formrow">
-        <label class="f">Amount eaten (g or ml)<input type="number" id="sc_g" inputmode="decimal" step="any" min="1" value="${g}"></label>
+        ${custom ? `<label class="f">Grams (or ml)<input type="number" id="sc_g" inputmode="decimal" step="any" min="1" value="${g}"></label>` : ''}
         ${build ? '' : `<label class="f">Meal<select id="sc_slot">${SLOTS.map(x => `<option ${x === guessSlot() ? 'selected' : ''}>${x}</option>`).join('')}</select></label>`}
       </div>
-      <div class="seg">${p.serving ? `<button type="button" data-act="scanGrams" data-v="${p.serving}" aria-pressed="${g === p.serving}">${esc(p.unitLabel || '1 serve')} (${r0(p.serving)} g)</button>` : ''}${p.serving && p.unitLabel && !/^\d/.test(p.unitLabel) ? `<button type="button" data-act="scanGrams" data-v="${p.serving * 2}" aria-pressed="${g === p.serving * 2}">×2</button>` : ''}<button type="button" data-act="scanGrams" data-v="100" aria-pressed="${g === 100}">100 g</button></div>
+      <div class="seg">${p.serving ? `<button type="button" data-act="scanGrams" data-v="${p.serving}" aria-pressed="${!custom && g === p.serving}">${esc(p.unitLabel || '1 serve')} (${r0(p.serving)} g)</button>` : ''}${p.serving && p.unitLabel && !/^\d/.test(p.unitLabel) ? `<button type="button" data-act="scanGrams" data-v="${p.serving * 2}" aria-pressed="${!custom && g === p.serving * 2}">×2</button>` : ''}<button type="button" data-act="scanCustom" aria-pressed="${custom}">Custom amount</button></div>
       <div class="chips" id="sc_macros"><span class="chip k">${r0(p.kcal * k)} kcal</span><span class="chip p">P ${r0(p.p * k)}</span><span class="chip c">C ${r0(p.c * k)}</span><span class="chip f">F ${r0(p.f * k)}</span></div>
       ${build ? `<div><button type="button" class="btn" data-act="buildAdd">Add to meal</button></div>` : `<label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="sc_save"> Save to my meal plan</label>
       <div><button class="btn" data-act="scanAdd">Add to log</button></div>`}
@@ -3356,7 +3358,8 @@ document.addEventListener('click', async e => {
     case 'openScanner': openScanner(); break;
     case 'closeScanner': closeScanner(); break;
     case 'scanLookup': lookupBarcode(document.getElementById('sc_code')?.value); break;
-    case 'scanGrams': S.scan.grams = +b.dataset.v; render(); break;
+    case 'scanGrams': S.scan.grams = +b.dataset.v; S.scan.custom = false; render(); break;
+    case 'scanCustom': { S.scan.custom = true; render(); const el = document.getElementById('sc_g'); if (el) { el.focus(); el.select(); } break; }
     case 'openMeal': openMeal(b.dataset.k); break;
     case 'pushOn': enablePush(); break;
     case 'pushOff': disablePush(); break;
