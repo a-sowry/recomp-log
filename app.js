@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 44; // keep in step with VERSION in sw.js
+const APP_VERSION = 45; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -2901,10 +2901,16 @@ function openSettings() {
   // Re-opening while Settings is already up (after picking a theme, car, bonsai, colour…) keeps your place instead of jumping to the top.
   const keepScroll = document.getElementById('settingsForm') ? (document.querySelector('.sheet .panel')?.scrollTop || 0) : 0;
   const T = targets(); const prog = program();
-  const ed = `<div class="card split-intro" id="splitEditor" style="display:grid;gap:8px"><div class="slotlabel" style="padding-top:0">Your training split</div>
-      <div class="small muted">Name your training days, tick which weekdays they're on (the Train tab opens on that day automatically), and add the exercises with their rep ranges. Tap Save at the bottom when you're done.</div></div>
-    <div id="splitDays">${splitList().map((sd, di) => dayEditor(sd, prog[sd.name] || [], di)).join('')}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost sm" data-act="pgAddDay">+ Add a training day</button></div>`;
+  const sl = splitList();
+  const overview = sl.length ? sl.map(d => `${esc(d.name)}${d.wd?.length ? ` <span class="muted">${wdShort(d.wd)}</span>` : ''}`).join(' · ') : 'No training days yet';
+  const ed = `<details class="card split-wrap" id="splitEditor"${S.splitOpen ? ' open' : ''}>
+      <summary><span class="sw-head"><b>Training split</b><span class="small sw-over">${overview}</span></span><span class="linkbtn sw-edit">Edit</span></summary>
+      <div class="split-body">
+        <div class="small muted">Tap a day to change its name, weekdays or exercises. The Train tab opens on the right day automatically. Tap Save at the bottom when you're done.</div>
+        <div id="splitDays">${sl.map((sd, di) => dayEditor(sd, prog[sd.name] || [], di)).join('')}</div>
+        <div><button type="button" class="btn ghost sm" data-act="pgAddDay">+ Add a training day</button></div>
+      </div>
+    </details>`;
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet" id="sheet"><div class="panel"><form class="wrap" id="settingsForm">
     <div style="display:flex;align-items:center;gap:10px"><h3>Settings</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSettings">Close</button></div>
     <button type="button" class="card methods-cta" data-act="openMethods"><span><b>How it's calculated</b><span class="small muted">The formulas behind your targets, and where every food's calories come from</span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -3004,14 +3010,26 @@ function exRow(p, k) {
       <input type="number" min="1" max="50" value="${p.max || 12}" data-k="max" aria-label="Max reps" id="pg_${k}_b">
       <button type="button" class="del" data-act="pgDel" aria-label="Remove exercise">×</button></div>`;
 }
-function dayEditor(sd, exs, di) {
-  const k = 'd' + di + '_' + Math.random().toString(36).slice(2, 6);
-  return `<div class="card dayedit" style="display:grid;gap:8px">
+const WD_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function wdShort(wd) { return [1, 2, 3, 4, 5, 6, 0].filter(n => wd.includes(n)).map(n => WD_SHORT[n]).join(', '); }
+function daySumText(name, wd, n) { return { name: name || 'New day', meta: `${wd.length ? wdShort(wd) : 'No weekday'} · ${n} exercise${n === 1 ? '' : 's'}` }; }
+function dayEditor(sd, exs, di, open = false) {
+  const k = 'd' + di + '_' + Math.random().toString(36).slice(2, 6); const t = daySumText(sd.name, sd.wd || [], exs.length);
+  return `<details class="dayedit"${open ? ' open' : ''}>
+    <summary class="day-sum"><b class="ds-name">${esc(t.name)}</b><span class="ds-meta small muted">${t.meta}</span></summary>
+    <div class="day-body">
     <div class="dayedit-head"><input type="text" class="dayname" data-k="dayname" value="${esc(sd.name)}" placeholder="Day name, e.g. Push, Full body A" aria-label="Training day name" maxlength="24"><button type="button" class="linkbtn" style="color:var(--red)" data-act="pgDelDay">Remove day</button></div>
     <div class="wdpick" role="group" aria-label="Which weekdays">${WD.map(([n, l]) => `<button type="button" class="wd-chip" data-wd="${n}" aria-pressed="${(sd.wd || []).includes(n)}" aria-label="${WD_LONG[n]}" data-act="wdToggle">${l}</button>`).join('')}</div>
     <div class="progrow small muted"><span>Exercise</span><span>Sets</span><span>Min</span><span>Max</span><span></span></div>
     <div class="dayexs">${exs.map((p, i) => exRow(p, k + '_' + i)).join('')}</div>
-    <div><button type="button" class="linkbtn" data-act="pgAdd">+ Exercise</button></div></div>`;
+    <div><button type="button" class="linkbtn" data-act="pgAdd">+ Exercise</button></div>
+    </div></details>`;
+}
+function refreshDaySum(card) {
+  if (!card) return;
+  const t = daySumText((card.querySelector('.dayname')?.value || '').trim(), [...card.querySelectorAll('.wd-chip[aria-pressed="true"]')].map(x => +x.dataset.wd),
+    [...card.querySelectorAll('.dayexs .progrow')].filter(r => (r.querySelector('[data-k="name"]')?.value || '').trim()).length);
+  card.querySelector('.ds-name').textContent = t.name; card.querySelector('.ds-meta').textContent = t.meta;
 }
 function readSplitFromSheet() { // -> { split, program } from the Settings editor
   const split = [], program = {}; const used = new Set(['custom', 'rest']);
@@ -3334,27 +3352,29 @@ document.addEventListener('click', async e => {
     }
     case 'suppDel': { const cfg = cfgCopy(); cfg.supps = (cfg.supps || []).filter(x => x.id !== b.dataset.v); saveConfig(cfg); openSettings(); break; }
     case 'closeSettings': S.confirmSignOut = false; document.getElementById('sheetRoot').innerHTML = ''; if (pendingRender) { pendingRender = false; render(); } break;
-    case 'pgDel': b.closest('.progrow').remove(); break;
+    case 'pgDel': { const card = b.closest('.dayedit'); b.closest('.progrow').remove(); refreshDaySum(card); break; }
     case 'pgAdd': {
       const box = b.closest('.dayedit').querySelector('.dayexs'); const tmp = document.createElement('div'); tmp.innerHTML = exRow({}, 'n' + Date.now());
-      const row = tmp.firstElementChild; box.append(row); row.querySelector('input').focus(); break;
+      const row = tmp.firstElementChild; box.append(row); row.querySelector('input').focus(); refreshDaySum(b.closest('.dayedit')); break;
     }
-    case 'pgAddDay': { const box = document.getElementById('splitDays'); const tmp = document.createElement('div'); tmp.innerHTML = dayEditor({ name: '', wd: [] }, [], box.children.length); box.append(tmp.firstElementChild); box.lastElementChild.querySelector('.dayname').focus(); break; }
+    case 'pgAddDay': { const box = document.getElementById('splitDays'); const tmp = document.createElement('div'); tmp.innerHTML = dayEditor({ name: '', wd: [] }, [], box.children.length, true); box.append(tmp.firstElementChild); box.lastElementChild.querySelector('.dayname').focus(); break; }
     case 'pgDelDay': b.closest('.dayedit').remove(); break;
-    case 'wdToggle': b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); break;
+    case 'wdToggle': b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); refreshDaySum(b.closest('.dayedit')); break;
     case 'pgStarter': {
       const box = document.getElementById('splitDays');
       box.innerHTML = starterSplit().map((sd, di) => dayEditor(sd, DEFAULT_PROGRAM[sd.name].map(([name, sets, min, max]) => ({ name, sets, min, max })), di)).join('');
+      const se = document.getElementById('splitEditor'); if (se) se.open = true;
       toast('Starter split loaded. Tap Save to keep it.'); break;
     }
     case 'pgClear': { document.getElementById('splitDays').innerHTML = ''; toast('Split cleared. Add your own days, then tap Save.'); break; }
-    case 'openSplit': openSettings(); setTimeout(() => document.getElementById('splitEditor')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80); break;
+    case 'openSplit': S.splitOpen = true; openSettings(); S.splitOpen = false; setTimeout(() => document.getElementById('splitEditor')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80); break;
   }
 });
 
 document.addEventListener('input', e => {
   const el = e.target;
   if (el.closest?.('#customForm') && el.id && el.id.startsWith('cf_') && el.id !== 'cf_serves') { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }
+  if (el.classList?.contains('dayname') || (el.dataset?.k === 'name' && el.closest('.dayedit'))) refreshDaySum(el.closest('.dayedit'));
   if (el.id === 't_kcal') { const w = document.getElementById('t_warn'); if (w) w.innerHTML = lowKcalWarn(el.value); return; }
   if (el.id === 'tv_vol') { const sh = document.getElementById('tv_show'); if (sh) sh.textContent = el.value + '%'; return; }
   if (el.dataset.bi != null) {

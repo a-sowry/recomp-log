@@ -766,3 +766,30 @@ body.ovl-open { overflow: hidden; }
 .plan-row.on .t { font-weight: 700; }
 .stepper button:disabled { opacity: .35; }
 details.card summary { cursor: pointer; }
+
+/* Training split in Settings: one collapsed card, each day folds open */
+details.split-wrap > summary { list-style: none; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+details.split-wrap > summary::-webkit-details-marker, details.dayedit > summary::-webkit-details-marker { display: none; }
+.sw-head { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.sw-over { color: var(--muted); line-height: 1.4; }
+.sw-edit { flex: none; font-weight: 600; }
+details.split-wrap[open] .sw-edit { visibility: hidden; }
+.split-body { display: grid; gap: 10px; margin-top: 12px; }
+#splitDays { display: grid; gap: 8px; }
+details.dayedit { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 0; }
+details.dayedit > summary { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; gap: 8px; align-items: center; padding: 12px 12px; cursor: pointer; }
+details.dayedit > summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); justify-self: center; margin-top: -4px; transition: transform .15s; }
+details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.ds-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-meta { white-space: nowrap; }
+.day-body { display: grid; gap: 8px; padding: 0 12px 12px; }
+/* exercise rows inside a split day: name on its own line, then sets and rep range */
+.dayedit .progrow.small { display: none; }
+.dayedit .dayexs .progrow { grid-template-columns: 48px 48px 48px 1fr 30px; grid-template-areas: "name name name name del" "sets min max hint hint"; row-gap: 6px; padding: 8px 0; border-top: 1px dashed var(--line); }
+.dayedit .dayexs .progrow:first-child { border-top: 0; padding-top: 0; }
+.dayedit .progrow [data-k="name"] { grid-area: name; }
+.dayedit .progrow [data-k="sets"] { grid-area: sets; }
+.dayedit .progrow [data-k="min"] { grid-area: min; }
+.dayedit .progrow [data-k="max"] { grid-area: max; }
+.dayedit .progrow .del { grid-area: del; }
+.dayedit .progrow::after { content: "sets · min–max reps"; grid-area: hint; align-self: center; font-size: 12px; color: var(--muted); padding-left: 4px; }
