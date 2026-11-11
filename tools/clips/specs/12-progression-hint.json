@@ -1,0 +1,51 @@
+{
+ "id": "12-progression-hint",
+ "look": "white",
+ "config": {
+  "theme": "white"
+ },
+ "duration": 14,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Never wonder what to lift next"
+  },
+  {
+   "t": 3.0,
+   "title": "Your target sets and reps\u2026"
+  },
+  {
+   "t": 6.4,
+   "title": "\u2026what you did last time\u2026"
+  },
+  {
+   "t": 9.6,
+   "title": "\u2026and when to go up"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.0,
+   "do": "tap",
+   "target": "[data-tab='train']"
+  },
+  {
+   "at": 3.2,
+   "do": "scroll",
+   "dy": 150,
+   "ms": 1800
+  },
+  {
+   "at": 8.6,
+   "do": "type",
+   "target": "#kg_0_0",
+   "text": "67.5"
+  },
+  {
+   "at": 9.8,
+   "do": "type",
+   "target": "#rp_0_0",
+   "text": "10"
+  }
+ ]
+}

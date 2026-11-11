@@ -1,0 +1,51 @@
+{
+ "_about": "What must never appear in a clip. 'banned' words are read off every frame (case, spacing and punctuation ignored); 'banned_patterns' are regular expressions run on the same text; 'caption_banned' are checked against the captions before anything is recorded. Takeaway chain names are allowed on purpose (the app uses each chain's official published figures).",
+ "banned": [
+  "Stanley",
+  "Emily Mariko",
+  "Brittany Mullins",
+  "Brynley Joyner",
+  "Madeline Tague",
+  "Greg Doucette",
+  "Eating Bird Food",
+  "Mad About Food",
+  "Clean Eatz",
+  "Fundies",
+  "Nutrola",
+  "PantryLink",
+  "selfbycjs",
+  "Fill with sample data",
+  "demo@refyne",
+  "Export backup",
+  "Restore from backup",
+  "Delete my account",
+  "Sign out",
+  "Create account"
+ ],
+ "banned_patterns": [
+  "\\$\\s?\\d+(?!\\d)(?![\\]\\d]*\\])(?!\\s?(kcal|kg|cm|g\\b|\\.\\d))",
+  "\\bper (month|year|week)\\b",
+  "/\\s?(mo|month|yr|year)\\b",
+  "\\bsubscription\\b",
+  "\\bpremium\\b",
+  "\\bfree trial\\b",
+  "\\bpricing\\b"
+ ],
+ "caption_banned": [
+  "\\blose\\b",
+  "\\blosing\\b",
+  "weight loss",
+  "fat loss",
+  "\\bburn",
+  "\\bshred",
+  "guarantee",
+  "\\btransform",
+  "\\bresults?\\b",
+  "\\d+\\s?(kg|lb|lbs|pounds|kilos)",
+  "in \\d+\\s?(days?|weeks?|months?)",
+  "\\bprice",
+  "\\$",
+  "free (trial|forever|app|to)",
+  "stanley"
+ ]
+}

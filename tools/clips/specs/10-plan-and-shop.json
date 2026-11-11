@@ -1,0 +1,67 @@
+{
+ "id": "10-plan-and-shop",
+ "look": "sky",
+ "config": {
+  "theme": "sky"
+ },
+ "duration": 18,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Plan your week in a few taps"
+  },
+  {
+   "t": 3.2,
+   "title": "Tick the meals you'll have\u2026"
+  },
+  {
+   "t": 8.4,
+   "title": "\u2026and your shopping list builds itself",
+   "sub": "in aisle order"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.0,
+   "do": "tap",
+   "target": "[data-act='openAdd']"
+  },
+  {
+   "at": 2.0,
+   "do": "tap",
+   "target": "[data-act='openPlanner']"
+  },
+  {
+   "at": 3.6,
+   "do": "tap",
+   "target": "[data-act='planCount'] >> nth=1"
+  },
+  {
+   "at": 4.4,
+   "do": "tap",
+   "target": "[data-act='planCount'] >> nth=3"
+  },
+  {
+   "at": 5.2,
+   "do": "tap",
+   "target": "[data-act='planCount'] >> nth=5"
+  },
+  {
+   "at": 6.0,
+   "do": "tap",
+   "target": "[data-act='planCount'] >> nth=7"
+  },
+  {
+   "at": 6.800000000000001,
+   "do": "tap",
+   "target": "[data-act='planCount'] >> nth=9"
+  },
+  {
+   "at": 9.0,
+   "do": "scroll",
+   "dy": 520,
+   "ms": 3800,
+   "target": ".sheet .panel"
+  }
+ ]
+}

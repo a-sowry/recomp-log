@@ -1,0 +1,57 @@
+{
+ "id": "02-tumbler-and-forest",
+ "look": "pink",
+ "config": {
+  "theme": "pink",
+  "growSoft": "bonsai",
+  "bonsai": "sakura"
+ },
+ "duration": 14.5,
+ "captions": [
+  {
+   "t": 0,
+   "title": "POV: your gym tracker is actually cute"
+  },
+  {
+   "t": 3.2,
+   "title": "Your tumbler fills up as you drink"
+  },
+  {
+   "t": 8.4,
+   "title": "Every week you train grows a new bonsai"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.2,
+   "do": "tap",
+   "target": "[data-act='openPanel'][data-v='water']"
+  },
+  {
+   "at": 3.4,
+   "do": "tap",
+   "target": ".sheet [data-act='water']:has-text('Full tumbler')"
+  },
+  {
+   "at": 5.4,
+   "do": "tap",
+   "target": ".sheet [data-act='water']:has-text('+ 250')"
+  },
+  {
+   "at": 7.8,
+   "do": "tap",
+   "target": ".sheet [data-act='closePanel']"
+  },
+  {
+   "at": 8.8,
+   "do": "tap",
+   "target": "[data-tab='garden']"
+  },
+  {
+   "at": 10.4,
+   "do": "scroll",
+   "dy": 560,
+   "ms": 2200
+  }
+ ]
+}

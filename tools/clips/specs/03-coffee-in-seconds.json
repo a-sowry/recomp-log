@@ -1,0 +1,55 @@
+{
+ "id": "03-coffee-in-seconds",
+ "look": "white",
+ "config": {
+  "theme": "white"
+ },
+ "duration": 13,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Your coffee has calories too"
+  },
+  {
+   "t": 2.2,
+   "title": "Log it in a few taps"
+  },
+  {
+   "t": 9.2,
+   "title": "Large oat flat white, done",
+   "sub": "calories + macros counted"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.2,
+   "do": "tap",
+   "target": "[data-act='openAdd'][data-v='Drinks']"
+  },
+  {
+   "at": 3.0,
+   "do": "tap",
+   "target": "[data-act='drinkOpt'][data-v='flatwhite']"
+  },
+  {
+   "at": 4.4,
+   "do": "tap",
+   "target": "[data-act='drinkOpt'][data-v='large']"
+  },
+  {
+   "at": 5.8,
+   "do": "tap",
+   "target": "[data-act='drinkOpt'][data-v='oat']"
+  },
+  {
+   "at": 7.4,
+   "do": "tap",
+   "target": "[data-act='drinkAdd']"
+  },
+  {
+   "at": 10.4,
+   "do": "tap",
+   "target": "[data-act='closeAdd']"
+  }
+ ]
+}

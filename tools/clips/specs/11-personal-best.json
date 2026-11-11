@@ -1,0 +1,43 @@
+{
+ "id": "11-personal-best",
+ "look": "navy",
+ "config": {
+  "theme": "navy"
+ },
+ "duration": 12,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Lift heavier than ever\u2026"
+  },
+  {
+   "t": 5.0,
+   "title": "\u2026and Refyne celebrates it",
+   "sub": "every personal best, tracked"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.2,
+   "do": "tap",
+   "target": "[data-tab='train']"
+  },
+  {
+   "at": 2.6,
+   "do": "type",
+   "target": "#kg_0_0",
+   "text": "80"
+  },
+  {
+   "at": 3.8,
+   "do": "type",
+   "target": "#rp_0_0",
+   "text": "9"
+  },
+  {
+   "at": 5.6,
+   "do": "tap",
+   "target": "[data-act='saveSession']"
+  }
+ ]
+}

@@ -1,0 +1,70 @@
+{
+ "id": "08-starter-meals",
+ "look": "mint",
+ "config": {
+  "theme": "mint"
+ },
+ "duration": 18,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Not sure what to eat?"
+  },
+  {
+   "t": 2.4,
+   "title": "Pick your eating style\u2026"
+  },
+  {
+   "t": 7.0,
+   "title": "Leave out what you can't have"
+  },
+  {
+   "t": 11.6,
+   "title": "Meals sized to your calories"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.0,
+   "do": "tap",
+   "target": "[data-act='openAdd']"
+  },
+  {
+   "at": 2.0,
+   "do": "tap",
+   "target": "[data-act='openStarters']"
+  },
+  {
+   "at": 3.4,
+   "do": "tap",
+   "target": "[data-act='spStyle'][data-v='veg']"
+  },
+  {
+   "at": 5.0,
+   "do": "tap",
+   "target": "[data-act='spStyle'][data-v='vegan']"
+  },
+  {
+   "at": 6.6,
+   "do": "tap",
+   "target": "[data-act='spStyle'][data-v='pesc']"
+  },
+  {
+   "at": 8.0,
+   "do": "tap",
+   "target": "[data-act='spAvoid'][data-v='dairy']"
+  },
+  {
+   "at": 9.2,
+   "do": "tap",
+   "target": "[data-act='spAvoid'][data-v='nuts']"
+  },
+  {
+   "at": 11.8,
+   "do": "scroll",
+   "dy": 320,
+   "ms": 2600,
+   "target": ".sheet .panel|last"
+  }
+ ]
+}

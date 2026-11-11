@@ -1,0 +1,16 @@
+{
+  "id": "04-tap-for-vitamins",
+  "look": "lilac",
+  "config": { "theme": "lilac" },
+  "duration": 9.0,
+  "captions": [
+    { "t": 0,   "title": "Calories and macros?", "sub": "that's the easy part" },
+    { "t": 2.6, "title": "Tap the card…" },
+    { "t": 4.0, "title": "…and see your key vitamins and minerals", "sub": "against daily targets" }
+  ],
+  "steps": [
+    { "at": 0.7, "do": "scroll", "dy": 150, "ms": 900 },
+    { "at": 2.9, "do": "tap", "target": "[data-act='openNutrients']" },
+    { "at": 4.8, "do": "scroll", "dy": 420, "ms": 1800, "target": ".sheet .panel" }
+  ]
+}

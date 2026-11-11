@@ -1,0 +1,9 @@
+<div id="demoBar" style="font:600 12px system-ui,sans-serif;background:#222;color:#fff;padding:calc(4px + env(safe-area-inset-top)) 12px 4px;display:flex;gap:6px 12px;flex-wrap:wrap;justify-content:center;align-items:center">Demo · fake data, saved in this browser only<button id="demoFill" style="all:unset;cursor:pointer;text-decoration:underline">Fill with sample data</button><button id="demoReset" style="all:unset;cursor:pointer;text-decoration:underline">Reset</button></div>
+<script src="sample.js"></script>
+<script>
+document.getElementById('demoFill').onclick = e => { const b = e.currentTarget; if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Tap again (replaces this demo)'; setTimeout(() => { delete b.dataset.sure; b.textContent = 'Fill with sample data'; }, 4000); return; } window.demoFill(); };
+document.body.prepend(document.getElementById('demoBar'));
+document.getElementById('demoReset').onclick = e => { const b = e.currentTarget; if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'Tap again to wipe everything'; setTimeout(() => { delete b.dataset.sure; b.textContent = 'Reset'; }, 4000); return; } try { const v = localStorage.getItem('rl-demo-v'); localStorage.clear(); if (v) localStorage.setItem('rl-demo-v', v); } catch {} location.reload(); };
+// pre-fill the demo login once the sign-in screen is drawn
+new MutationObserver(() => { const e = document.getElementById('li_email'), p = document.getElementById('li_pw'); if (e && !e.value && !e.dataset.demo) { e.dataset.demo = 1; e.value = 'demo@refyne.test'; if (p) p.value = 'demo1234'; } }).observe(document.body, { childList: true, subtree: true });
+</script>

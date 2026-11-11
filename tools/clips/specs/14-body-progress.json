@@ -1,0 +1,36 @@
+{
+ "id": "14-body-progress",
+ "look": "lilac",
+ "config": {
+  "theme": "lilac"
+ },
+ "duration": 12,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Weigh-ins and measurements"
+  },
+  {
+   "t": 4.0,
+   "title": "charted so you can see your progress"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.0,
+   "do": "tap",
+   "target": "[data-tab='progress']"
+  },
+  {
+   "at": 2.2,
+   "do": "tap",
+   "target": "[data-act='progView'][data-v='body']"
+  },
+  {
+   "at": 4.4,
+   "do": "scroll",
+   "dy": 420,
+   "ms": 3000
+  }
+ ]
+}

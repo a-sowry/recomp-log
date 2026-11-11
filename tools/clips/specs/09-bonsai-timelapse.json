@@ -1,0 +1,68 @@
+{
+ "id": "09-bonsai-timelapse",
+ "look": "light",
+ "garden_inbloom": 2,
+ "start_tab": "garden",
+ "duration": 14,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Every workout grows your bonsai"
+  },
+  {
+   "t": 9.6,
+   "title": "Finish it and it's planted in your forest"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.2,
+   "do": "eval",
+   "js": "(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-150-0);const k=toISO(d);store.set('sessions',k+'_Push',{date:k,day:'Push',exercises:[{name:'Dumbbell bench press',sets:[{kg:20,reps:8,partials:0}]}],note:''});render()})()"
+  },
+  {
+   "at": 2.3,
+   "do": "eval",
+   "js": "(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-150-1);const k=toISO(d);store.set('sessions',k+'_Push',{date:k,day:'Push',exercises:[{name:'Dumbbell bench press',sets:[{kg:20,reps:8,partials:0}]}],note:''});render()})()"
+  },
+  {
+   "at": 3.4000000000000004,
+   "do": "eval",
+   "js": "(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-150-2);const k=toISO(d);store.set('sessions',k+'_Push',{date:k,day:'Push',exercises:[{name:'Dumbbell bench press',sets:[{kg:20,reps:8,partials:0}]}],note:''});render()})()"
+  },
+  {
+   "at": 4.5,
+   "do": "eval",
+   "js": "(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-150-3);const k=toISO(d);store.set('sessions',k+'_Push',{date:k,day:'Push',exercises:[{name:'Dumbbell bench press',sets:[{kg:20,reps:8,partials:0}]}],note:''});render()})()"
+  },
+  {
+   "at": 5.6000000000000005,
+   "do": "eval",
+   "js": "(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-150-4);const k=toISO(d);store.set('sessions',k+'_Push',{date:k,day:'Push',exercises:[{name:'Dumbbell bench press',sets:[{kg:20,reps:8,partials:0}]}],note:''});render()})()"
+  },
+  {
+   "at": 6.7,
+   "do": "eval",
+   "js": "(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-150-5);const k=toISO(d);store.set('sessions',k+'_Push',{date:k,day:'Push',exercises:[{name:'Dumbbell bench press',sets:[{kg:20,reps:8,partials:0}]}],note:''});render()})()"
+  },
+  {
+   "at": 7.800000000000001,
+   "do": "eval",
+   "js": "(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-150-6);const k=toISO(d);store.set('sessions',k+'_Push',{date:k,day:'Push',exercises:[{name:'Dumbbell bench press',sets:[{kg:20,reps:8,partials:0}]}],note:''});render()})()"
+  },
+  {
+   "at": 8.9,
+   "do": "eval",
+   "js": "(()=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-150-7);const k=toISO(d);store.set('sessions',k+'_Push',{date:k,day:'Push',exercises:[{name:'Dumbbell bench press',sets:[{kg:20,reps:8,partials:0}]}],note:''});render()})()"
+  },
+  {
+   "at": 11.5,
+   "do": "scroll",
+   "dy": 320,
+   "ms": 1500
+  }
+ ],
+ "config": {
+  "grow": "bonsai"
+ }
+}

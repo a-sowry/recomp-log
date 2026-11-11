@@ -1,0 +1,46 @@
+{
+ "id": "13-weekly-summary",
+ "look": "mint",
+ "config": {
+  "theme": "mint"
+ },
+ "duration": 13,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Your week, summed up"
+  },
+  {
+   "t": 3.0,
+   "title": "Workouts, calories, protein and weight"
+  },
+  {
+   "t": 8.4,
+   "title": "Tap back to see any week"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.0,
+   "do": "tap",
+   "target": "[data-tab='progress']"
+  },
+  {
+   "at": 3.2,
+   "do": "scroll",
+   "dy": 260,
+   "ms": 2600
+  },
+  {
+   "at": 7.0,
+   "do": "scroll",
+   "dy": -260,
+   "ms": 1200
+  },
+  {
+   "at": 8.8,
+   "do": "tap",
+   "target": "[data-act='weekNav'] >> nth=0"
+  }
+ ]
+}

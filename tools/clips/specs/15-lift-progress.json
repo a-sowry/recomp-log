@@ -1,0 +1,36 @@
+{
+ "id": "15-lift-progress",
+ "look": "navy",
+ "config": {
+  "theme": "navy"
+ },
+ "duration": 12,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Pick any lift\u2026"
+  },
+  {
+   "t": 5.0,
+   "title": "\u2026and watch it climb"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.0,
+   "do": "tap",
+   "target": "[data-tab='progress']"
+  },
+  {
+   "at": 2.6,
+   "do": "tap",
+   "target": "[data-act='pickEx'][data-v='Hack squat']"
+  },
+  {
+   "at": 5.2,
+   "do": "scroll",
+   "dy": 260,
+   "ms": 2200
+  }
+ ]
+}

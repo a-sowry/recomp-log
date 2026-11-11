@@ -1,0 +1,46 @@
+{
+ "id": "07-takeaway-search",
+ "look": "sand",
+ "config": {
+  "theme": "sand"
+ },
+ "duration": 15,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Stop googling calories"
+  },
+  {
+   "t": 2.6,
+   "title": "Search the chains\u2026"
+  },
+  {
+   "t": 8.0,
+   "title": "\u2026pick it, done",
+   "sub": "official published nutrition info"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.0,
+   "do": "tap",
+   "target": "[data-act='openAdd']"
+  },
+  {
+   "at": 2.2,
+   "do": "tap",
+   "target": "[data-act='foodAdd'][data-v='search']"
+  },
+  {
+   "at": 3.6,
+   "do": "type",
+   "target": "#fs_q",
+   "text": "big mac"
+  },
+  {
+   "at": 6.0,
+   "do": "tap",
+   "target": "[data-act='searchGo']"
+  }
+ ]
+}

@@ -1,0 +1,71 @@
+{
+ "id": "06-make-it-yours",
+ "look": "lilac",
+ "duration": 17.5,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Pick a theme\u2026"
+  },
+  {
+   "t": 1.7,
+   "title": "Eight to choose from"
+  },
+  {
+   "t": 12.0,
+   "title": "Grow a flower, a bonsai\u2026 or build a car"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.9,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='white';saveConfig(c)})()"
+  },
+  {
+   "at": 3.3499999999999996,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='sand';saveConfig(c)})()"
+  },
+  {
+   "at": 4.8,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='mint';saveConfig(c)})()"
+  },
+  {
+   "at": 6.25,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='sky';saveConfig(c)})()"
+  },
+  {
+   "at": 7.699999999999999,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='pink';saveConfig(c)})()"
+  },
+  {
+   "at": 9.15,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='lilac';saveConfig(c)})()"
+  },
+  {
+   "at": 10.6,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='navy';saveConfig(c)})()"
+  },
+  {
+   "at": 12.4,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='pink';c.growSoft='flower';saveConfig(c)})()"
+  },
+  {
+   "at": 14.0,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='pink';c.growSoft='car';c.carSoft='bubble';saveConfig(c)})()"
+  },
+  {
+   "at": 15.6,
+   "do": "eval",
+   "js": "(()=>{const c=JSON.parse(JSON.stringify(S.config||{}));c.theme='auto';c.grow='bonsai';saveConfig(c)})()"
+  }
+ ]
+}
