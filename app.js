@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 54; // keep in step with VERSION in sw.js
+const APP_VERSION = 55; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1125,14 +1125,18 @@ function viewTrain() {
   });
   const t = S.timer; const custom = S.trainDay === 'Custom';
   const prog = program();
-  const picker = custom ? `<select id="customPick" class="custom-pick" aria-label="Add an exercise from your program"><option value="">+ Add from your program</option>${splitDays().map(dn => `<optgroup label="${esc(dn)}">${prog[dn].map(e => `<option value="${esc(dn + '|' + e.name)}">${esc(e.name)}</option>`).join('')}</optgroup>`).join('')}</select>` : '';
+  // Pick any exercise you've got in your split or have logged before (most recent first); ones already in this session are left out.
+  const inSess = new Set(d.exercises.map(e => e.name)); const inProg = new Set(splitDays().flatMap(dn => prog[dn].map(e => e.name)));
+  const hist = []; for (const sx of Object.values(S.sessions).sort((a, b) => a.date < b.date ? 1 : -1)) for (const e of sx.exercises || []) if (e.name && !inProg.has(e.name) && !inSess.has(e.name) && !hist.includes(e.name)) hist.push(e.name);
+  const groups = splitDays().map(dn => [dn, prog[dn].filter(e => !inSess.has(e.name)).map(e => [dn + '|' + e.name, e.name])]).concat([['Other exercises you\'ve done', hist.map(n => ['|' + n, n])]]).filter(([, xs]) => xs.length);
+  const picker = groups.length ? `<select id="customPick" class="custom-pick" aria-label="Add an exercise you've done before"><option value="">+ Add a previous exercise</option>${groups.map(([g, xs]) => `<optgroup label="${esc(g)}">${xs.map(([v, n]) => `<option value="${esc(v)}">${esc(n)}</option>`).join('')}</optgroup>`).join('')}</select>` : '';
   const customHead = custom ? `<div class="card custom-head"><label class="f">Session name (optional)<input type="text" data-f="title" id="sessTitle" placeholder="e.g. Quick arms, hotel gym" value="${esc(d.title || '')}"></label>
       ${d.exercises.length ? '' : `<div class="small muted">Build a session that fits the time you've got. Pick exercises from your split below and their last weights fill in, or add any exercise by name.</div>`}</div>` : '';
   return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${segH}
     ${saved ? `<div class="small muted">Saved session. Changes overwrite it when you save again.</div>` : ''}</section>
     ${customHead}
     ${cards}
-    <div class="add-ex-row">${picker}<button class="btn ghost" data-act="addEx">+ Add ${custom ? 'any ' : ''}exercise</button></div>
+    <div class="add-ex-row">${picker}<button class="btn ghost" data-act="addEx">+ Add ${picker ? 'a new ' : 'an '}exercise</button></div>
     <label class="f">Session notes<textarea id="sessNote" data-f="note">${esc(d.note)}</textarea></label>
     ${saved ? (S.confirmSession ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Delete this ${custom ? (d.title || 'custom') : S.trainDay} session? <button class="btn danger sm" data-act="delSession">Delete</button><button class="btn ghost sm" data-act="cancelDelSession">Keep it</button></div>` : `<div><button class="linkbtn" style="color:var(--red)" data-act="askDelSession">Delete this session</button></div>`) : ''}
     <div class="savebar">
@@ -3550,8 +3554,9 @@ document.addEventListener('change', e => {
   }
   if (el.closest?.('#customForm') && (el.id === 'cf_slot' || el.id === 'cf_save')) { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }
   if (el.id === 'customPick' && el.value) {
-    const [dn, name] = el.value.split('|'); const spec = (program()[dn] || []).find(x => x.name === name) || { sets: 3, min: 8, max: 12 };
-    const last = lastFor(name, S.date); const rows = [];
+    const [dn, name] = el.value.split('|'); const last = lastFor(name, S.date);
+    const spec = (program()[dn] || []).find(x => x.name === name) || Object.values(program()).flat().find(x => x.name === name) || { sets: Math.min(6, last?.sets.length || 3), min: 8, max: 12 };
+    const rows = [];
     for (let i = 0; i < spec.sets; i++) { const ls = last?.sets[i] || last?.sets[last.sets.length - 1]; rows.push({ kg: ls ? ls.kg : '', reps: '', partials: '', drop: null, ph: ls ? ls.reps : '' }); }
     getDraft().exercises.push({ name, sets: spec.sets, min: spec.min, max: spec.max, rows }); persistDraft(); render(); toast(`Added ${name}`); return;
   }
