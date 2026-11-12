@@ -1,3 +1,4 @@
 out/
 .fonts/
 __pycache__/
+logs/

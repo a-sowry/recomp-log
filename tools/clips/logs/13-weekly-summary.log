@@ -1,5 +1,0 @@
-recorded 369 screen updates -> /home/claude/recomp-log/tools/clips/out/13-weekly-summary.raw.mp4
-composed -> /home/claude/recomp-log/tools/clips/out/13-weekly-summary-instagram.mp4
-13-weekly-summary-instagram: content check FAILED [{'t': 8.5, 'pattern': '$3'}]
-composed -> /home/claude/recomp-log/tools/clips/out/13-weekly-summary-tiktok.mp4
-13-weekly-summary-tiktok: content check FAILED [{'t': 8.5, 'pattern': '$3'}]

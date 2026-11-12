@@ -1,5 +1,0 @@
-recorded 242 screen updates -> /home/claude/recomp-log/tools/clips/out/07-takeaway-search.raw.mp4
-composed -> /home/claude/recomp-log/tools/clips/out/07-takeaway-search-instagram.mp4
-07-takeaway-search-instagram: content check FAILED [{'t': 5.0, 'pattern': '$5'}]
-composed -> /home/claude/recomp-log/tools/clips/out/07-takeaway-search-tiktok.mp4
-07-takeaway-search-tiktok: content check FAILED [{'t': 5.0, 'pattern': '$5'}]
