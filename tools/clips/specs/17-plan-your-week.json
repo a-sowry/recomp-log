@@ -1,0 +1,118 @@
+{
+ "id": "17-plan-your-week",
+ "look": "mint",
+ "max_duration": 60,
+ "config": {
+  "theme": "mint"
+ },
+ "duration": 32,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Plan your week",
+   "sub": "without the guesswork"
+  },
+  {
+   "t": 3.0,
+   "title": "Pick your eating style"
+  },
+  {
+   "t": 6.0,
+   "title": "Leave out what you can't have"
+  },
+  {
+   "t": 9.4,
+   "title": "Meals sized to your calories"
+  },
+  {
+   "t": 14.0,
+   "title": "Then plan the week"
+  },
+  {
+   "t": 21.4,
+   "title": "And your shopping list builds itself",
+   "sub": "in aisle order"
+  },
+  {
+   "t": 28.5,
+   "title": "Refyne fit",
+   "sub": "plan it, track it"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.5,
+   "do": "tap",
+   "target": "[data-act='openAdd']"
+  },
+  {
+   "at": 2.8,
+   "do": "tap",
+   "target": "[data-act='openStarters']"
+  },
+  {
+   "at": 4.4,
+   "do": "tap",
+   "target": "[data-act='spStyle'][data-v='pesc']"
+  },
+  {
+   "at": 6.6,
+   "do": "tap",
+   "target": "[data-act='spAvoid'][data-v='dairy']"
+  },
+  {
+   "at": 7.8,
+   "do": "tap",
+   "target": "[data-act='spAvoid'][data-v='nuts']"
+  },
+  {
+   "at": 10.0,
+   "do": "scroll",
+   "dy": 320,
+   "ms": 2600,
+   "target": ".sheet .panel|last"
+  },
+  {
+   "at": 13.6,
+   "do": "eval",
+   "js": "()=>document.querySelectorAll(\"[data-act='closeSheet'],[data-act='closeAdd']\").forEach(b=>b.click())"
+  },
+  {
+   "at": 14.8,
+   "do": "tap",
+   "target": "[data-act='openAdd']"
+  },
+  {
+   "at": 16.0,
+   "do": "tap",
+   "target": "[data-act='openPlanner']"
+  },
+  {
+   "at": 17.6,
+   "do": "tap",
+   "target": "[data-act='planCount'] >> nth=1"
+  },
+  {
+   "at": 18.4,
+   "do": "tap",
+   "target": "[data-act='planCount'] >> nth=3"
+  },
+  {
+   "at": 19.2,
+   "do": "tap",
+   "target": "[data-act='planCount'] >> nth=5"
+  },
+  {
+   "at": 20.0,
+   "do": "tap",
+   "target": "[data-act='planCount'] >> nth=7"
+  },
+  {
+   "at": 22.5,
+   "do": "scroll",
+   "dy": 520,
+   "ms": 3800,
+   "target": ".sheet .panel|last"
+  }
+ ]
+}
