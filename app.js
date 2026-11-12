@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 55; // keep in step with VERSION in sw.js
+const APP_VERSION = 56; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -3328,7 +3328,7 @@ document.addEventListener('click', async e => {
         store.outbox = []; document.getElementById('sheetRoot').innerHTML = '';
         await sb.auth.signOut().catch(() => {});
         S.user = null; showLogin('', '', 'in', 'Your account and all its data have been deleted.');
-      } catch (err) { console.error(err); b.disabled = false; if (msg) msg.textContent = 'Something went wrong, so nothing more was deleted. Try again, or send feedback if it keeps happening.'; }
+      } catch (err) { console.error(err); b.disabled = false; if (msg) msg.textContent = /account_tools_ready|delete_my_account|function|schema cache/i.test(err?.message || '') ? 'Account deletion isn\'t switched on yet. Nothing was deleted. Please send feedback so we can fix it.' : `Something went wrong, so nothing more was deleted. Try again, or send feedback if it keeps happening. (${err?.message || 'unknown error'})`; }
       break;
     }
     case 'signOut': {
