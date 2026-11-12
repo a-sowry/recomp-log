@@ -47,5 +47,8 @@
   "\\$",
   "free (trial|forever|app|to)",
   "stanley"
+ ],
+ "ocr_allow": [
+  "$13"
  ]
 }

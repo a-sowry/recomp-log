@@ -359,7 +359,7 @@ def check_video(video, spec, per_second=2):
             if nt in n: hits.append({'t': round(i / per_second, 1), 'word': term})
         for p in pats:
             m = p.search('\n'.join(l for l in txt.splitlines() if 'REFYNE' not in l.upper()))  # header line: gear icon is misread as '$'
-            if m: hits.append({'t': round(i / per_second, 1), 'pattern': m.group(0)})
+            if m and m.group(0) not in rules.get('ocr_allow', []): hits.append({'t': round(i / per_second, 1), 'pattern': m.group(0)})
     # safe zone: below ~y=1600 (past the phone's soft shadow) a frame must equal the plain background
     from PIL import Image, ImageChops
     bg = background(LOOKS[spec['look']]).crop((0, 1600, W, H))
