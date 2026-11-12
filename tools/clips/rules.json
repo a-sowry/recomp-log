@@ -23,7 +23,7 @@
   "Create account"
  ],
  "banned_patterns": [
-  "\\$\\s?\\d+(?!\\d)(?![\\]\\d]*\\])(?!\\s?(kcal|kg|cm|g\\b|\\.\\d))",
+  "\\$\\s?\\d+(?!\\d)(?![\\]\\d]*\\])(?!\\s?(kcal|kg|cm|g\\b|\\.\\d|%))",
   "\\bper (month|year|week)\\b",
   "/\\s?(mo|month|yr|year)\\b",
   "\\bsubscription\\b",
