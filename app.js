@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 59; // keep in step with VERSION in sw.js
+const APP_VERSION = 60; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1682,6 +1682,8 @@ async function lookupBarcode(code) {
   const cache = lsGet('rl:off:' + code);
   if (cache) { S.scan = { code, status: 'found', product: cache, grams: cache.serving || 100 }; render(); return; }
   if (!navigator.onLine) { S.scan = { code, status: 'error', product: null, msg: 'You\'re offline. Scan again when you have signal.' }; render(); return; }
+  const shared = await communityByBarcode(code);
+  if (shared) { lsSet('rl:off:' + code, shared); S.scan = { code, status: 'found', product: shared, grams: shared.serving || 100 }; render(); return; }
   try {
     const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_en,brands,nutriments,serving_quantity,serving_size,quantity`);
     const j = await res.json();
@@ -1754,6 +1756,69 @@ function searchCommon(q) {
     return [f, (f.name.toLowerCase().startsWith(terms[0]) ? 0 : 1) + f.name.length / 100];
   }).filter(Boolean).sort((a, b) => a[1] - b[1]).slice(0, 8).map(x => x[0]);
 }
+/* ---------- shared products: added by users from the packet label (Supabase "products" table) ---------- */
+function communityProduct(r) {
+  const nut = {}; if (r.sugars != null) nut.sug = +r.sugars; if (r.sat_fat != null) nut.sat = +r.sat_fat; if (r.sodium_mg != null) nut.na = +r.sodium_mg;
+  return { id: r.id, code: r.barcode || '', name: r.name, brand: r.brand || '', kcal: +r.kcal, p: +r.p, c: +r.c, f: +r.f, nut: Object.keys(nut).length ? nut : null, serving: r.serving_g ? +r.serving_g : null, unitLabel: r.unit_label || '', community: true };
+}
+async function communityByBarcode(code) {
+  try { const { data, error } = await sb.from('products').select('*').eq('barcode', code).limit(1); if (error) throw error; return data?.[0] ? communityProduct(data[0]) : null; } catch (e) { console.warn('shared products', e?.message || e); return null; }
+}
+async function communitySearch(q) {
+  const words = q.toLowerCase().replace(/[%_,()]/g, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 4); if (!words.length || !navigator.onLine) return [];
+  try { let qy = sb.from('products').select('*'); for (const w of words) qy = qy.ilike('search', `%${w}%`); const { data, error } = await qy.limit(10); if (error) throw error; return (data || []).map(communityProduct); } catch (e) { console.warn('shared products', e?.message || e); return []; }
+}
+function labelState() { return S.label || (S.label = { unit: 'kj' }); }
+function labelForm(build) {
+  const L = labelState(); const v = k => esc(L[k] ?? '');
+  const num = (id, label, k, ph, extra = '') => `<label class="f">${label}<input type="number" inputmode="decimal" step="any" min="0" id="${id}" data-lb="${k}" value="${v(k)}" placeholder="${ph}"${extra}></label>`;
+  return `<div class="scan-result label-form">
+    <div><div class="t">Add it from the label</div><div class="small muted">Type the numbers from the nutrition panel on the packet, using the <b>per 100 g</b> (or per 100 ml) column. Once it's saved, everyone using Refyne can find it.</div></div>
+    <label class="f">Product name<input type="text" id="lb_name" data-lb="name" value="${v('name')}" placeholder="e.g. Greek yoghurt natural" maxlength="120" autocomplete="off"></label>
+    <div class="grid2"><label class="f">Brand<input type="text" id="lb_brand" data-lb="brand" value="${v('brand')}" placeholder="e.g. Chobani" maxlength="80" autocomplete="off"></label>
+      <label class="f">Barcode<input type="text" id="lb_code" data-lb="code" inputmode="numeric" value="${v('code')}" placeholder="optional" maxlength="14"${L.from === 'scan' && L.code ? ' readonly' : ''}></label></div>
+    <div class="f"><span>Energy per 100 g</span><div class="label-energy">
+      <input type="number" inputmode="decimal" step="any" min="0" id="lb_e" data-lb="e" value="${v('e')}" placeholder="${L.unit === 'kj' ? 'e.g. 250' : 'e.g. 60'}" aria-label="Energy per 100 g">
+      <div class="seg"><button type="button" data-act="labelUnit" data-v="kj" aria-pressed="${L.unit === 'kj'}">kJ</button><button type="button" data-act="labelUnit" data-v="kcal" aria-pressed="${L.unit === 'kcal'}">Cal</button></div></div>
+      <span class="small muted">Australian labels show kJ first. Use Cal only if the panel lists it.</span></div>
+    <div class="grid3">${num('lb_p', 'Protein g', 'p', '0')}${num('lb_c', 'Carbs g', 'c', '0')}${num('lb_f', 'Fat g', 'f', '0')}</div>
+    <details class="small"><summary>More from the label (optional)</summary><div class="grid3" style="margin-top:8px">${num('lb_sug', 'Sugars g', 'sug', '')}${num('lb_sat', 'Sat. fat g', 'sat', '')}${num('lb_na', 'Sodium mg', 'na', '')}</div></details>
+    <div class="grid2"><label class="f">Serving size g (optional)<input type="number" inputmode="decimal" step="any" min="0" id="lb_srv" data-lb="srv" value="${v('srv')}" placeholder="e.g. 170"></label>
+      <label class="f">Serving name (optional)<input type="text" id="lb_unit" data-lb="unitLabel" value="${v('unitLabel')}" placeholder="e.g. 1 tub" maxlength="40"></label></div>
+    ${L.err ? `<div class="banner warn-soft">${esc(L.err)}</div>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-act="labelSave">${L.warned ? 'Yes, save it' : 'Save product'}</button><button type="button" class="btn ghost" data-act="labelCancel">Cancel</button></div>
+  </div>`;
+}
+function labelRead() { const L = labelState(); document.querySelectorAll('[data-lb]').forEach(el => { L[el.dataset.lb] = el.value; }); return L; }
+async function labelSave(build) {
+  const L = labelRead(); const n = k => (L[k] === '' || L[k] == null ? null : +L[k]);
+  const name = (L.name || '').trim(), brand = (L.brand || '').trim(), code = (L.code || '').replace(/\D/g, '');
+  const e = n('e'), p = n('p') ?? 0, c = n('c') ?? 0, f = n('f') ?? 0;
+  const fail = m => { L.err = m; L.warned = false; render(); };
+  if (!name) return fail('Add the product name.');
+  if (e == null) return fail('Add the energy from the label.');
+  const kcal = L.unit === 'kj' ? e / 4.184 : e;
+  if (kcal > 950 || p > 100 || c > 100 || f > 100 || p + c + f > 105) return fail('Those numbers are too high for 100 g. Check you used the per 100 g column, not per serve or per pack.');
+  if (code && (code.length < 6 || code.length > 14)) return fail('That barcode doesn\'t look right. Leave it blank if you\'re not sure.');
+  // A packet's energy should roughly match 4/4/9 kcal per g of protein, carbs and fat. A big gap usually means kJ/Cal mixed up or the wrong column.
+  const est = 4 * p + 4 * c + 9 * f;
+  if (!L.warned && kcal > 30 && Math.abs(kcal - est) / Math.max(kcal, est) > 0.3) { L.warned = true; L.err = `These don't quite add up: ${r0(kcal)} Cal per 100 g, but the protein, carbs and fat come to about ${r0(est)} Cal. Check the energy unit (kJ or Cal) and that every number is from the per 100 g column. Tap "Yes, save it" if they're right.`; render(); return; }
+  const srv = n('srv'); const row = { name, brand, barcode: code || null, kcal: Math.round(kcal * 10) / 10, p, c, f, serving_g: srv && srv > 0 ? srv : null, unit_label: (L.unitLabel || '').trim() || null, sugars: n('sug'), sat_fat: n('sat'), sodium_mg: n('na') };
+  let saved = null;
+  if (navigator.onLine) {
+    try {
+      const { data, error } = await sb.from('products').insert(row).select().single();
+      if (error && /duplicate|unique/i.test(error.message || '') && code) saved = await communityByBarcode(code);
+      else if (error) throw error; else saved = communityProduct(data);
+    } catch (err) { console.warn('save product', err?.message || err); }
+  }
+  const prod = saved || communityProduct({ ...row, id: null });
+  if (code) lsSet('rl:off:' + code, prod);
+  S.label = null;
+  if (L.from === 'scan') S.scan = { code, status: 'found', product: prod, grams: prod.serving || 100 };
+  else { S.search.pick = prod; S.scan = { code, status: 'found', product: prod, grams: prod.serving || 100, from: 'search' }; }
+  render(); toast(saved ? 'Saved. Everyone using Refyne can find it now.' : 'Saved for now. It\'ll be shared next time you\'re online.');
+}
 function offProduct(p) {
   const n = p.nutriments || {};
   const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] != null ? n['energy_100g'] / 4.184 : null);
@@ -1765,15 +1830,20 @@ const offSearchCache = {};
 async function searchOFF(q) {
   q = q.trim(); if (q.length < 2) return;
   S.search.status = 'loading'; S.search.offQ = q; renderSearch();
-  if (offSearchCache[q]) { S.search.off = offSearchCache[q]; S.search.status = 'done'; renderSearch(); return; }
+  if (offSearchCache[q]) { S.search.off = offSearchCache[q]; S.search.status = 'done'; S.search.comm = await communitySearch(q); S.search.commQ = q; renderSearch(); return; }
   if (!navigator.onLine) { S.search.status = 'offline'; renderSearch(); return; }
+  const comm = communitySearch(q);
   try {
-    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=40&fields=code,product_name,product_name_en,brands,nutriments,serving_quantity,serving_size,quantity,countries_tags`;
-    const j = await (await fetch(url)).json();
-    const list = (j.products || []).map(offProduct).filter(Boolean).sort((a, b) => (b.au - a.au)).slice(0, 15);
+    // Australian products first (au.openfoodfacts.org only returns products sold here), then the rest of the world to fill gaps.
+    const offUrl = host => `https://${host}.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=30&fields=code,product_name,product_name_en,brands,nutriments,serving_quantity,serving_size,quantity,countries_tags`;
+    const get = async host => { const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 12000); try { return ((await (await fetch(offUrl(host), { signal: ctl.signal })).json()).products || []).map(offProduct).filter(Boolean); } finally { clearTimeout(t); } };
+    let list = await get('au').catch(() => []);
+    if (list.length < 6) { const seen = new Set(list.map(x => x.code)); list = list.concat((await get('world')).filter(x => !seen.has(x.code)).sort((a, b) => b.au - a.au)); }
+    list = list.slice(0, 15);
     offSearchCache[q] = list; if (S.search.offQ !== q) return;
     S.search.off = list; S.search.status = 'done';
   } catch (e) { console.error(e); S.search.status = 'error'; }
+  S.search.comm = await comm; S.search.commQ = q;
   renderSearch();
 }
 /* ---------- takeaway: Australian chain menus ---------- */
@@ -1825,6 +1895,7 @@ function searchRows() {
       <div class="chips"><span class="chip k">${r0(t.kcal)} kcal</span><span class="chip p">P ${r0(t.p)}</span><span class="chip c">C ${r0(t.c)}</span><span class="chip f">F ${r0(t.f)}</span></div></div>
       <button type="button" class="btn sm" data-act="searchPick" data-src="ta" data-i="${i}">Add</button></div>`).join('')}` : '';
   h += common.length ? `<div class="slotlabel">Common foods</div>${common.map((f, i) => row(f, i, 'common')).join('')}` : '';
+  if (s.commQ === q && s.comm?.length) h += `<div class="slotlabel">Added by Refyne users</div>${s.comm.map((f, i) => row(f, i, 'comm')).join('')}`;
   const offHead = `<div class="slotlabel">Packaged foods</div>`;
   if (s.status === 'loading') h += offHead + `<div class="empty small">Searching Open Food Facts…</div>`;
   else if (s.status === 'offline') h += offHead + `<div class="empty small">You're offline, so only common foods can be searched.</div>`;
@@ -1832,13 +1903,15 @@ function searchRows() {
   else if (s.status === 'done' && s.offQ === q) h += offHead + (s.off.length ? s.off.map((f, i) => row(f, i, 'off')).join('') : `<div class="empty small">No packaged foods found for "${esc(q)}". Try fewer words or the brand name.</div>`);
   else h += `<div class="row"><span class="small muted">Looking for a brand or packaged food?</span><button type="button" class="btn ghost sm" data-act="searchGo">Search packaged foods</button></div>`;
   if (!common.length && !ta.length && s.status === 'idle') h = `<div class="empty small">No common foods or takeaway match "${esc(q)}".</div>` + h;
+  if (s.status === 'done' || s.status === 'error') h += `<div class="row label-cta"><span class="small muted">Can't find it? Type it in from the packet once and everyone can find it.</span><button type="button" class="btn ghost sm" data-act="labelOpen">Add from label</button></div>`;
   return h;
 }
 function renderSearch() { const el = document.getElementById('fs_res'); if (el) el.innerHTML = searchRows(); }
 function searchPanel(build) {
   const s = S.search;
   if (s.pick?.ta) return `<div class="search-panel"><div><button type="button" class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${takeawayPanel(s.pick, build)}</div>`;
-  if (s.pick) return `<div class="search-panel"><div><button type="button" class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${productPanel(S.scan, s.pick.common ? 'common' : 'off', build)}</div>`;
+  if (S.label && S.label.from !== 'scan') return `<div class="search-panel">${labelForm(build)}</div>`;
+  if (s.pick) return `<div class="search-panel"><div><button type="button" class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${productPanel(S.scan, s.pick.common ? 'common' : s.pick.community ? 'community' : 'off', build)}</div>`;
   return `<div class="search-panel">
     <div class="formrow"><label class="f">Search foods<input type="search" id="fs_q" enterkeyhint="search" autocomplete="off" value="${esc(s.q || '')}" placeholder="e.g. banana, sourdough, Chobani"></label><button type="button" class="btn ghost" data-act="searchGo">Search</button></div>
     <div class="rows" id="fs_res">${searchRows()}</div></div>`;
@@ -1847,7 +1920,7 @@ function productPanel(s, src, build) {
   const p = s.product; const g = s.grams || 100; const k = g / 100;
   const presets = p.serving ? [p.serving, ...(p.unitLabel && !/^\d/.test(p.unitLabel) ? [p.serving * 2] : [])] : [];
   const custom = s.custom || !presets.includes(g);
-  const note = src === 'common' ? 'Typical values for this food. Brands and recipes vary.' : 'Nutrition from Open Food Facts. Check it against the packet if it looks off.';
+  const note = src === 'common' ? 'Typical values for this food. Brands and recipes vary.' : src === 'community' || p.community ? `Added by a Refyne user from the packet label. Check it against your packet.${p.id ? ` <button type="button" class="linkbtn" data-act="prodReport" data-id="${esc(p.id)}">Numbers look wrong? Report it</button>` : ''}` : 'Nutrition from Open Food Facts. Check it against the packet if it looks off.';
   return `<div class="scan-result">
       <div><div class="t">${esc(p.name)}</div><div class="small muted">${esc([p.brand, p.size].filter(Boolean).join(' · '))}</div></div>
       <div class="small muted">Per 100 g: ${r0(p.kcal)} kcal · P ${r1(p.p)} · C ${r1(p.c)} · F ${r1(p.f)}</div>
@@ -2293,10 +2366,11 @@ function buildAddItem(it) {
   applyBuildTotals(); render(); toast(`Added ${it.name} to the meal`);
 }
 function scanResult(s, build) {
+  if (S.label?.from === 'scan') return labelForm(build);
   if (s.status === 'loading') return `<div class="empty">Looking up ${esc(s.code)}…</div>`;
-  if (s.status === 'notfound') return `<div class="empty"><b>${s.partial ? esc(s.partial) + ' has no nutrition info yet.' : 'Not in the food database yet.'}</b>${build ? 'Try Search instead, or type its numbers into the totals below.' : 'Add it with "Add a meal" using the numbers on the packet.<div style="margin-top:10px"><button class="btn ghost sm" data-act="foodAdd" data-v="custom">Add a meal</button></div>'}</div>`;
+  if (s.status === 'notfound') return `<div class="empty"><b>${s.partial ? esc(s.partial) + ' has no nutrition info yet.' : 'Not in the food database yet.'}</b>Type it in from the packet's nutrition panel. It takes about 20 seconds, and next time anyone scans it, it'll come straight up.<div style="margin-top:10px"><button class="btn sm" data-act="labelOpen" data-from="scan">Add from label</button></div></div>`;
   if (s.status === 'error') return `<div class="empty">${esc(s.msg)}</div>`;
-  if (s.status === 'found') return productPanel(s, 'off', build);
+  if (s.status === 'found') return productPanel(s, s.product?.community ? 'community' : 'off', build);
   return '';
 }
 function builderCard() {
@@ -3216,11 +3290,11 @@ document.addEventListener('click', async e => {
     case 'goto': S.date = b.dataset.date; S.trainDay = null; render(); break;
     case 'tab': S.tab = b.dataset.v; render(); window.scrollTo(0, 0); break;
     case 'openAdd': S.addOpen = true; S.panel = null; if (b.dataset.v === 'Drinks') S.foodAdd = 'drinks'; else if (b.dataset.v) { S.foodAdd = 'plan'; S.addFocus = b.dataset.v; } render(); break;
-    case 'closeAdd': S.addOpen = false; if (S.foodAdd === 'scan') { try { closeScanner(); } catch {} } render(); break;
+    case 'closeAdd': S.addOpen = false; S.label = null; if (S.foodAdd === 'scan') { try { closeScanner(); } catch {} } render(); break;
     case 'openPanel': S.panel = b.dataset.v; S.addOpen = false; render(); break;
     case 'closePanel': S.panel = null; render(); break;
     case 'progView': S.progView = b.dataset.v; render(); window.scrollTo(0, 0); break;
-    case 'foodAdd': S.foodAdd = b.dataset.v; render(); break;
+    case 'foodAdd': S.foodAdd = b.dataset.v; S.label = null; render(); break;
     case 'addRecipe': {
       const r = RECIPES.find(x => x.id === b.dataset.id); const day = localDay(S.date);
       day.meals.push({ id: uid(), name: r.name, slot: r.slot, servings: 1, kcal: r.kcal, p: r.p, c: r.c, f: r.f, recipe: r.id });
@@ -3437,11 +3511,16 @@ document.addEventListener('click', async e => {
     }
     case 'searchPick': {
       if (b.dataset.src === 'ta') { const t = searchTakeaway(S.search.q)[+b.dataset.i]; if (!t) break; S.search.pick = { ...t, ta: true }; S.search.qty = 1; render(); break; }
-      const f = b.dataset.src === 'common' ? searchCommon(S.search.q)[+b.dataset.i] : S.search.off[+b.dataset.i]; if (!f) break;
+      const f = b.dataset.src === 'common' ? searchCommon(S.search.q)[+b.dataset.i] : b.dataset.src === 'comm' ? S.search.comm?.[+b.dataset.i] : S.search.off[+b.dataset.i]; if (!f) break;
       const prod = { ...f, nut: f.nut || (f.key ? nutFromKey(f.key) : null) };
       S.search.pick = prod; S.scan = { code: f.code || '', status: 'found', product: prod, grams: f.serving || 100, from: 'search' }; render(); break;
     }
     case 'searchBack': S.search.pick = null; render(); break;
+    case 'labelOpen': { const fromScan = b.dataset.from === 'scan'; S.label = { unit: 'kj', from: fromScan ? 'scan' : 'search', code: fromScan ? S.scan.code : '', name: fromScan ? (S.scan.partial || '') : (S.search.q || '').trim() }; render(); setTimeout(() => document.getElementById(fromScan && !S.scan.partial ? 'lb_name' : 'lb_brand')?.focus(), 50); break; }
+    case 'labelUnit': { labelRead(); S.label.unit = b.dataset.v; S.label.warned = false; S.label.err = null; render(); break; }
+    case 'labelCancel': S.label = null; render(); break;
+    case 'labelSave': labelSave(); break;
+    case 'prodReport': { b.disabled = true; try { const { error } = await sb.from('product_reports').insert({ product_id: b.dataset.id }); if (error) throw error; toast('Thanks. We\'ll check it.'); b.textContent = 'Reported'; } catch (e) { b.disabled = false; toast('Couldn\'t send that. Try again later.'); } break; }
     case 'drinkOpt': {
       const d = drinkState(); const k = b.dataset.k; const num = ['sugar', 'shots', 'item', 'opt'].includes(k);
       d[k] = num ? +b.dataset.v : b.dataset.v; if (k === 'item' || k === 'cat') d.opt = 0;
