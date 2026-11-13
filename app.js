@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 57; // keep in step with VERSION in sw.js
+const APP_VERSION = 58; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1138,10 +1138,10 @@ function viewTrain() {
     <div class="add-ex-row">${picker}<button class="btn ghost" data-act="addEx">+ Add ${picker ? 'a new ' : 'an '}exercise</button></div>
     <label class="f">Session notes<textarea id="sessNote" data-f="note">${esc(d.note)}</textarea></label>
     ${saved ? (S.confirmSession ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Delete this ${custom ? (d.title || 'custom') : S.trainDay} session? <button class="btn danger sm" data-act="delSession">Delete</button><button class="btn ghost sm" data-act="cancelDelSession">Keep it</button></div>` : `<div><button class="linkbtn" style="color:var(--red)" data-act="askDelSession">Delete this session</button></div>`) : ''}
-    <div class="savebar">
-      <div class="timer" aria-label="Rest timer"><span class="clock" id="clock">${t.end ? '' : '0:00'}</span>
-        <button class="btn sm ghost" data-act="timer" data-s="90">1:30</button><button class="btn sm ghost" data-act="timer" data-s="120">2:00</button><button class="btn sm ghost" data-act="timer" data-s="180">3:00</button></div>
-      <button class="btn" data-act="saveSession">Save session</button>
+    <div class="savebar${S.config?.timerHidden ? ' no-timer' : ''}">
+      ${S.config?.timerHidden ? '' : `<div class="timer-wrap"><div class="timer-lbl">Rest timer</div><div class="timer" aria-label="Rest timer"><span class="clock" id="clock">${t.end ? '' : '0:00'}</span>
+        <button class="btn sm ghost" data-act="timer" data-s="90">1:30</button><button class="btn sm ghost" data-act="timer" data-s="120">2:00</button><button class="btn sm ghost" data-act="timer" data-s="180">3:00</button></div></div>`}
+      <button class="btn" data-act="saveSession">Save workout</button>
     </div>`;
 }
 function tickTimer() {
@@ -1239,7 +1239,7 @@ async function saveSession() {
   S.sessions[key] = doc; lsSet('draft:' + key, null); delete S.drafts[key];
   render();
   if (pbs.length) celebrate(pbs.length > 1 ? `${pbs.length} new personal bests!` : 'New personal best!', pbs, gardenOn() ? `<div class="small muted">${gm().grew} too (+${GARDEN.WORKOUT}).</div>` : '');
-  else toast(gardenOn() ? `Session saved. ${gm().grew} (+${GARDEN.WORKOUT})` : 'Session saved');
+  else toast(gardenOn() ? `Workout saved. ${gm().grew} (+${GARDEN.WORKOUT})` : 'Workout saved');
   store.set('sessions', key, doc);
 }
 
@@ -3065,6 +3065,7 @@ function openSettings() {
       <div class="small muted">For partial reps: extra half-range reps done after the full ones, once you can't do another full rep.</div>
     </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Rest timer</div>
+      <label class="tick"><input type="checkbox" data-food="timer" ${S.config?.timerHidden ? '' : 'checked'}> Show the rest timer on the Train tab</label>
       <label class="f">Volume <span class="small muted" id="tv_show">${timerVol()}%</span><input type="range" id="tv_vol" min="0" max="100" step="5" value="${timerVol()}" class="range"></label>
       <div class="f"><span class="small muted">Beeps when rest is over</span><div class="seg">${[1, 2, 3].map(n => `<button type="button" data-act="timerBeeps" data-v="${n}" aria-pressed="${timerBeeps() === n}">${n}</button>`).join('')}</div></div>
       <div><button type="button" class="btn ghost sm" data-act="testBeep">Test sound</button></div>
@@ -3194,6 +3195,7 @@ document.addEventListener('change', e => {
   else if (k === 'week') cfg.weekShown = on;
   else if (k === 'fits') cfg.fitsHidden = !on;
   else if (k === 'halfReps') cfg.halfReps = on;
+  else if (k === 'timer') cfg.timerHidden = !on;
   saveConfig(cfg);
 });
 document.addEventListener('click', e => {
