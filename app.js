@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 58; // keep in step with VERSION in sw.js
+const APP_VERSION = 59; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1140,10 +1140,14 @@ function viewTrain() {
     ${saved ? (S.confirmSession ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Delete this ${custom ? (d.title || 'custom') : S.trainDay} session? <button class="btn danger sm" data-act="delSession">Delete</button><button class="btn ghost sm" data-act="cancelDelSession">Keep it</button></div>` : `<div><button class="linkbtn" style="color:var(--red)" data-act="askDelSession">Delete this session</button></div>`) : ''}
     <div class="savebar${S.config?.timerHidden ? ' no-timer' : ''}">
       ${S.config?.timerHidden ? '' : `<div class="timer-wrap"><div class="timer-lbl">Rest timer</div><div class="timer" aria-label="Rest timer"><span class="clock" id="clock">${t.end ? '' : '0:00'}</span>
-        <button class="btn sm ghost" data-act="timer" data-s="90">1:30</button><button class="btn sm ghost" data-act="timer" data-s="120">2:00</button><button class="btn sm ghost" data-act="timer" data-s="180">3:00</button></div></div>`}
+        ${timerPresets().map(sec => `<button class="btn sm ghost" data-act="timer" data-s="${sec}">${fmtRest(sec)}</button>`).join('')}</div></div>`}
       <button class="btn" data-act="saveSession">Save workout</button>
     </div>`;
 }
+// The three rest-timer buttons, set in Settings → Rest timer.
+function timerPresets() { const p = S.config?.timerPresets; return Array.isArray(p) && p.length === 3 ? p : [90, 120, 180]; }
+function fmtRest(sec) { return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; }
+const REST_CHOICES = [15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 180, 210, 240, 270, 300, 360, 420, 480, 540, 600];
 function tickTimer() {
   const el = document.getElementById('clock'); if (!el) return;
   const t = S.timer;
@@ -3066,6 +3070,7 @@ function openSettings() {
     </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Rest timer</div>
       <label class="tick"><input type="checkbox" data-food="timer" ${S.config?.timerHidden ? '' : 'checked'}> Show the rest timer on the Train tab</label>
+      <div class="f"><span class="small muted">Your rest times (minutes:seconds)</span><div class="grid3">${timerPresets().map((v, i) => `<select id="tp_${i}" data-tpreset="${i}" aria-label="Rest button ${i + 1}">${[...new Set([...REST_CHOICES, v])].sort((a, b) => a - b).map(c => `<option value="${c}" ${c === v ? 'selected' : ''}>${fmtRest(c)}</option>`).join('')}</select>`).join('')}</div></div>
       <label class="f">Volume <span class="small muted" id="tv_show">${timerVol()}%</span><input type="range" id="tv_vol" min="0" max="100" step="5" value="${timerVol()}" class="range"></label>
       <div class="f"><span class="small muted">Beeps when rest is over</span><div class="seg">${[1, 2, 3].map(n => `<button type="button" data-act="timerBeeps" data-v="${n}" aria-pressed="${timerBeeps() === n}">${n}</button>`).join('')}</div></div>
       <div><button type="button" class="btn ghost sm" data-act="testBeep">Test sound</button></div>
@@ -3185,6 +3190,7 @@ document.getElementById('todayBtn').onclick = () => { S.date = todayISO(); S.tra
 document.getElementById('openSettings').onclick = openSettings;
 
 document.addEventListener('change', e => {
+  if (e.target.dataset?.tpreset != null) { const cfg = cfgCopy(); const p = [...timerPresets()]; p[+e.target.dataset.tpreset] = +e.target.value; cfg.timerPresets = p.sort((a, b) => a - b); saveConfig(cfg); openSettings(); toast('Rest times saved'); return; }
   const pick = e.target.dataset?.spPick;
   if (pick) { const sp = spState(); if (e.target.checked) sp.picked[pick] = sp.picked[pick] ?? 1; else delete sp.picked[pick]; spRefresh(); return; }
   const k = e.target.dataset?.food; if (!k) return;

@@ -824,7 +824,7 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 @media (max-width: 360px) {
   header.top .brand { font-size: 0; gap: 0; }
   .savebar { flex-wrap: nowrap; gap: 6px; }
-  .savebar .timer .btn[data-s="180"] { display: none; }
+  .savebar .timer .btn:nth-of-type(3) { display: none; }
   .savebar > .btn { padding-inline: 12px; white-space: nowrap; }
   .timer .clock { font-size: 18px; min-width: 38px; }
 }
