@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 56; // keep in step with VERSION in sw.js
+const APP_VERSION = 57; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -132,10 +132,9 @@ function program() {
   for (const d of splitDays()) out[d] = (p && p[d] ? p[d] : legacy && DEFAULT_PROGRAM[d] ? DEFAULT_PROGRAM[d].map(([name, sets, min, max]) => ({ name, sets, min, max })) : []);
   return out;
 }
-const COMMON_EXERCISES = ['Barbell bench press', 'Incline dumbbell press', 'Overhead press', 'Dumbbell shoulder press', 'Lateral raise', 'Cable fly', 'Tricep pushdown', 'Overhead tricep extension', 'Dips', 'Push-ups',
-  'Pull-ups', 'Lat pulldown', 'Seated cable row', 'Barbell row', 'Dumbbell row', 'Face pull', 'Rear delt fly', 'Barbell curl', 'Dumbbell curl', 'Hammer curl',
-  'Back squat', 'Front squat', 'Leg press', 'Romanian deadlift', 'Deadlift', 'Hip thrust', 'Bulgarian split squat', 'Walking lunge', 'Leg extension', 'Lying leg curl', 'Seated leg curl', 'Calf raise',
-  'Plank', 'Hanging leg raise', 'Cable crunch', 'Glute bridge', 'Kettlebell swing', 'Farmer carry'];
+// Exercise library by muscle group, for the exercise picker. Your own exercises (from history and your split) are added on top.
+const EXERCISE_LIB = {"Chest": ["Barbell bench press", "Incline barbell bench press", "Decline bench press", "Dumbbell bench press", "Incline dumbbell press", "Machine chest press", "Incline machine press", "Smith machine bench press", "Cable fly", "Low-to-high cable fly", "Pec deck", "Dumbbell fly", "Push-ups", "Chest dips"], "Back": ["Pull-ups", "Chin-ups", "Assisted pull-up", "Lat pulldown", "Close-grip lat pulldown", "Seated cable row", "Barbell row", "Dumbbell row", "Chest-supported row", "T-bar row", "Machine row", "Straight-arm pulldown", "Pullover", "Deadlift", "Rack pull", "Back extension"], "Shoulders": ["Overhead press", "Dumbbell shoulder press", "Machine shoulder press", "Arnold press", "Lateral raise", "Cable lateral raise", "Machine lateral raise", "Front raise", "Rear delt fly", "Reverse pec deck", "Face pull", "Upright row", "Shrugs"], "Arms": ["Barbell curl", "EZ-bar curl", "Dumbbell curl", "Hammer curl", "Incline dumbbell curl", "Preacher curl", "Cable curl", "Concentration curl", "Tricep pushdown", "Rope pushdown", "Overhead tricep extension", "Skull crushers", "Close-grip bench press", "Dips", "Tricep kickback", "Wrist curl"], "Legs": ["Back squat", "Front squat", "Goblet squat", "Hack squat", "Smith machine squat", "Leg press", "Bulgarian split squat", "Walking lunge", "Reverse lunge", "Step-up", "Leg extension", "Romanian deadlift", "Stiff-leg deadlift", "Lying leg curl", "Seated leg curl", "Nordic curl", "Calf raise", "Standing calf raise", "Seated calf raise"], "Glutes": ["Hip thrust", "Glute bridge", "Cable kickback", "Hip abduction", "Hip adduction", "Sumo deadlift", "Cable pull-through", "Frog pump"], "Core": ["Plank", "Side plank", "Hanging leg raise", "Captain's chair leg raise", "Cable crunch", "Crunch", "Ab wheel rollout", "Russian twist", "Dead bug", "Pallof press", "Decline sit-up"], "Full body": ["Kettlebell swing", "Farmer carry", "Power clean", "Sled push", "Burpees", "Battle ropes"]};
+const COMMON_EXERCISES = Object.values(EXERCISE_LIB).flat();
 function dayTotals(day) {
   const t = { kcal: 0, p: 0, c: 0, f: 0 };
   for (const m of (day?.meals || [])) { const s = m.servings ?? 1; t.kcal += m.kcal * s; t.p += m.p * s; t.c += m.c * s; t.f += m.f * s; }
@@ -1116,7 +1115,7 @@ function viewTrain() {
         ${half ? `<input type="number" inputmode="numeric" min="0" aria-label="Drop half reps" data-f="dpartials" data-e="${ei}" data-r="${ri}" value="${r.drop.partials ?? ''}" placeholder="0" id="dpa_${ei}_${ri}">` : ''}<span class="small muted drop-lbl">drop set</span></div>`;
     });
     cards += `<div class="card ex">
-      <div class="ex-head"><input type="text" list="exnames" aria-label="Exercise" data-f="name" data-e="${ei}" value="${esc(ex.name)}" id="exn_${ei}"><span class="scheme">${scheme}</span></div>
+      <div class="ex-head"><input type="text" data-ac="ex" autocomplete="off" aria-label="Exercise" placeholder="Search or pick an exercise" data-f="name" data-e="${ei}" value="${esc(ex.name)}" id="exn_${ei}"><span class="scheme">${scheme}</span></div>
       ${last ? `<div class="last">Last (${fmtDay(last.date, { day: 'numeric', month: 'short' })}): ${last.sets.map(s => setTxt(s, steps)).join(', ')}</div>` : `<div class="last">No history for this exercise yet.</div>`}
       ${hintFor(ex, last)}
       <div class="sets">${rows}</div>
@@ -3127,7 +3126,7 @@ const WD = [[1, 'M'], [2, 'T'], [3, 'W'], [4, 'T'], [5, 'F'], [6, 'S'], [0, 'S']
 const WD_LONG = { 0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday' };
 function exRow(p, k) {
   return `<div class="progrow">
-      <input type="text" list="exnames" value="${esc(p.name || '')}" data-k="name" aria-label="Exercise" id="pg_${k}_n" placeholder="Exercise">
+      <input type="text" data-ac="ex" autocomplete="off" value="${esc(p.name || '')}" data-k="name" aria-label="Exercise" id="pg_${k}_n" placeholder="Search or pick an exercise">
       <input type="number" min="1" max="10" value="${p.sets || 3}" data-k="sets" aria-label="Sets" id="pg_${k}_s">
       <input type="number" min="1" max="50" value="${p.min || 8}" data-k="min" aria-label="Min reps" id="pg_${k}_a">
       <input type="number" min="1" max="50" value="${p.max || 12}" data-k="max" aria-label="Max reps" id="pg_${k}_b">
@@ -3510,6 +3509,43 @@ document.addEventListener('click', async e => {
   }
 });
 
+/* ---------- exercise picker: type to filter, or browse by muscle group ---------- */
+function myExercises() { const out = new Set(); for (const sx of Object.values(S.sessions).sort((a, b) => a.date < b.date ? 1 : -1)) for (const e of sx.exercises || []) if (e.name) out.add(e.name); for (const d of Object.values(program())) for (const e of d) if (e.name) out.add(e.name); return [...out]; }
+const AC = { el: null, group: null };
+function acHost(el) { return el.closest('.progrow, .ex-head') || el; }
+function acClose() { document.querySelectorAll('.ac-list').forEach(x => x.remove()); AC.el = null; AC.group = null; }
+function acRender() {
+  const el = AC.el; if (!el || !document.body.contains(el)) return acClose();
+  const q = el.value.trim().toLowerCase(); const words = q.split(/\s+/).filter(Boolean);
+  const mine = myExercises(); const all = [...new Set([...mine, ...COMMON_EXERCISES])];
+  let body;
+  if (words.length) {
+    const hits = all.filter(n => words.every(w => n.toLowerCase().includes(w))).sort((a, b) => (b.toLowerCase().startsWith(q) - a.toLowerCase().startsWith(q)) || (mine.includes(b) - mine.includes(a))).slice(0, 12);
+    const exact = all.some(n => n.toLowerCase() === q);
+    body = (hits.length ? hits.map(n => acOpt(n, words)).join('') : '') + (!exact ? `<button type="button" class="ac-opt ac-new" data-ac-pick="${esc(el.value.trim())}">Use "${esc(el.value.trim())}" as a new exercise</button>` : '');
+  } else {
+    const groups = Object.keys(EXERCISE_LIB); const g = AC.group;
+    const chips = `<div class="ac-groups">${(mine.length ? ['Yours', ...groups] : groups).map(k => `<button type="button" class="chip chipbtn${g === k ? ' on' : ''}" data-ac-group="${k}">${k}</button>`).join('')}</div>`;
+    const list = g ? (g === 'Yours' ? mine : EXERCISE_LIB[g]) : (mine.length ? mine.slice(0, 8) : []);
+    body = chips + (list.length ? `${!g ? '<div class="ac-head">Your recent exercises</div>' : ''}${list.map(n => acOpt(n, [])).join('')}` : `<div class="ac-head">Pick a muscle group, or start typing</div>`);
+  }
+  const html = `<div class="ac-list" role="listbox">${body}</div>`;
+  const host = acHost(el); const cur = host.nextElementSibling?.classList.contains('ac-list') ? host.nextElementSibling : null;
+  if (cur) cur.outerHTML = html; else { document.querySelectorAll('.ac-list').forEach(x => x.remove()); host.insertAdjacentHTML('afterend', html); }
+}
+function acOpt(n, words) {
+  let t = esc(n); for (const w of words) t = t.replace(new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'), '<b>$1</b>');
+  return `<button type="button" class="ac-opt" role="option" data-ac-pick="${esc(n)}">${t}</button>`;
+}
+document.addEventListener('focusin', e => { const el = e.target; if (el.dataset?.ac === 'ex') { AC.el = el; AC.group = null; acRender(); } });
+document.addEventListener('focusout', e => { if (e.target.dataset?.ac === 'ex') setTimeout(() => { if (document.activeElement !== AC.el) acClose(); }, 150); });
+// pointerdown keeps the keyboard up while tapping a group or an option
+document.addEventListener('pointerdown', e => { if (e.target.closest('.ac-list')) e.preventDefault(); });
+document.addEventListener('click', e => {
+  const g = e.target.closest('[data-ac-group]'); if (g && AC.el) { AC.group = AC.group === g.dataset.acGroup ? null : g.dataset.acGroup; acRender(); return; }
+  const o = e.target.closest('[data-ac-pick]'); if (o && AC.el) { const el = AC.el; el.value = o.dataset.acPick; acClose(); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.blur(); }
+});
+document.addEventListener('input', e => { if (e.target.dataset?.ac === 'ex' && e.target === AC.el) { AC.group = null; acRender(); } });
 document.addEventListener('input', e => {
   const el = e.target;
   if (el.closest?.('#customForm') && el.id && el.id.startsWith('cf_') && el.id !== 'cf_serves') { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }
