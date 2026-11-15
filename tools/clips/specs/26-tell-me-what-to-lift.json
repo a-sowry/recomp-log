@@ -1,0 +1,43 @@
+{
+ "id": "26-tell-me-what-to-lift",
+ "look": "navy",
+ "duration": 9.6,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Your gym app should tell you what to lift next."
+  },
+  {
+   "t": 7.8,
+   "title": "Refyne fit",
+   "sub": "train with a plan"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "12-progression-hint",
+   3.0,
+   4.5,
+   3.0
+  ],
+  [
+   "12-progression-hint",
+   8.4,
+   3.0,
+   2.0
+  ],
+  [
+   "11-personal-best",
+   6.6,
+   1.6,
+   1.6
+  ],
+  [
+   "15-lift-progress",
+   5.0,
+   4.0,
+   3.0
+  ]
+ ]
+}

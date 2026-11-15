@@ -1,0 +1,43 @@
+{
+ "id": "23-reason-to-go",
+ "look": "white",
+ "duration": 8.0,
+ "captions": [
+  {
+   "t": 0,
+   "title": "POV: your gym app gives you a reason to go."
+  },
+  {
+   "t": 6.2,
+   "title": "Refyne fit",
+   "sub": "train, track, grow"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "01-car-build",
+   7.5,
+   1.6,
+   1.6
+  ],
+  [
+   "09-bonsai-timelapse",
+   0.3,
+   8.4,
+   2.4
+  ],
+  [
+   "20-flower-garden",
+   0.3,
+   8.4,
+   2.4
+  ],
+  [
+   "11-personal-best",
+   6.9,
+   1.6,
+   1.6
+  ]
+ ]
+}

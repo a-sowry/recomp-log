@@ -1,0 +1,43 @@
+{
+ "id": "22-keeps-giving-me-cars",
+ "look": "white",
+ "duration": 7.3,
+ "captions": [
+  {
+   "t": 0,
+   "title": "My gym app keeps giving me cars."
+  },
+  {
+   "t": 5.5,
+   "title": "Refyne fit",
+   "sub": "build yours"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "01-car-build",
+   7.5,
+   1.6,
+   1.6
+  ],
+  [
+   "05-pink-dream-car",
+   7.6,
+   1.6,
+   1.6
+  ],
+  [
+   "01-car-build",
+   12.4,
+   3.1,
+   2.6
+  ],
+  [
+   "05-pink-dream-car",
+   14.0,
+   1.5,
+   1.5
+  ]
+ ]
+}

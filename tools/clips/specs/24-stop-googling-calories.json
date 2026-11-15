@@ -1,0 +1,37 @@
+{
+ "id": "24-stop-googling-calories",
+ "look": "light",
+ "duration": 11.0,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Stop googling calories."
+  },
+  {
+   "t": 9.2,
+   "title": "Refyne fit",
+   "sub": "log it in seconds"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "07-takeaway-search",
+   3.4,
+   5.4,
+   4.0
+  ],
+  [
+   "03-coffee-in-seconds",
+   1.2,
+   7.6,
+   4.0
+  ],
+  [
+   "08-starter-meals",
+   2.0,
+   6.0,
+   3.0
+  ]
+ ]
+}
