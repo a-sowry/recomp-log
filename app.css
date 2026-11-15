@@ -846,3 +846,5 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .label-form .grid3 > *, .label-form .grid2 > * { min-width: 0; }
 .label-form input { width: 100%; box-sizing: border-box; }
 .row.label-cta { gap: 10px; }
+.banner.ok-soft { background: var(--sunk); border-left: 4px solid #2E9E5B; }
+.supp-ed .grid2 label .muted { font-weight: 400; }

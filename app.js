@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 60; // keep in step with VERSION in sw.js
+const APP_VERSION = 61; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1661,7 +1661,7 @@ async function openScanner() {
     const hints = new Map(); hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E]);
     scanReader = new Z.BrowserMultiFormatReader(hints, 250);
     await scanReader.decodeFromConstraints({ video: { facingMode: { ideal: 'environment' } } }, document.getElementById('scanVideo'), (result) => {
-      if (result) { const code = result.getText(); closeScanner(); if (navigator.vibrate) navigator.vibrate(60); lookupBarcode(code); }
+      if (result) { const code = result.getText(); closeScanner(); if (navigator.vibrate) navigator.vibrate(60); const cb = S.scanCb || lookupBarcode; S.scanCb = null; cb(code); }
     });
   } catch (e) {
     console.error(e);
@@ -2599,7 +2599,57 @@ function weeklyCard() {
 const MEASURES = [['waist', 'Waist'], ['arms', 'Arms'], ['chest', 'Chest'], ['hips', 'Hips'], ['thighs', 'Thighs']];
 
 /* ---------- supplements ---------- */
-const SUPP_SUGGEST = ['Creatine 5 g', 'Protein powder', 'Fish oil', 'Vitamin D', 'Magnesium', 'Multivitamin', 'Iron', 'Electrolytes'];
+const SUPP_SUGGEST = ['Creatine 5 g', 'Protein powder', 'Fish oil', 'Vitamin D', 'Magnesium', 'Multivitamin', 'Iron', 'Zinc', 'Electrolytes'];
+// What each supplement adds per dose. Keys match the nutrient panel; ve, b6, io, se and om3 only come from supplements.
+const SUPP_FIELDS = [['vd', 'Vitamin D', 'µg'], ['vc', 'Vitamin C', 'mg'], ['va', 'Vitamin A', 'µg'], ['ve', 'Vitamin E', 'mg'], ['b6', 'Vitamin B6', 'mg'], ['b12', 'Vitamin B12', 'µg'], ['fol', 'Folate / folic acid', 'µg'],
+  ['ca', 'Calcium', 'mg'], ['fe', 'Iron', 'mg'], ['mg', 'Magnesium', 'mg'], ['zn', 'Zinc', 'mg'], ['k', 'Potassium', 'mg'], ['na', 'Sodium', 'mg'], ['io', 'Iodine', 'µg'], ['se', 'Selenium', 'µg'], ['om3', 'Omega-3 (EPA + DHA)', 'mg']];
+const SUPP_KEYS = SUPP_FIELDS.map(f => f[0]);
+// Typical single-ingredient doses, used until the person checks their own label.
+const SUPP_DEFAULTS = { 'Vitamin D': { dose: '1 capsule', nut: { vd: 25 } }, 'Magnesium': { dose: '1 tablet', nut: { mg: 300 } }, 'Iron': { dose: '1 tablet', nut: { fe: 24 } }, 'Zinc': { dose: '1 tablet', nut: { zn: 25 } }, 'Fish oil': { dose: '1 capsule', nut: { om3: 300 } } };
+function suppNutSummary(s) {
+  const n = s.nut || {}; const keys = SUPP_KEYS.filter(k => n[k]); if (!keys.length) return '';
+  return keys.slice(0, 3).map(k => { const f = SUPP_FIELDS.find(x => x[0] === k); return `${f[1].replace('Vitamin ', 'Vit ').replace(' (EPA + DHA)', '').replace(' / folic acid', '')} ${+n[k] * (s.count || 1)} ${f[2]}`; }).join(' · ') + (keys.length > 3 ? ` +${keys.length - 3} more` : '');
+}
+function openSuppEditor(id) {
+  if (id !== undefined) { const s = (S.config?.supps || []).find(x => x.id === id); S.suppEd = s ? JSON.parse(JSON.stringify({ ...s, nut: s.nut || {} })) : { id: null, name: '', nut: {}, count: 1 }; }
+  const e = S.suppEd; const v = x => esc(x ?? '');
+  const field = ([k, l, u]) => `<label class="f">${l} <span class="muted">${u}</span><input type="number" inputmode="decimal" step="any" min="0" id="se_${k}" data-se="${k}" value="${v(e.nut?.[k])}" placeholder="0"></label>`;
+  document.getElementById('sheetRoot').innerHTML = `<div class="sheet"><div class="panel"><div class="wrap supp-ed">
+    <div style="display:flex;align-items:center;gap:10px"><h3>${e.id ? 'Edit supplement' : 'Add a supplement'}</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="suppEdCancel">Cancel</button></div>
+    <div class="formrow"><button type="button" class="btn ghost" data-act="suppScan">Scan the barcode</button><label class="f">or type it<input type="text" id="se_code" data-sef="barcode" inputmode="numeric" value="${v(e.barcode)}" placeholder="optional" maxlength="14"></label><button type="button" class="btn ghost sm" data-act="suppFind">Look up</button></div>
+    ${e.found ? `<div class="banner ok-soft">Found it. Someone already added this one, so the amounts are filled in. Check them against your label.</div>` : e.notFound ? `<div class="small muted">Not added yet. Copy the amounts from your label and it'll be ready for the next person who scans it.</div>` : ''}
+    <label class="f">What do you call it?<input type="text" id="se_name" data-sef="name" value="${v(e.name)}" placeholder="e.g. Morning multi, Vitamin D" maxlength="60"></label>
+    <div class="grid2"><label class="f">One dose is<input type="text" id="se_dose" data-sef="dose" value="${v(e.dose)}" placeholder="e.g. 1 tablet, 1 scoop" maxlength="40"></label>
+      <label class="f">Doses each day<input type="number" id="se_count" data-sef="count" inputmode="numeric" min="1" max="10" value="${v(e.count || 1)}"></label></div>
+    <div class="small muted">Copy the amounts from the label for <b>one dose</b> (usually "each tablet contains" or "per serve"). Leave anything not listed blank. Vitamin D in IU? Divide by 40 to get µg (1000 IU = 25 µg).</div>
+    <div class="slotlabel">Vitamins</div><div class="grid2">${SUPP_FIELDS.slice(0, 7).map(field).join('')}</div>
+    <div class="slotlabel">Minerals</div><div class="grid2">${SUPP_FIELDS.slice(7, 15).map(field).join('')}</div>
+    <div class="slotlabel">Other</div><div class="grid2">${SUPP_FIELDS.slice(15).map(field).join('')}</div>
+    <div class="sp-bar"><button type="button" class="btn" data-act="suppEdSave">Save supplement</button></div>
+  </div></div></div>`;
+}
+function suppEdRead() { const e = S.suppEd; document.querySelectorAll('[data-sef]').forEach(el => { e[el.dataset.sef] = el.value; }); e.nut = e.nut || {}; document.querySelectorAll('[data-se]').forEach(el => { const n = el.value === '' ? null : +el.value; if (n == null || !(n > 0)) delete e.nut[el.dataset.se]; else e.nut[el.dataset.se] = n; }); return e; }
+async function suppLookup(code) {
+  const e = S.suppEd; if (!e) return; e.barcode = String(code || '').replace(/\D/g, ''); e.found = false; e.notFound = false;
+  if (e.barcode.length < 6) { toast('That doesn\'t look like a barcode number.'); openSuppEditor(); return; }
+  try { const { data, error } = await sb.from('supplements').select('*').eq('barcode', e.barcode).limit(1); if (error) throw error;
+    const r = data?.[0]; if (r) { e.found = true; e.nut = { ...(r.nut || {}) }; if (!e.name) e.name = r.name; if (!e.dose) e.dose = r.dose_label || ''; e.shared = JSON.stringify(r.nut || {}); } else e.notFound = true;
+  } catch (err) { console.warn('supplements', err?.message || err); e.notFound = true; }
+  openSuppEditor();
+}
+async function suppSave() {
+  const e = suppEdRead(); const name = (e.name || '').trim(); if (!name) { toast('Give it a name first.'); document.getElementById('se_name')?.focus(); return; }
+  const nut = {}; for (const k of SUPP_KEYS) if (e.nut[k] > 0) nut[k] = Math.round(e.nut[k] * 1000) / 1000;
+  const item = { id: e.id || uid(), name, dose: (e.dose || '').trim(), count: Math.min(10, Math.max(1, Math.round(+e.count) || 1)), nut, ...(e.barcode ? { barcode: e.barcode } : {}) };
+  const cfg = cfgCopy(); const list = cfg.supps || [];
+  cfg.supps = e.id ? list.map(x => x.id === e.id ? item : x) : [...list, item];
+  if (!list.length) cfg.suppHidden = false; // first supplement: show the tick list on the Food tab
+  saveConfig(cfg); S.suppEd = null; openSettings(); toast(`${name} saved`);
+  // Share label amounts for a scanned product the first time anyone adds it.
+  if (item.barcode && Object.keys(nut).length && !e.found && navigator.onLine) {
+    try { const { error } = await sb.from('supplements').insert({ barcode: item.barcode, name, dose_label: item.dose || null, nut }); if (error && !/duplicate|unique/i.test(error.message || '')) throw error; } catch (err) { console.warn('share supplement', err?.message || err); }
+  }
+}
 function suppCard() {
   const list = S.config?.supps || []; if (!list.length) return '';
   if (S.config?.suppHidden) return `<section class="sec"><h2>Supplements <button class="linkbtn h2btn push" data-act="suppHide" data-v="0" aria-expanded="false">Show</button></h2></section>`;
@@ -2702,16 +2752,25 @@ function nutrientTargets() {
     { k: 'fol', name: 'Folate', u: 'µg', min: 400, grp: 'Vitamins' },
     { k: 'b12', name: 'Vitamin B12', u: 'µg', min: 2.4, grp: 'Vitamins' },
     { k: 'vd', name: 'Vitamin D', u: 'µg', min: age > 70 ? 15 : age > 50 ? 10 : 5, grp: 'Vitamins', note: 'Mostly made from sunlight, so food alone rarely gets there' },
+    // Only counted from supplements (food data doesn't include these yet), so they show only when a supplement has them.
+    { k: 've', name: 'Vitamin E', u: 'mg', min: fem ? 7 : 10, grp: 'Supps' },
+    { k: 'b6', name: 'Vitamin B6', u: 'mg', min: age > 50 ? (fem ? 1.5 : 1.7) : 1.3, grp: 'Supps' },
+    { k: 'io', name: 'Iodine', u: 'µg', min: 150, grp: 'Supps' },
+    { k: 'se', name: 'Selenium', u: 'µg', min: fem ? 60 : 70, grp: 'Supps' },
+    { k: 'om3', name: 'Omega-3 (EPA + DHA)', u: 'mg', min: fem ? 90 : 160, grp: 'Supps' },
   ];
 }
 function dayNutrients(day) {
   const tot = {}; let counted = 0, partial = 0; const meals = day?.meals || [];
   for (const m of meals) { const r = mealNutrients(m); if (!r) continue; counted++; if (r.partial) partial++; for (const k of NK) if (r.nut[k] != null) tot[k] = (tot[k] || 0) + r.nut[k]; }
-  return { tot, counted, partial, total: meals.length };
+  // Ticked supplements add their label amounts (per dose × doses a day).
+  const taken = new Set(day?.supps || []); const supps = (S.config?.supps || []).filter(s => taken.has(s.id) && s.nut && Object.keys(s.nut).length);
+  for (const s of supps) for (const [k, v] of Object.entries(s.nut)) if (SUPP_KEYS.includes(k)) tot[k] = (tot[k] || 0) + v * (s.count || 1);
+  return { tot, counted, partial, total: meals.length, supps: supps.map(s => s.name) };
 }
 const fmtN = (v, u) => u === 'µg' && v < 10 ? r1(v) : u === 'g' && v < 10 ? r1(v) : r0(v).toLocaleString();
 function openNutrients() {
-  const day = S.days[S.date]; const { tot, counted, partial, total } = dayNutrients(day); const t = dayTotals(day);
+  const day = S.days[S.date]; const { tot, counted, partial, total, supps } = dayNutrients(day); const t = dayTotals(day);
   const list = nutrientTargets(); const pr = S.config?.profile || {};
   const row = n => {
     const v = tot[n.k] || 0; const tgt = n.min || n.max;
@@ -2723,11 +2782,13 @@ function openNutrients() {
   };
   const grp = g => `<div class="ngrp">${list.filter(n => n.grp === g).map(row).join('')}</div>`;
   const low = list.filter(n => n.min && n.k !== 'vd' && (tot[n.k] || 0) < n.min * 0.5).map(n => n.name);
-  const body = !total ? `<div class="empty"><b>Nothing logged yet.</b>Log a meal and its nutrients show up here.</div>`
-    : !counted ? `<div class="empty"><b>No nutrient data for these meals yet.</b>Meals from your plan, scanned foods and your own meals with ingredients are counted.</div>`
-    : `<div class="card nutr">${grp('Everyday')}</div>
+  const extra = list.filter(n => n.grp === 'Supps' && tot[n.k]);
+  const body = !total && !supps.length ? `<div class="empty"><b>Nothing logged yet.</b>Log a meal or tick a supplement and its nutrients show up here.</div>`
+    : !counted && !supps.length ? `<div class="empty"><b>No nutrient data for these meals yet.</b>Meals from your plan, scanned foods and your own meals with ingredients are counted.</div>`
+    : `${supps.length ? `<div class="small muted">Includes your supplements: ${esc(supps.join(', '))}.</div>` : ''}<div class="card nutr">${grp('Everyday')}</div>
       <div class="slotlabel">Vitamins</div><div class="card nutr">${grp('Vitamins')}</div>
       <div class="slotlabel">Minerals</div><div class="card nutr">${grp('Minerals')}</div>
+      ${extra.length ? `<div class="slotlabel">From your supplements</div><div class="card nutr"><div class="ngrp">${extra.map(row).join('')}</div><div class="small muted">Food isn't counted for these yet, only supplements.</div></div>` : ''}
       ${low.length && S.date === todayISO() && new Date().getHours() >= 18 ? `<div class="small nlow">Still low today: ${low.slice(0, 4).join(', ')}.</div>` : ''}`;
   document.getElementById('sheetRoot').innerHTML = `<div class="sheet" id="sheet"><div class="panel"><div class="wrap nsheet">
     <div style="display:flex;align-items:center;gap:10px"><h3>Nutrients</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="closeSheet">Close</button></div>
@@ -3157,8 +3218,8 @@ function openSettings() {
     </div>
     ${waterSettings()}
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Supplements</div>
-      ${(S.config?.supps || []).length ? `<div class="rows">${S.config.supps.map(x => `<div class="row"><span class="t">${esc(x.name)}</span><button type="button" class="xbtn" data-act="suppDel" data-v="${x.id}" aria-label="Remove ${esc(x.name)}">×</button></div>`).join('')}</div>` : '<div class="small muted">Add what you take and tick them off on the Food tab each day.</div>'}
-      <div class="formrow"><label class="f">Add a supplement<input type="text" id="supp_new" placeholder="e.g. Creatine 5 g"></label><button type="button" class="btn ghost" data-act="suppAdd">Add</button></div>
+      ${(S.config?.supps || []).length ? `<div class="rows">${S.config.supps.map(x => `<div class="row"><div class="meal-open" style="min-width:0" data-act="suppEdit" data-v="${x.id}" role="button" tabindex="0"><div class="t">${esc(x.name)} <span class="open-hint" aria-hidden="true">›</span></div><div class="small muted">${suppNutSummary(x) ? esc(suppNutSummary(x)) + (x.count > 1 ? ` · ${x.count} doses a day` : '') : 'No vitamins or minerals added. Tap to add them from the label.'}</div></div><button type="button" class="xbtn" data-act="suppDel" data-v="${x.id}" aria-label="Remove ${esc(x.name)}">×</button></div>`).join('')}</div>` : '<div class="small muted">Add what you take and tick them off on the Food tab each day. Their vitamins and minerals count towards your daily nutrients.</div>'}
+      <div><button type="button" class="btn ghost" data-act="suppNew">+ Add a supplement (scan or type)</button></div>
       <div class="chips">${SUPP_SUGGEST.filter(n => !(S.config?.supps || []).some(x => x.name === n)).map(n => `<button type="button" class="chip k chipbtn" data-act="suppQuick" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>
     </div>
     ${ed}
@@ -3573,8 +3634,16 @@ document.addEventListener('click', async e => {
     }
     case 'suppAdd': case 'suppQuick': {
       const name = a === 'suppQuick' ? b.dataset.v : document.getElementById('supp_new')?.value.trim(); if (!name) break;
-      const cfg = cfgCopy(); cfg.supps = [...(cfg.supps || []), { id: uid(), name }]; saveConfig(cfg); openSettings(); break;
+      const d = SUPP_DEFAULTS[name]; const cfg = cfgCopy(); if (!(cfg.supps || []).length) cfg.suppHidden = false;
+      cfg.supps = [...(cfg.supps || []), { id: uid(), name, count: 1, ...(d ? { dose: d.dose, nut: { ...d.nut } } : {}) }]; saveConfig(cfg); openSettings();
+      toast(d ? `${name} added with a typical dose. Tap it to match your label.` : `${name} added. Tap it to add vitamins and minerals from the label.`); break;
     }
+    case 'suppNew': S.suppEd = { id: null, name: '', nut: {}, count: 1 }; openSuppEditor(); setTimeout(() => document.getElementById('se_name')?.focus(), 50); break;
+    case 'suppEdit': openSuppEditor(b.dataset.v); break;
+    case 'suppEdCancel': S.suppEd = null; openSettings(); break;
+    case 'suppEdSave': suppSave(); break;
+    case 'suppScan': suppEdRead(); S.scanCb = code => suppLookup(code); openScanner(); break;
+    case 'suppFind': suppEdRead(); suppLookup(S.suppEd.barcode); break;
     case 'suppDel': { const cfg = cfgCopy(); cfg.supps = (cfg.supps || []).filter(x => x.id !== b.dataset.v); saveConfig(cfg); openSettings(); break; }
     case 'closeSettings': S.confirmSignOut = false; document.getElementById('sheetRoot').innerHTML = ''; if (pendingRender) { pendingRender = false; render(); } break;
     case 'pgDel': { const card = b.closest('.dayedit'); b.closest('.progrow').remove(); refreshDaySum(card); break; }
