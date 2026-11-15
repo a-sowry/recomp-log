@@ -284,6 +284,11 @@ def make_assets(look, d):
     mask.resize((APP_W, APP_H), Image.LANCZOS).save(d / 'mask.png')
 
 
+# TikTok draws its search bar over roughly the top 190 px of the video, so its captions start lower and a bit smaller.
+TOP_T = {'instagram': 34, 'tiktok': 196}; HT = {'instagram': 340, 'tiktok': 204}
+TS = {'instagram': 72, 'tiktok': 66}; SS = {'instagram': 36, 'tiktok': 33}; HB = {'instagram': 26, 'tiktok': 10}
+
+
 def render_captions(spec, look, platform, d):
     from playwright.sync_api import sync_playwright
     def inter(w): return base64.b64encode((FONT_DIR / 'inter' / 'files' / f'inter-latin-{w}-normal.woff2').read_bytes()).decode()
@@ -291,10 +296,10 @@ def render_captions(spec, look, platform, d):
             f"@font-face{{font-family:I;font-weight:600;src:url(data:font/woff2;base64,{inter(600)})}}"
             f"@font-face{{font-family:I;font-weight:500;src:url(data:font/woff2;base64,{inter(500)})}}"
             f"html,body{{margin:0;background:transparent}}#c{{width:{W}px;height:{BAND}px;position:relative;font-family:I,sans-serif;box-sizing:border-box}}"
-            f"#t{{position:absolute;left:0;right:0;top:34px;height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 80px;box-sizing:border-box}}"
-            f"h1{{margin:0;font-weight:800;font-size:72px;line-height:1.08;color:{look['ink']};letter-spacing:-.8px}}"
-            f"p{{margin:18px 0 0;font-weight:500;font-size:36px;color:{look['sub']}}}"
-            f"#h{{position:absolute;left:0;right:0;bottom:26px;display:flex;justify-content:center}}"
+            f"#t{{position:absolute;left:0;right:0;top:{TOP_T[platform]}px;height:{HT[platform]}px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 80px;box-sizing:border-box}}"
+            f"h1{{margin:0;font-weight:800;font-size:{TS[platform]}px;line-height:1.08;color:{look['ink']};letter-spacing:-.8px}}"
+            f"p{{margin:16px 0 0;font-weight:500;font-size:{SS[platform]}px;color:{look['sub']}}}"
+            f"#h{{position:absolute;left:0;right:0;bottom:{HB[platform]}px;display:flex;justify-content:center}}"
             f"#h span{{font-weight:600;font-size:32px;color:{look['ink']};background:{look['pill']};padding:9px 30px;border-radius:999px;letter-spacing:.2px}}"
             f"</style><div id=c><div id=t><h1></h1><p></p></div><div id=h><span>{HANDLES[platform]}</span></div></div>")
     caps = spec['captions']; out = []
