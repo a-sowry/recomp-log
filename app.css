@@ -850,3 +850,23 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .supp-ed .grid2 label .muted { font-weight: 400; }
 .day-pick { flex-wrap: nowrap; gap: 4px; }
 .day-pick button { flex: 1; min-width: 0; padding: 8px 0; }
+/* starter meals: skip up top */
+.skip-top { display: flex; gap: 12px; align-items: center; justify-content: space-between; background: var(--sunk); border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.45; }
+.skip-top .btn { flex: none; }
+@media (max-width: 380px) { .skip-top { flex-direction: column; align-items: stretch; } }
+/* WOD block */
+.card.wod { display: grid; gap: 10px; }
+.wod-head { display: flex; align-items: center; gap: 8px; }
+.wod-tag { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 13px; background: var(--btn); color: var(--btn-ink); border-radius: 999px; padding: 4px 10px; }
+.wod-name { font-weight: 600; font-size: 17px; }
+.wod-setup .f { max-width: 220px; }
+.wod-moves { display: grid; gap: 6px; }
+.wod-move { display: grid; grid-template-columns: minmax(0, 1fr) 92px 58px 28px; gap: 6px; align-items: center; }
+.wod-cols { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.wod-cols span:nth-child(n+2) { text-align: center; }
+.wod-move input { min-width: 0; text-align: left; }
+.wod-move input + input { text-align: center; }
+.wod-res-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.wod-timer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--sunk); border-radius: 12px; padding: 10px 12px; }
+.wod-clock { font-family: var(--font-display); font-weight: 700; font-size: 34px; font-variant-numeric: tabular-nums; min-width: 92px; }
+.wod-move input { padding-left: 8px; padding-right: 6px; }

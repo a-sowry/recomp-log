@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 63; // keep in step with VERSION in sw.js
+const APP_VERSION = 64; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -133,7 +133,7 @@ function program() {
   return out;
 }
 // Exercise library by muscle group, for the exercise picker. Your own exercises (from history and your split) are added on top.
-const EXERCISE_LIB = {"Chest": ["Barbell bench press", "Incline barbell bench press", "Decline bench press", "Dumbbell bench press", "Incline dumbbell press", "Machine chest press", "Incline machine press", "Smith machine bench press", "Cable fly", "Low-to-high cable fly", "Pec deck", "Dumbbell fly", "Push-ups", "Chest dips"], "Back": ["Pull-ups", "Chin-ups", "Assisted pull-up", "Lat pulldown", "Close-grip lat pulldown", "Seated cable row", "Barbell row", "Dumbbell row", "Chest-supported row", "T-bar row", "Machine row", "Straight-arm pulldown", "Pullover", "Deadlift", "Rack pull", "Back extension"], "Shoulders": ["Overhead press", "Dumbbell shoulder press", "Machine shoulder press", "Arnold press", "Lateral raise", "Cable lateral raise", "Machine lateral raise", "Front raise", "Rear delt fly", "Reverse pec deck", "Face pull", "Upright row", "Shrugs"], "Arms": ["Barbell curl", "EZ-bar curl", "Dumbbell curl", "Hammer curl", "Incline dumbbell curl", "Preacher curl", "Cable curl", "Concentration curl", "Tricep pushdown", "Rope pushdown", "Overhead tricep extension", "Skull crushers", "Close-grip bench press", "Dips", "Tricep kickback", "Wrist curl"], "Legs": ["Back squat", "Front squat", "Goblet squat", "Hack squat", "Smith machine squat", "Leg press", "Bulgarian split squat", "Walking lunge", "Reverse lunge", "Step-up", "Leg extension", "Romanian deadlift", "Stiff-leg deadlift", "Lying leg curl", "Seated leg curl", "Nordic curl", "Calf raise", "Standing calf raise", "Seated calf raise"], "Glutes": ["Hip thrust", "Glute bridge", "Cable kickback", "Hip abduction", "Hip adduction", "Sumo deadlift", "Cable pull-through", "Frog pump"], "Core": ["Plank", "Side plank", "Hanging leg raise", "Captain's chair leg raise", "Cable crunch", "Crunch", "Ab wheel rollout", "Russian twist", "Dead bug", "Pallof press", "Decline sit-up"], "Full body": ["Kettlebell swing", "Farmer carry", "Power clean", "Sled push", "Burpees", "Battle ropes"]};
+const EXERCISE_LIB = {"Chest": ["Barbell bench press", "Incline barbell bench press", "Decline bench press", "Dumbbell bench press", "Incline dumbbell press", "Machine chest press", "Incline machine press", "Smith machine bench press", "Cable fly", "Low-to-high cable fly", "Pec deck", "Dumbbell fly", "Push-ups", "Chest dips"], "Back": ["Pull-ups", "Chin-ups", "Assisted pull-up", "Lat pulldown", "Close-grip lat pulldown", "Seated cable row", "Barbell row", "Dumbbell row", "Chest-supported row", "T-bar row", "Machine row", "Straight-arm pulldown", "Pullover", "Deadlift", "Rack pull", "Back extension"], "Shoulders": ["Overhead press", "Dumbbell shoulder press", "Machine shoulder press", "Arnold press", "Lateral raise", "Cable lateral raise", "Machine lateral raise", "Front raise", "Rear delt fly", "Reverse pec deck", "Face pull", "Upright row", "Shrugs"], "Arms": ["Barbell curl", "EZ-bar curl", "Dumbbell curl", "Hammer curl", "Incline dumbbell curl", "Preacher curl", "Cable curl", "Concentration curl", "Tricep pushdown", "Rope pushdown", "Overhead tricep extension", "Skull crushers", "Close-grip bench press", "Dips", "Tricep kickback", "Wrist curl"], "Legs": ["Back squat", "Front squat", "Goblet squat", "Hack squat", "Smith machine squat", "Leg press", "Bulgarian split squat", "Walking lunge", "Reverse lunge", "Step-up", "Leg extension", "Romanian deadlift", "Stiff-leg deadlift", "Lying leg curl", "Seated leg curl", "Nordic curl", "Calf raise", "Standing calf raise", "Seated calf raise"], "Glutes": ["Hip thrust", "Glute bridge", "Cable kickback", "Hip abduction", "Hip adduction", "Sumo deadlift", "Cable pull-through", "Frog pump"], "Core": ["Plank", "Side plank", "Hanging leg raise", "Captain's chair leg raise", "Cable crunch", "Crunch", "Ab wheel rollout", "Russian twist", "Dead bug", "Pallof press", "Decline sit-up"], "CrossFit": ["Thrusters", "Wall balls", "Box jumps", "Burpees", "Double-unders", "Single-unders", "Toes-to-bar", "Knees-to-elbows", "Kettlebell swing", "Air squats", "Pull-ups", "Chest-to-bar pull-ups", "Handstand push-ups", "Muscle-ups", "Ring dips", "Power clean", "Hang power clean", "Clean and jerk", "Power snatch", "Snatch", "Push press", "Push jerk", "Overhead squat", "Sumo deadlift high pull", "Dumbbell snatch", "Devil press", "Row (calories)", "Row (metres)", "Bike (calories)", "Ski erg (calories)", "Run (metres)", "Rope climbs", "Sit-ups", "Lunges", "Burpee box jump-overs"], "Full body": ["Kettlebell swing", "Farmer carry", "Power clean", "Sled push", "Burpees", "Battle ropes"]};
 const COMMON_EXERCISES = Object.values(EXERCISE_LIB).flat();
 function dayTotals(day) {
   const t = { kcal: 0, p: 0, c: 0, f: 0 };
@@ -1056,7 +1056,7 @@ function getDraft() {
   const prog = program()[S.trainDay] || [];
   let d;
   if (existing) {
-    d = { note: existing.note || '', title: existing.name || '', exercises: existing.exercises.map((e, i) => {
+    d = { note: existing.note || '', title: existing.name || '', wods: (existing.wods || []).map(wodToDraft), exercises: existing.exercises.map((e, i) => {
       const p = prog.find(x => x.name === e.name) || prog[i] || {};
       return { name: e.name, sets: p.sets || e.sets.length, min: p.min, max: p.max, rows: e.sets.map(s => ({ kg: s.kg, reps: s.reps, partials: s.partials || '', drop: s.drop ? { kg: s.drop.kg, reps: s.drop.reps, partials: s.drop.partials || '' } : null })) };
     }), fromSaved: true };
@@ -1122,6 +1122,7 @@ function viewTrain() {
       <div class="ex-foot"><button class="linkbtn" data-act="addSet" data-e="${ei}">+ Set</button>${ex.rows.length > 1 ? `<button class="linkbtn" data-act="rmSet" data-e="${ei}">− Set</button>` : ''}<button class="linkbtn" style="margin-left:auto;color:var(--muted)" data-act="rmEx" data-e="${ei}">Remove exercise</button></div>
     </div>`;
   });
+  d.wods = d.wods || []; cards += d.wods.map(wodCard).join('');
   const t = S.timer; const custom = S.trainDay === 'Custom';
   const prog = program();
   // Pick any exercise you've got in your split or have logged before (most recent first); ones already in this session are left out.
@@ -1136,6 +1137,7 @@ function viewTrain() {
     ${customHead}
     ${cards}
     <div class="add-ex-row">${picker}<button class="btn ghost" data-act="addEx">+ Add ${picker ? 'a new ' : 'an '}exercise</button></div>
+    <div class="add-ex-row"><button class="btn ghost" data-act="wodAdd">+ Add a WOD (CrossFit-style: for time, AMRAP, EMOM)</button></div>
     <label class="f">Session notes<textarea id="sessNote" data-f="note">${esc(d.note)}</textarea></label>
     ${saved ? (S.confirmSession ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Delete this ${custom ? (d.title || 'custom') : S.trainDay} session? <button class="btn danger sm" data-act="delSession">Delete</button><button class="btn ghost sm" data-act="cancelDelSession">Keep it</button></div>` : `<div><button class="linkbtn" style="color:var(--red)" data-act="askDelSession">Delete this session</button></div>`) : ''}
     <div class="savebar${S.config?.timerHidden ? ' no-timer' : ''}">
@@ -1224,6 +1226,83 @@ function startTimer(sec) {
   tickTimer();
 }
 function numOrNull(v) { if (v === '' || v == null) return null; const n = Number(v); return Number.isFinite(n) ? n : null; }
+/* ---------- WODs: CrossFit-style workouts (for time, AMRAP, EMOM, rounds) inside a session ---------- */
+const WOD_TYPES = {
+  fortime: { label: 'For time', help: 'Do all the work as fast as you can. Your result is your time.' },
+  amrap: { label: 'AMRAP', help: 'As many rounds as possible in a set time. Your result is rounds plus extra reps.' },
+  emom: { label: 'EMOM', help: 'Every minute on the minute: do the work at the start of each minute, rest for what\'s left.' },
+  rounds: { label: 'Rounds', help: 'A set number of rounds, not against the clock. Your result is rounds completed.' },
+};
+function newWod() { return { type: 'fortime', name: '', cap: '', mins: '', rounds: '', moves: [{ name: '', reps: '', kg: '' }], res: { m: '', s: '', r: '', x: '' }, rx: 'rx', note: '', timer: false }; }
+function wodToDraft(w) {
+  const r = w.result || {}; return { type: w.type, name: w.name || '', cap: w.cap ?? '', mins: w.mins ?? '', rounds: w.rounds ?? '', moves: (w.moves || []).map(m => ({ name: m.name, reps: m.reps ?? '', kg: m.kg ?? '' })),
+    res: { m: r.secs != null ? Math.floor(r.secs / 60) : '', s: r.secs != null ? r.secs % 60 : '', r: r.rounds ?? r.mins ?? '', x: r.reps ?? '' }, rx: w.rx || 'rx', note: w.note || '', timer: false };
+}
+function wodFromDraft(w) {
+  const n = v => (v === '' || v == null || isNaN(+v) ? null : +v);
+  const moves = (w.moves || []).filter(m => (m.name || '').trim()).map(m => ({ name: m.name.trim(), ...(String(m.reps ?? '').trim() ? { reps: String(m.reps).trim().slice(0, 30) } : {}), ...(n(m.kg) != null ? { kg: n(m.kg) } : {}) }));
+  let result = null;
+  if (w.type === 'fortime') { const sec = (n(w.res.m) || 0) * 60 + (n(w.res.s) || 0); if (sec > 0) result = { secs: sec }; }
+  else if (w.type === 'amrap') { if (n(w.res.r) != null || n(w.res.x) != null) result = { rounds: n(w.res.r) || 0, reps: n(w.res.x) || 0 }; }
+  else if (w.type === 'emom') { if (n(w.res.r) != null) result = { mins: n(w.res.r) }; }
+  else if (n(w.res.r) != null) result = { rounds: n(w.res.r) };
+  if (!moves.length && !result) return null;
+  return { type: w.type, ...((w.name || '').trim() ? { name: w.name.trim() } : {}), ...(n(w.cap) != null ? { cap: n(w.cap) } : {}), ...(n(w.mins) != null ? { mins: n(w.mins) } : {}), ...(n(w.rounds) != null ? { rounds: n(w.rounds) } : {}),
+    moves, ...(result ? { result } : {}), rx: w.rx === 'scaled' ? 'scaled' : 'rx', ...((w.note || '').trim() ? { note: w.note.trim() } : {}) };
+}
+const fmtSecs = sec => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+function wodResultText(w) {
+  const r = w.result; if (!r) return 'No result';
+  const t = r.secs != null ? fmtSecs(r.secs) : r.mins != null ? `${r.mins}${w.mins ? ` of ${w.mins}` : ''} minutes` : w.type === 'amrap' ? `${r.rounds} round${r.rounds === 1 ? '' : 's'}${r.reps ? ` + ${r.reps} reps` : ''}` : `${r.rounds} round${r.rounds === 1 ? '' : 's'}`;
+  return `${t} · ${w.rx === 'scaled' ? 'Scaled' : 'Rx'}`;
+}
+function wodLast(w) { // last result for a named WOD of the same type
+  const nm = (w.name || '').trim().toLowerCase(); if (!nm) return null;
+  for (const [k, sx] of Object.entries(S.sessions).sort((a, b) => a[1].date < b[1].date ? 1 : -1)) { if (k === draftKey()) continue; const hit = (sx.wods || []).find(x => (x.name || '').toLowerCase() === nm && x.type === w.type && x.result); if (hit) return { date: sx.date, w: hit }; }
+  return null;
+}
+function wodCard(w, wi) {
+  const T = WOD_TYPES[w.type]; const v = x => esc(x ?? ''); const last = wodLast(w);
+  const numIn = (f, val, lbl, extra = '') => `<label class="f">${lbl}<input type="number" inputmode="numeric" min="0" data-wf="${f}" data-w="${wi}" value="${v(val)}" id="w${wi}_${f}"${extra}></label>`;
+  const setup = w.type === 'amrap' ? numIn('cap', w.cap, 'Time cap (minutes)') : w.type === 'emom' ? numIn('mins', w.mins, 'How many minutes') : w.type === 'rounds' ? numIn('rounds', w.rounds, 'Rounds to do') : numIn('cap', w.cap, 'Time cap, minutes (optional)');
+  const moves = w.moves.map((m, mi) => `<div class="wod-move"><input type="text" data-ac="ex" autocomplete="off" data-wf="mname" data-w="${wi}" data-m="${mi}" value="${v(m.name)}" placeholder="Movement, e.g. Thrusters" aria-label="Movement ${mi + 1}" id="w${wi}_m${mi}">
+      <input type="text" inputmode="text" data-wf="mreps" data-w="${wi}" data-m="${mi}" value="${v(m.reps)}" placeholder="Reps" aria-label="Reps" id="w${wi}_r${mi}"><input type="number" inputmode="decimal" step="any" min="0" data-wf="mkg" data-w="${wi}" data-m="${mi}" value="${v(m.kg)}" placeholder="kg" aria-label="Weight in kg" id="w${wi}_k${mi}">
+      <button type="button" class="xbtn" data-act="wodMoveDel" data-w="${wi}" data-m="${mi}" aria-label="Remove movement">×</button></div>`).join('');
+  const res = w.type === 'fortime' ? `<div class="wod-res-row">${numIn('rm', w.res.m, 'Minutes')}${numIn('rs', w.res.s, 'Seconds', ' max="59"')}</div>`
+    : w.type === 'amrap' ? `<div class="wod-res-row">${numIn('rr', w.res.r, 'Rounds')}${numIn('rx', w.res.x, '+ extra reps')}</div>`
+    : w.type === 'emom' ? `<div class="wod-res-row">${numIn('rr', w.res.r, 'Minutes completed')}</div>` : `<div class="wod-res-row">${numIn('rr', w.res.r, 'Rounds completed')}</div>`;
+  const tm = S.wt && S.wt.wi === wi ? S.wt : null;
+  const timer = !w.timer ? `<button type="button" class="linkbtn" data-act="wodTimerShow" data-w="${wi}">Use a timer (optional)</button><span class="small muted"> · In a class? Skip it and just enter your result.</span>`
+    : `<div class="wod-timer"><span class="wod-clock" id="wt_clock">${tm ? '' : w.type === 'amrap' && +w.cap ? fmtSecs(+w.cap * 60) : w.type === 'emom' && +w.mins ? fmtSecs(60) : '0:00'}</span><span class="small muted" id="wt_sub"></span>
+        ${tm ? `<button type="button" class="btn sm" data-act="wodTimerStop">${w.type === 'fortime' || w.type === 'rounds' ? 'Stop and use time' : 'Stop'}</button>` : `<button type="button" class="btn sm" data-act="wodTimerStart" data-w="${wi}">Start</button>`}
+        <button type="button" class="linkbtn muted" data-act="wodTimerHide" data-w="${wi}">Hide timer</button></div>`;
+  return `<div class="card wod">
+    <div class="wod-head"><span class="wod-tag">WOD · ${T.label}</span><button type="button" class="linkbtn muted" style="margin-left:auto" data-act="wodDel" data-w="${wi}">Remove</button></div>
+    <input type="text" class="wod-name" data-wf="name" data-w="${wi}" value="${v(w.name)}" placeholder="Name it (optional), e.g. Fran, Murph, Tuesday class" aria-label="WOD name" id="w${wi}_name" maxlength="60">
+    <div class="seg" role="group" aria-label="WOD type">${Object.entries(WOD_TYPES).map(([k, x]) => `<button type="button" data-act="wodType" data-w="${wi}" data-v="${k}" aria-pressed="${w.type === k}">${x.label}</button>`).join('')}</div>
+    <div class="small muted">${T.help}</div>
+    ${last ? `<div class="last">Last time (${fmtDay(last.date, { day: 'numeric', month: 'short' })}): ${esc(wodResultText(last.w))}</div>` : ''}
+    <div class="wod-setup">${setup}</div>
+    <div class="slotlabel">Movements</div>
+    <div class="wod-moves"><div class="wod-move wod-cols" aria-hidden="true"><span>Movement</span><span>Reps</span><span>kg</span><span></span></div>${moves}</div>
+    <div><button type="button" class="linkbtn" data-act="wodMoveAdd" data-w="${wi}">+ Movement</button></div>
+    <div class="wod-timer-wrap">${timer}</div>
+    <div class="slotlabel">Your result</div>
+    ${res}
+    <div class="seg" role="group" aria-label="Rx or scaled"><button type="button" data-act="wodRx" data-w="${wi}" data-v="rx" aria-pressed="${w.rx !== 'scaled'}">Rx (as written)</button><button type="button" data-act="wodRx" data-w="${wi}" data-v="scaled" aria-pressed="${w.rx === 'scaled'}">Scaled</button></div>
+    <input type="text" data-wf="note" data-w="${wi}" value="${v(w.note)}" placeholder="Notes, e.g. banded pull-ups, 35 kg bar" aria-label="WOD notes" id="w${wi}_note">
+  </div>`;
+}
+// Optional WOD timer: counts up (for time, rounds), down (AMRAP) or per minute (EMOM). Classes can ignore it.
+function wodTimerTick() {
+  const t = S.wt; const el = document.getElementById('wt_clock'); if (!t) return; const sub = document.getElementById('wt_sub');
+  const el2 = (Date.now() - t.start) / 1000;
+  if (t.mode === 'up') { if (el) el.textContent = fmtSecs(el2); }
+  else if (t.mode === 'down') { const left = Math.max(0, t.total - el2); if (el) el.textContent = fmtSecs(Math.ceil(left)); if (left <= 0) { beep(); wodTimerEnd(); toast('Time! Enter your rounds and reps.'); } }
+  else { const minute = Math.floor(el2 / 60); const left = 60 - (el2 % 60); if (minute >= t.total / 60) { beep(); wodTimerEnd(); toast('EMOM done.'); return; }
+    if (minute !== t.lastMin) { if (t.lastMin != null) beep(timerVol(), 1); t.lastMin = minute; } if (el) el.textContent = fmtSecs(Math.ceil(left) % 61); if (sub) sub.textContent = `Minute ${minute + 1} of ${t.total / 60}`; }
+}
+function wodTimerEnd() { clearInterval(S.wt?.iv); S.wt = null; render(); }
 async function saveSession() {
   const d = getDraft(); const key = draftKey();
   const exercises = d.exercises.map(ex => ({
@@ -1235,8 +1314,9 @@ async function saveSession() {
       return st;
     }),
   })).filter(e => e.name && e.sets.length);
-  if (!exercises.length) { toast('Log reps on at least one set first.'); return; }
-  const doc = { date: S.date, day: S.trainDay, exercises, note: d.note || '' };
+  const wods = (d.wods || []).map(wodFromDraft).filter(Boolean);
+  if (!exercises.length && !wods.length) { toast('Log reps on at least one set, or a WOD result, first.'); return; }
+  const doc = { date: S.date, day: S.trainDay, exercises, note: d.note || '' }; if (wods.length) doc.wods = wods;
   if (S.trainDay === 'Custom' && (d.title || '').trim()) doc.name = d.title.trim();
   const pbs = detectPBs(doc, key);
   if (pbs.length) doc.pbs = pbs.map(x => x.name);
@@ -1561,10 +1641,11 @@ function openOnboarding(step) {
   } else if (st === 4) {
     const t = d.targets || calcTargets(d); const { n, html } = starterPickerHTML(t.kcal);
     body = `<h3>Starter meals</h3>
-      <p class="muted">Want some meals to get you going? Pick your eating style, leave out anything you can't have, and tick the ones you like. They're sized to your ${t.kcal.toLocaleString()} kcal a day.</p>
+      <div class="skip-top"><div><b>This step is optional.</b> Rather add your own meals? Skip it. You can add your own meals, or come back to these starter meals, any time from Log food.</div>
+        <button type="button" class="btn ghost sm" data-act="ob-skipmeals">Skip this step</button></div>
+      <p class="muted">Or pick a few to get you going: choose your eating style, leave out anything you can't have, and tick the ones you like. They're sized to your ${t.kcal.toLocaleString()} kcal a day.</p>
       ${html}
-      <div class="ob-actions"><button type="button" class="btn ghost" data-act="ob-back">Back</button><button type="button" class="linkbtn muted" data-act="ob-skipmeals">Skip for now</button><button type="button" class="btn" data-act="ob-next">${n ? `Add ${n} & continue` : 'Continue'}</button></div>
-      <div class="small muted">You can add starter meals any time from Log food or Settings.</div>`;
+      <div class="ob-actions"><button type="button" class="btn ghost" data-act="ob-back">Back</button><button type="button" class="btn" data-act="ob-next">${n ? `Add ${n} & continue` : 'Continue without meals'}</button></div>`;
   } else {
     body = `<h3>Make it yours</h3>
       <div class="f"><span>Colour</span><div class="swatches">${THEMES.map(t => `<button type="button" class="swatch" data-act="ob-theme" data-v="${t.id}" aria-pressed="${d.theme === t.id}" title="${t.name}">
@@ -3426,6 +3507,27 @@ document.addEventListener('click', async e => {
     case 'addSet': { const ex = D().exercises[b.dataset.e]; const l = ex.rows[ex.rows.length - 1]; ex.rows.push({ kg: l?.kg ?? '', reps: '', partials: '', drop: null, ph: l?.ph ?? '' }); persistDraft(); render(); break; }
     case 'rmSet': { D().exercises[b.dataset.e].rows.pop(); persistDraft(); render(); break; }
     case 'rmEx': { D().exercises.splice(+b.dataset.e, 1); persistDraft(); render(); break; }
+    case 'wodAdd': { const d = getDraft(); d.wods = d.wods || []; d.wods.push(newWod()); persistDraft(); render(); setTimeout(() => document.getElementById(`w${d.wods.length - 1}_name`)?.scrollIntoView({ block: 'center' }), 50); break; }
+    case 'wodDel': { if (S.wt?.wi === +b.dataset.w) wodTimerEnd(); getDraft().wods.splice(+b.dataset.w, 1); persistDraft(); render(); break; }
+    case 'wodType': { const w = getDraft().wods[+b.dataset.w]; w.type = b.dataset.v; w.res = { m: '', s: '', r: '', x: '' }; persistDraft(); render(); break; }
+    case 'wodRx': { getDraft().wods[+b.dataset.w].rx = b.dataset.v; persistDraft(); render(); break; }
+    case 'wodMoveAdd': { const w = getDraft().wods[+b.dataset.w]; w.moves.push({ name: '', reps: '', kg: '' }); persistDraft(); render(); setTimeout(() => document.getElementById(`w${b.dataset.w}_m${w.moves.length - 1}`)?.focus(), 30); break; }
+    case 'wodMoveDel': { const w = getDraft().wods[+b.dataset.w]; w.moves.splice(+b.dataset.m, 1); persistDraft(); render(); break; }
+    case 'wodTimerShow': { getDraft().wods[+b.dataset.w].timer = true; persistDraft(); render(); break; }
+    case 'wodTimerHide': { const wi = +b.dataset.w; if (S.wt?.wi === wi) { clearInterval(S.wt.iv); S.wt = null; } getDraft().wods[wi].timer = false; persistDraft(); render(); break; }
+    case 'wodTimerStart': {
+      const wi = +b.dataset.w; const w = getDraft().wods[wi];
+      if (w.type === 'amrap' && !(+w.cap > 0)) { toast('Set the time cap first.'); document.getElementById(`w${wi}_cap`)?.focus(); break; }
+      if (w.type === 'emom' && !(+w.mins > 0)) { toast('Set how many minutes first.'); document.getElementById(`w${wi}_mins`)?.focus(); break; }
+      if (S.wt) clearInterval(S.wt.iv);
+      S.wt = { wi, start: Date.now(), mode: w.type === 'amrap' ? 'down' : w.type === 'emom' ? 'emom' : 'up', total: w.type === 'amrap' ? +w.cap * 60 : w.type === 'emom' ? +w.mins * 60 : 0 };
+      render(); S.wt.iv = setInterval(wodTimerTick, 250); wodTimerTick(); break;
+    }
+    case 'wodTimerStop': {
+      const t = S.wt; if (!t) break; const w = getDraft().wods[t.wi]; const secs = Math.round((Date.now() - t.start) / 1000);
+      if (t.mode === 'up') { w.res.m = Math.floor(secs / 60); w.res.s = secs % 60; persistDraft(); toast(`Time saved: ${fmtSecs(secs)}`); }
+      wodTimerEnd(); break;
+    }
     case 'addEx': { D().exercises.push({ name: '', sets: 3, min: 8, max: 12, rows: [0, 1, 2].map(() => ({ kg: '', reps: '', partials: '', drop: null })) }); persistDraft(); render(); setTimeout(() => document.getElementById('exn_' + (D().exercises.length - 1))?.focus(), 0); break; }
     case 'saveSession': saveSession(); break;
     case 'askDelSession': S.confirmSession = true; render(); break;
@@ -3685,7 +3787,7 @@ document.addEventListener('click', async e => {
 /* ---------- exercise picker: type to filter, or browse by muscle group ---------- */
 function myExercises() { const out = new Set(); for (const sx of Object.values(S.sessions).sort((a, b) => a.date < b.date ? 1 : -1)) for (const e of sx.exercises || []) if (e.name) out.add(e.name); for (const d of Object.values(program())) for (const e of d) if (e.name) out.add(e.name); return [...out]; }
 const AC = { el: null, group: null };
-function acHost(el) { return el.closest('.progrow, .ex-head') || el; }
+function acHost(el) { return el.closest('.progrow, .ex-head, .wod-move') || el; }
 function acClose() { document.querySelectorAll('.ac-list').forEach(x => x.remove()); AC.el = null; AC.group = null; }
 function acRender() {
   const el = AC.el; if (!el || !document.body.contains(el)) return acClose();
@@ -3741,6 +3843,13 @@ document.addEventListener('input', e => {
     return;
   }
   if (el.id === 'ob_kcal') { const sh = document.getElementById('ob_kcal_show'); if (sh) sh.textContent = (+el.value || 0).toLocaleString(); }
+  if (el.dataset.wf && S.tab === 'train' && el.closest('#view')) {
+    const w = getDraft().wods?.[+el.dataset.w]; if (!w) return; const f = el.dataset.wf;
+    if (f === 'mname' || f === 'mreps' || f === 'mkg') { const m = w.moves[+el.dataset.m]; if (m) m[{ mname: 'name', mreps: 'reps', mkg: 'kg' }[f]] = el.value; }
+    else if (f === 'rm' || f === 'rs' || f === 'rr' || f === 'rx') w.res[{ rm: 'm', rs: 's', rr: 'r', rx: 'x' }[f]] = el.value;
+    else w[f] = el.value;
+    persistDraft(); return;
+  }
   if (el.dataset.f && S.tab === 'train' && el.closest('#view')) {
     const d = getDraft();
     if (el.dataset.f === 'note') { d.note = el.value; persistDraft(); return; }
