@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 62; // keep in step with VERSION in sw.js
+const APP_VERSION = 63; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1501,6 +1501,8 @@ const GOALS = [
   { id: 'maintain', label: 'Stay where I am', adj: 1.0, protein: 1.8 },
   { id: 'gain', label: 'Build muscle', adj: 1.1, protein: 1.8 },
 ];
+// Workout days a week (plus being on your feet all day) -> activity level for the calorie maths.
+function activityFor(days, job) { const lv = days <= 1 ? 0 : days <= 3 ? 1 : days <= 5 ? 2 : 3; return ACTIVITY[Math.min(3, lv + (job ? 1 : 0))].id; }
 function calcTargets(p) {
   const bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.sex === 'female' ? -161 : 5);
   const tdee = bmr * (ACTIVITY.find(a => a.id === p.activity)?.mult || 1.45);
@@ -1513,7 +1515,7 @@ function calcTargets(p) {
 }
 function needsOnboarding() { return !!(S.user && S.lastPull && !S.config?.onboarded && !S.config?.targets); }
 function openOnboarding(step) {
-  S.ob = S.ob || { step: 1, d: { sex: 'female', activity: 'light', goal: 'recomp', theme: S.config?.theme || 'auto', flower: S.config?.flower || DEFAULT_FLOWER } };
+  S.ob = S.ob || { step: 1, d: { sex: 'female', days: 3, activity: 'light', goal: 'recomp', theme: S.config?.theme || 'auto', flower: S.config?.flower || DEFAULT_FLOWER } };
   if (step) S.ob.step = step;
   const d = S.ob.d; const st = S.ob.step;
   const dots = [1, 2, 3, 4, 5].map(i => `<span class="ob-dot${i === st ? ' on' : ''}${i < st ? ' done' : ''}"></span>`).join('');
@@ -1535,7 +1537,9 @@ function openOnboarding(step) {
       <div class="ob-actions"><button type="button" class="linkbtn muted" data-act="ob-skip">Skip setup</button><button type="button" class="btn" data-act="ob-next">Next</button></div>`;
   } else if (st === 2) {
     body = `<h3>Your week and your goal</h3>
-      <div class="f"><span>How active are you?</span><div class="ob-list">${ACTIVITY.map(a => `<button type="button" class="ob-opt" data-act="ob-set" data-k="activity" data-v="${a.id}" aria-pressed="${d.activity === a.id}">${a.label}</button>`).join('')}</div></div>
+      <div class="f"><span>How many days a week will you work out?</span><div class="seg day-pick">${[0, 1, 2, 3, 4, 5, 6, 7].map(n => `<button type="button" data-act="ob-days" data-v="${n}" aria-pressed="${+d.days === n}">${n}</button>`).join('')}</div>
+        <span class="small muted">This becomes your weekly workout goal. You can change it later in Settings.</span></div>
+      <label class="tick"><input type="checkbox" id="ob_job" data-act="ob-job" ${d.job ? 'checked' : ''}> I'm on my feet most of the day (e.g. a physical job or nursing shifts)</label>
       <div class="f"><span>What's your goal?</span><div class="ob-list">${GOALS.map(g => `<button type="button" class="ob-opt" data-act="ob-set" data-k="goal" data-v="${g.id}" aria-pressed="${d.goal === g.id}">${g.label}</button>`).join('')}</div></div>
       <div class="ob-actions"><button type="button" class="btn ghost" data-act="ob-back">Back</button><button type="button" class="btn" data-act="ob-next">See my targets</button></div>`;
   } else if (st === 3) {
@@ -1613,7 +1617,8 @@ function obFinish(skip) {
   if (!skip) {
     const d = S.ob.d; const t = d.targets || calcTargets(d);
     cfg.targets = { kcal: t.kcal, p: t.p, c: t.c, f: t.f };
-    cfg.profile = { name: d.name || '', sex: d.sex, age: d.age, height: d.height, weight: d.weight, activity: d.activity, goal: d.goal };
+    cfg.profile = { name: d.name || '', sex: d.sex, age: d.age, height: d.height, weight: d.weight, activity: d.activity, goal: d.goal, days: +d.days || 0, job: !!d.job };
+    if (+d.days >= 1) cfg.weekGoal = Math.min(7, +d.days); else delete cfg.weekGoal; // the days they picked are their weekly workout goal
     cfg.theme = d.theme; cfg.flower = d.flower; if (d.grow) cfg.grow = d.grow; if (d.growSoft) cfg.growSoft = d.growSoft;
     if (d.garden != null) cfg.garden = d.garden; if (d.bonsai) cfg.bonsai = d.bonsai; if (d.car) cfg[CAR_STYLES[d.car].soft ? 'carSoft' : 'car'] = d.car;
     if (d.weight && !S.weights[todayISO()]) store.set('weights', todayISO(), { date: todayISO(), kg: d.weight });
@@ -3488,6 +3493,8 @@ document.addEventListener('click', async e => {
       lsSet(store.key('cache'), null); lsSet(store.key('outbox'), null); store.outbox = [];
       await sb.auth.signOut(); break;
     }
+    case 'ob-days': { S.ob.d.days = +b.dataset.v; S.ob.d.activity = activityFor(S.ob.d.days, S.ob.d.job); openOnboarding(); break; }
+    case 'ob-job': { S.ob.d.job = b.checked; S.ob.d.activity = activityFor(+S.ob.d.days || 0, S.ob.d.job); break; }
     case 'ob-set': { S.ob.d[b.dataset.k] = b.dataset.v; if (S.ob.step === 1) { const e = obReadStep(); S.ob.err = null; void e; } openOnboarding(); break; }
     case 'ob-next': { const err = obReadStep(); if (err) { S.ob.err = err; openOnboarding(); break; } S.ob.err = null; openOnboarding(S.ob.step + 1); document.querySelector('.sheet .panel')?.scrollTo(0, 0); break; }
     case 'ob-back': { if (S.ob.step === 3) obReadStep(); openOnboarding(S.ob.step - 1); break; }
@@ -3509,7 +3516,7 @@ document.addEventListener('click', async e => {
     case 'spAddApp': { const cfg = cfgCopy(); const n = addStarterMeals(cfg, targets().kcal); if (!n) break; document.getElementById('sheetRoot').innerHTML = ''; saveConfig(cfg); toast(`${n} meal${n > 1 ? 's' : ''} added to your meal plan`); break; }
     case 'openStarters': { S.sp = null; openStarterSheet(); break; }
     case 'ob-grow': { S.ob.d[isSoftId(S.ob.d.theme) ? 'growSoft' : 'grow'] = b.dataset.v; openOnboarding(); break; }
-    case 'redoSetup': { const pr = S.config?.profile || {}; S.ob = { step: 1, d: { redo: true, sex: pr.sex || 'female', age: pr.age, height: pr.height, weight: weightList().slice(-1)[0]?.kg || pr.weight, name: pr.name, activity: pr.activity || 'light', goal: pr.goal || 'recomp', theme: S.config?.theme || 'auto', flower: flowerType(), grow: S.config?.grow, growSoft: S.config?.growSoft, garden: gardenOn(), bonsai: S.config?.bonsai, car: S.config?.car || S.config?.carSoft } }; openOnboarding(); break; }
+    case 'redoSetup': { const pr = S.config?.profile || {}; S.ob = { step: 1, d: { redo: true, days: pr.days ?? weekGoal(), job: !!pr.job, sex: pr.sex || 'female', age: pr.age, height: pr.height, weight: weightList().slice(-1)[0]?.kg || pr.weight, name: pr.name, activity: pr.activity || 'light', goal: pr.goal || 'recomp', theme: S.config?.theme || 'auto', flower: flowerType(), grow: S.config?.grow, growSoft: S.config?.growSoft, garden: gardenOn(), bonsai: S.config?.bonsai, car: S.config?.car || S.config?.carSoft } }; openOnboarding(); break; }
     case 'changePw': changePassword(); break;
     case 'openScanner': openScanner(); break;
     case 'closeScanner': closeScanner(); break;

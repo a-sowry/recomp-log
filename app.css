@@ -848,3 +848,5 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .row.label-cta { gap: 10px; }
 .banner.ok-soft { background: var(--sunk); border-left: 4px solid #2E9E5B; }
 .supp-ed .grid2 label .muted { font-weight: 400; }
+.day-pick { flex-wrap: nowrap; gap: 4px; }
+.day-pick button { flex: 1; min-width: 0; padding: 8px 0; }
