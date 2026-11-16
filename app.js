@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 66; // keep in step with VERSION in sw.js
+const APP_VERSION = 67; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1088,11 +1088,12 @@ function viewTrain() {
   const seg = `<div class="seg" role="group" aria-label="Session">${[...splitDays(), 'Custom', 'Rest'].map(d => `<button data-act="trainDay" data-v="${d}" aria-pressed="${S.trainDay === d}">${d}</button>`).join('')}</div>`;
   if (S.trainDay === 'Rest') {
     const day = S.days[S.date];
-    return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${seg}</section>
+    return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${seg}<div class="small muted day-hint">Training today after all? Pick a day above, or tap <button type="button" class="linkbtn" data-act="trainDay" data-v="Custom">Custom</button> for CrossFit, a class or anything else.</div></section>
     ${splitDays().length ? '' : `<div class="card" style="display:grid;gap:8px"><b>No training split set up yet.</b><div class="small muted">Build your own split in Settings: name your days, pick which weekdays they're on, and add exercises. Or tap Custom to log any session.</div><div><button class="btn sm" data-act="openSplit">Set up my split</button></div></div>`}
     <div class="card empty"><b>Rest day.</b>Log abs, cardio, swims and hikes under Food → Steps &amp; cardio. ${day?.cardio?.length ? `Logged today: ${day.cardio.map(c => esc(c.type)).join(', ')}.` : ''}<div style="margin-top:10px"><button class="btn ghost" data-act="tab" data-v="today">Go to steps &amp; cardio</button></div></div>`;
   }
-  const segH = seg + (DAY_HINTS[S.trainDay] ? `<div class="small muted day-hint">${S.trainDay}: ${DAY_HINTS[S.trainDay].toLowerCase()}</div>` : '');
+  const customTip = S.trainDay === 'Custom' ? `<div class="small muted day-hint">Custom: build any session. Add exercises, or a WOD for CrossFit and classes.</div>` : `<div class="small muted day-hint">Doing CrossFit, a class or something different today? Tap <button type="button" class="linkbtn" data-act="trainDay" data-v="Custom">Custom</button>.</div>`;
+  const segH = seg + (DAY_HINTS[S.trainDay] ? `<div class="small muted day-hint">${S.trainDay}: ${DAY_HINTS[S.trainDay].toLowerCase()}</div>` : '') + customTip;
   if (!S.loaded.sessions && navigator.onLine && !S.offlineAuth) return `<section class="sec">${segH}</section><div class="card empty">Loading your lift history…</div>`;
   const d = getDraft();
   const saved = !!S.sessions[draftKey()];
