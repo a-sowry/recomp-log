@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 68; // keep in step with VERSION in sw.js
+const APP_VERSION = 69; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1974,6 +1974,28 @@ function searchTakeaway(q) {
   return TAKEAWAY.filter(t => { const hay = norm(`${t.brand} ${t.name} ${CHAIN_ALIASES[t.brand] || ''}`); return terms.every(w => hay.includes(w)); })
     .map((t, i) => ({ t, i, s: score(t) })).sort((a, b) => b.s - a.s || a.i - b.i).map(x => x.t).slice(0, 40);
 }
+/* ---------- typical dishes: estimates for eat-out meals with no published nutrition (banh mi, pad thai, parma…) ---------- */
+// [name, group, regular serve, kcal, protein, carbs, fat, extra search words]. Typical Australian takeaway and café
+// portions built from standard recipes; calories are worked out from the macros (4/4/9). Sizes scale everything.
+const DISHES = [["Banh mi, pork", "Vietnamese", "1 roll", 540, 25, 65, 20, "pork roll vietnamese bread"], ["Banh mi, chicken", "Vietnamese", "1 roll", 475, 28, 62, 13, "chicken roll vietnamese bread"], ["Pho, beef", "Vietnamese", "1 bowl", 470, 30, 60, 12, "noodle soup"], ["Rice paper rolls", "Vietnamese", "2 rolls", 220, 12, 34, 4, "fresh spring rolls"], ["Vermicelli bowl, lemongrass chicken", "Vietnamese", "1 bowl", 590, 32, 80, 16, "bun noodle salad"], ["Pad thai, chicken", "Thai", "1 plate", 730, 30, 90, 28, "noodles"], ["Pad see ew", "Thai", "1 plate", 685, 28, 85, 26, "noodles"], ["Green curry, chicken, with rice", "Thai", "1 plate", 795, 32, 90, 34, "thai curry"], ["Massaman beef curry, with rice", "Thai", "1 plate", 880, 35, 95, 40, "thai curry"], ["Thai fried rice", "Thai", "1 plate", 645, 22, 85, 24, ""], ["Laksa, chicken", "Malaysian", "1 bowl", 745, 32, 60, 42, "curry noodle soup"], ["Nasi goreng", "Indonesian", "1 plate", 690, 24, 85, 28, "fried rice"], ["Sushi hand roll", "Japanese", "1 roll", 225, 9, 38, 4, "sushi"], ["Sushi train plate (2 nigiri)", "Japanese", "1 plate", 90, 5, 15, 1, "sushi nigiri"], ["Poke bowl, salmon", "Japanese", "1 bowl", 625, 32, 75, 22, "poké"], ["Teriyaki chicken bowl", "Japanese", "1 bowl", 675, 38, 90, 18, "donburi rice"], ["Chicken katsu curry, with rice", "Japanese", "1 plate", 925, 35, 120, 34, "curry"], ["Ramen, tonkotsu", "Japanese", "1 bowl", 840, 35, 85, 40, "noodle soup pork"], ["Special fried rice", "Chinese", "1 container", 685, 22, 95, 24, "chinese takeaway"], ["Sweet and sour pork, with rice", "Chinese", "1 plate", 940, 28, 140, 30, "chinese takeaway"], ["Dumplings, steamed", "Chinese", "6 dumplings", 350, 18, 36, 15, "dim sum"], ["Dumplings, pan-fried", "Chinese", "6 dumplings", 415, 18, 38, 21, "potstickers gyoza"], ["Butter chicken, with rice", "Indian", "1 plate", 835, 38, 85, 38, "curry"], ["Chicken tikka masala, with rice", "Indian", "1 plate", 780, 38, 85, 32, "curry"], ["Chicken biryani", "Indian", "1 plate", 735, 35, 90, 26, "rice"], ["Naan bread", "Indian", "1 naan", 300, 9, 50, 7, "garlic naan"], ["Burrito, chicken", "Mexican", "1 burrito", 830, 45, 100, 28, "wrap"], ["Burrito bowl, chicken", "Mexican", "1 bowl", 630, 42, 70, 20, ""], ["Tacos, beef or chicken", "Mexican", "2 tacos", 395, 22, 36, 18, ""], ["Nachos, beef", "Mexican", "1 plate", 995, 38, 85, 56, "corn chips"], ["Quesadilla, chicken", "Mexican", "1 quesadilla", 640, 38, 50, 32, ""], ["Kebab / doner wrap, chicken", "Middle Eastern", "1 wrap", 730, 40, 70, 32, "kebab yiros gyros"], ["Halal snack pack (HSP)", "Middle Eastern", "1 pack", 1290, 55, 110, 70, "hsp chips kebab meat"], ["Falafel wrap", "Middle Eastern", "1 wrap", 645, 18, 80, 28, "vegetarian"], ["Souvlaki, lamb", "Greek", "1 wrap", 685, 35, 60, 34, "gyros yiros"], ["Gozleme, spinach and cheese", "Turkish", "1 gozleme", 545, 22, 60, 24, ""], ["Chicken parmigiana, with chips and salad", "Pub", "1 meal", 1275, 70, 100, 66, "parma parmy schnitzel"], ["Chicken schnitzel (no sides)", "Pub", "1 schnitzel", 645, 50, 35, 34, "schnitty"], ["Fish and chips, battered", "Takeaway", "1 meal", 990, 35, 100, 50, "fish n chips"], ["Burger, beef with cheese", "Pub", "1 burger", 730, 38, 55, 40, "cheeseburger"], ["Burger with chips", "Pub", "1 meal", 1130, 42, 110, 58, "cheeseburger fries"], ["Steak sandwich", "Pub", "1 sandwich", 730, 42, 60, 36, ""], ["Steak and chips", "Pub", "1 meal", 990, 70, 60, 52, "rump scotch fillet"], ["Roast with vegetables", "Pub", "1 plate", 780, 50, 60, 38, "roast pork beef lamb"], ["Hot chips", "Takeaway", "1 serve", 440, 6, 55, 22, "fries chips"], ["Charcoal chicken, quarter, with chips", "Takeaway", "1 meal", 895, 50, 70, 46, "chicken shop"], ["Meat pie", "Bakery", "1 pie", 445, 15, 38, 26, "pie"], ["Sausage roll", "Bakery", "1 roll", 395, 11, 32, 25, ""], ["Bacon and egg roll", "Café", "1 roll", 440, 25, 40, 20, "brekky roll"], ["Smashed avo on toast, with feta", "Café", "1 plate", 495, 16, 45, 28, "avocado toast"], ["Eggs benedict, with bacon", "Café", "1 plate", 695, 32, 40, 45, "eggs benny"], ["Big breakfast", "Café", "1 plate", 980, 50, 60, 60, "brekky fry up"], ["Açaí bowl", "Café", "1 bowl", 540, 9, 85, 18, "acai smoothie bowl"], ["Banana bread, with butter", "Café", "1 slice", 450, 7, 60, 20, ""], ["Toasted ham and cheese sandwich", "Café", "1 sandwich", 440, 25, 40, 20, "toastie jaffle"], ["Chicken caesar wrap", "Café", "1 wrap", 590, 35, 45, 30, "wrap"], ["Chicken salad", "Café", "1 bowl", 445, 35, 20, 25, "salad"], ["Muffin", "Café", "1 muffin", 450, 7, 58, 21, "blueberry choc"], ["Croissant, plain", "Café", "1 croissant", 280, 6, 30, 15, ""], ["Pizza slice, meat lovers", "Pizza", "1 large slice", 295, 13, 32, 13, "pizza"], ["Pizza slice, margherita", "Pizza", "1 large slice", 230, 10, 30, 8, "pizza cheese"], ["Spaghetti bolognese", "Italian", "1 plate", 735, 35, 90, 26, "pasta spag bol"], ["Carbonara", "Italian", "1 plate", 890, 32, 85, 47, "pasta"], ["Lasagne", "Italian", "1 serve", 645, 35, 45, 36, "lasagna pasta"], ["Mushroom risotto", "Italian", "1 plate", 690, 16, 85, 32, "rice"], ["Hot dog", "Takeaway", "1 hot dog", 350, 12, 30, 20, ""], ["Gelato, 2 scoops", "Dessert", "1 cup", 295, 5, 42, 12, "ice cream"], ["Bubble tea, milk tea with pearls", "Drinks", "1 regular", 355, 3, 65, 9, "boba"]].map(([name, group, serve, kcal, p, c, f, al]) => ({ name, group, serve, kcal, p, c, f, al }));
+const DISH_SIZES = [['sm', 'Small', 0.75], ['reg', 'Regular', 1], ['lg', 'Large', 1.3]];
+function searchDishes(q) {
+  const norm = x => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['’]/g, '');
+  const terms = norm(q).split(/\s+/).filter(Boolean); if (!terms.length) return [];
+  return DISHES.filter(d => { const hay = norm(`${d.name} ${d.group} ${d.al}`); return terms.every(w => hay.includes(w)); })
+    .sort((a, b) => (norm(b.name).startsWith(terms[0]) - norm(a.name).startsWith(terms[0]))).slice(0, 12);
+}
+function dishPanel(d, build) {
+  const sz = DISH_SIZES.find(x => x[0] === (S.search.size || 'reg')); const q = S.search.qty || 1; const k = sz[2] * q; const x = v => r0(v * k);
+  return `<div class="scan-result">
+    <div><div class="t">${esc(d.name)}</div><div class="small muted">${esc(d.group)} · estimate · regular is ${esc(d.serve)}</div></div>
+    <div class="f"><span class="small muted">Size</span><div class="seg">${DISH_SIZES.map(([id, l]) => `<button type="button" data-act="dishSize" data-v="${id}" aria-pressed="${sz[0] === id}">${l}</button>`).join('')}</div></div>
+    <div class="formrow"><div class="f"><span class="small muted">How many</span><div class="stepper"><button type="button" data-act="taQty" data-d="-0.5" aria-label="Less">−</button><span>${q}×</span><button type="button" data-act="taQty" data-d="0.5" aria-label="More">+</button></div></div>
+      ${build ? '' : `<label class="f">Meal<select id="sc_slot">${SLOTS.map(s => `<option ${s === guessSlot() ? 'selected' : ''}>${s}</option>`).join('')}</select></label>`}</div>
+    <div class="chips"><span class="chip k">${x(d.kcal)} kcal</span><span class="chip p">P ${x(d.p)}</span><span class="chip c">C ${x(d.c)}</span><span class="chip f">F ${x(d.f)}</span></div>
+    <div><button type="button" class="btn" data-act="${build ? 'buildAddDish' : 'dishAdd'}">${build ? 'Add to meal' : 'Add to log'}</button></div>
+    <div class="small muted">A typical version of this dish, so yours could be a bit more or less depending on the shop, the portion and the sauces. Pick Large if it was a big serve or extra saucy.</div></div>`;
+}
 function takeawayPanel(t, build) {
   const q = S.search.qty || 1; const x = v => r0(v * q);
   return `<div class="scan-result">
@@ -1987,7 +2009,7 @@ function takeawayPanel(t, build) {
 
 function searchRows() {
   const s = S.search; const q = (s.q || '').trim();
-  if (!q) return `<div class="empty small">Type a food, like "banana", "rump steak", "Big Mac" or a brand name. Common foods and takeaway show straight away. Press Search for packaged foods.</div>${CHAINS.length ? `<div class="slotlabel">Takeaway</div><div class="chips chain-chips">${CHAINS.map(c => `<button type="button" class="chip k chipbtn" data-act="searchChain" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''}`;
+  if (!q) return `<div class="empty small">Type a food, like "banana", "banh mi", "Big Mac" or a brand name. Common foods and takeaway show straight away. Press Search for packaged foods.</div>${CHAINS.length ? `<div class="slotlabel">Takeaway</div><div class="chips chain-chips">${CHAINS.map(c => `<button type="button" class="chip k chipbtn" data-act="searchChain" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''}`;
   const common = searchCommon(q); const ta = searchTakeaway(q);
   const row = (f, i, src) => {
     const g = f.serving || 100; const k = g / 100;
@@ -1998,6 +2020,10 @@ function searchRows() {
   let h = ta.length ? `<div class="slotlabel">Takeaway</div>${ta.map((t, i) => `<div class="row"><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="small muted">${esc(t.brand)} · 1 serve</div>
       <div class="chips"><span class="chip k">${r0(t.kcal)} kcal</span><span class="chip p">P ${r0(t.p)}</span><span class="chip c">C ${r0(t.c)}</span><span class="chip f">F ${r0(t.f)}</span></div></div>
       <button type="button" class="btn sm" data-act="searchPick" data-src="ta" data-i="${i}">Add</button></div>`).join('')}` : '';
+  const dishes = searchDishes(q);
+  if (dishes.length) h += `<div class="slotlabel">Eating out <span class="aside">· typical dishes, estimates</span></div>${dishes.map((d, i) => `<div class="row"><div style="min-width:0"><div class="t">${esc(d.name)}</div><div class="small muted">${esc(d.group)} · ${esc(d.serve)} · estimate</div>
+      <div class="chips"><span class="chip k">${r0(d.kcal)} kcal</span><span class="chip p">P ${r0(d.p)}</span><span class="chip c">C ${r0(d.c)}</span><span class="chip f">F ${r0(d.f)}</span></div></div>
+      <button type="button" class="btn sm" data-act="searchPick" data-src="dish" data-i="${i}">Add</button></div>`).join('')}`;
   h += common.length ? `<div class="slotlabel">Common foods</div>${common.map((f, i) => row(f, i, 'common')).join('')}` : '';
   if (s.commQ === q && s.comm?.length) h += `<div class="slotlabel">Added by Refyne users</div>${s.comm.map((f, i) => row(f, i, 'comm')).join('')}`;
   const offHead = `<div class="slotlabel">Packaged foods</div>`;
@@ -2006,7 +2032,7 @@ function searchRows() {
   else if (s.status === 'error') h += offHead + `<div class="empty small">Couldn't reach the food database. Try again in a moment.</div>`;
   else if (s.status === 'done' && s.offQ === q) h += offHead + (s.off.length ? s.off.map((f, i) => row(f, i, 'off')).join('') : `<div class="empty small">No packaged foods found for "${esc(q)}". Try fewer words or the brand name.</div>`);
   else h += `<div class="row"><span class="small muted">Looking for a brand or packaged food?</span><button type="button" class="btn ghost sm" data-act="searchGo">Search packaged foods</button></div>`;
-  if (!common.length && !ta.length && s.status === 'idle') h = `<div class="empty small">No common foods or takeaway match "${esc(q)}".</div>` + h;
+  if (!common.length && !ta.length && !dishes.length && s.status === 'idle') h = `<div class="empty small">No common foods or takeaway match "${esc(q)}".</div>` + h;
   if (s.status === 'done' || s.status === 'error') h += `<div class="row label-cta"><span class="small muted">Can't find it? Type it in from the packet once and everyone can find it.</span><button type="button" class="btn ghost sm" data-act="labelOpen">Add from label</button></div>`;
   return h;
 }
@@ -2014,6 +2040,7 @@ function renderSearch() { const el = document.getElementById('fs_res'); if (el) 
 function searchPanel(build) {
   const s = S.search;
   if (s.pick?.ta) return `<div class="search-panel"><div><button type="button" class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${takeawayPanel(s.pick, build)}</div>`;
+  if (s.pick?.dish) return `<div class="search-panel"><div><button type="button" class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${dishPanel(s.pick, build)}</div>`;
   if (S.label && S.label.from !== 'scan') return `<div class="search-panel">${labelForm(build)}</div>`;
   if (s.pick) return `<div class="search-panel"><div><button type="button" class="linkbtn" data-act="searchBack">‹ Back to results</button></div>${productPanel(S.scan, s.pick.common ? 'common' : s.pick.community ? 'community' : 'off', build)}</div>`;
   return `<div class="search-panel">
@@ -3702,6 +3729,16 @@ document.addEventListener('click', async e => {
     case 'searchGo': searchOFF(document.getElementById('fs_q')?.value || S.search.q); break;
     case 'searchChain': { S.search.q = b.dataset.v; S.search.status = 'idle'; const inp = document.getElementById('fs_q'); if (inp) inp.value = b.dataset.v; renderSearch(); break; }
     case 'taQty': S.search.qty = Math.max(0.5, Math.min(10, (S.search.qty || 1) + Number(b.dataset.d))); render(); break;
+    case 'dishSize': S.search.size = b.dataset.v; render(); break;
+    case 'dishAdd': {
+      const d = S.search.pick; if (!d?.dish) break; const sz = DISH_SIZES.find(x => x[0] === (S.search.size || 'reg')); const q = S.search.qty || 1; const k = sz[2];
+      const day = localDay(S.date); day.meals.push({ id: uid(), name: `${d.name}${sz[0] === 'reg' ? '' : ' (' + sz[1].toLowerCase() + ')'}`, slot: document.getElementById('sc_slot')?.value || guessSlot(), servings: q, kcal: r0(d.kcal * k), p: r1(d.p * k), c: r1(d.c * k), f: r1(d.f * k), estimate: true });
+      saveDay(S.date, day); S.search.pick = null; S.search.qty = 1; S.search.size = 'reg'; render(); toast(`Added ${d.name}`); break;
+    }
+    case 'buildAddDish': {
+      const d = S.search.pick; if (!d?.dish) break; const sz = DISH_SIZES.find(x => x[0] === (S.search.size || 'reg')); const q = S.search.qty || 1; const k = sz[2];
+      buildAddItem(itemCalc({ name: `${d.name}${sz[0] === 'reg' ? '' : ' (' + sz[1].toLowerCase() + ')'}`, q, each: { kcal: d.kcal * k, p: d.p * k, c: d.c * k, f: d.f * k } })); break;
+    }
     case 'taAdd': {
       const t = S.search.pick; if (!t?.ta) break; const q = S.search.qty || 1;
       const day = localDay(S.date); day.meals.push({ id: uid(), name: `${t.name} (${t.brand})`, slot: document.getElementById('sc_slot')?.value || guessSlot(), servings: q, kcal: t.kcal, p: t.p, c: t.c, f: t.f, takeaway: true });
@@ -3709,6 +3746,7 @@ document.addEventListener('click', async e => {
     }
     case 'searchPick': {
       if (b.dataset.src === 'ta') { const t = searchTakeaway(S.search.q)[+b.dataset.i]; if (!t) break; S.search.pick = { ...t, ta: true }; S.search.qty = 1; render(); break; }
+      if (b.dataset.src === 'dish') { const d = searchDishes(S.search.q)[+b.dataset.i]; if (!d) break; S.search.pick = { ...d, dish: true }; S.search.qty = 1; S.search.size = 'reg'; render(); break; }
       const f = b.dataset.src === 'common' ? searchCommon(S.search.q)[+b.dataset.i] : b.dataset.src === 'comm' ? S.search.comm?.[+b.dataset.i] : S.search.off[+b.dataset.i]; if (!f) break;
       const prod = { ...f, nut: f.nut || (f.key ? nutFromKey(f.key) : null) };
       S.search.pick = prod; S.scan = { code: f.code || '', status: 'found', product: prod, grams: f.serving || 100, from: 'search' }; render(); break;
