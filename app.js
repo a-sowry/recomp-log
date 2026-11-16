@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 61; // keep in step with VERSION in sw.js
+const APP_VERSION = 62; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -2898,7 +2898,14 @@ function waterSettings() {
 }
 
 /* ---------- streaks ---------- */
-const WEEK_GOAL = 3;
+// Workouts a week to aim for: your own number if you've set one, otherwise the training days in your split,
+// otherwise what you said in setup (2–3 days → 3, 4–5 → 4, 6+ → 5).
+function weekGoalAuto() {
+  const sp = Array.isArray(S.config?.split) ? S.config.split : null; const n = sp ? new Set(sp.flatMap(d => d.wd || [])).size : 0;
+  if (n) return Math.min(7, n);
+  return { low: 2, light: 3, mod: 4, high: 5 }[S.config?.profile?.activity] || 3;
+}
+function weekGoal() { const g = +S.config?.weekGoal; return g >= 1 && g <= 7 ? g : weekGoalAuto(); }
 function loggedDates() {
   const set = new Set();
   for (const d of Object.values(S.days)) if (d.meals?.length || d.cardio?.length || d.supps?.length || d.water) set.add(d.date);
@@ -2914,14 +2921,14 @@ function streakStats() {
   for (const x of sorted) { run = prev && addDays(prev, 1) === x ? run + 1 : 1; best = Math.max(best, run); prev = x; }
   const wk = ws => Object.values(S.sessions).filter(s => s.source !== 'spreadsheet' && s.exercises?.length && s.date >= ws && s.date <= addDays(ws, 6)).length;
   const thisWs = weekStart(today); const thisWeek = wk(thisWs);
-  let weeks = thisWeek >= WEEK_GOAL ? 1 : 0; let w = addDays(thisWs, -7);
-  while (wk(w) >= WEEK_GOAL) { weeks++; w = addDays(w, -7); }
+  let weeks = thisWeek >= weekGoal() ? 1 : 0; let w = addDays(thisWs, -7);
+  while (wk(w) >= weekGoal()) { weeks++; w = addDays(w, -7); }
   return { cur, best, todayLogged: set.has(today), thisWeek, weeks };
 }
 function streakChips() {
   const s = streakStats();
   return `<div class="streaks"><span class="streak-chip"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 3 4 4.5 4 8.5A4 4 0 0 1 8 11.5c0-1.6.8-2.6 1.6-3.3C9.8 10 11 10.5 11 10.5 10.4 7 12 5 12 3z"/><path d="M12 21a6 6 0 0 0 6-6c0-1.5-.4-2.7-1-3.7"/><path d="M6.9 11.6A6 6 0 0 0 12 21"/></svg>${s.cur}-day streak</span>
-    <span class="streak-chip">${s.thisWeek}/${WEEK_GOAL} workouts this week</span></div>`;
+    <span class="streak-chip">${s.thisWeek}/${weekGoal()} workouts this week</span></div>`;
 }
 
 /* ---------- garden: bloom history + Garden tab ---------- */
@@ -3026,11 +3033,11 @@ function viewGardenRest() {
       </div>
       <div class="small">${s.cur === 0 ? 'Log anything today to start a streak.' : s.todayLogged ? `You've logged today. Come back tomorrow for day ${s.cur + 1}.` : `Log something today to keep your ${s.cur}-day streak going.`}</div>
     </section>
-    <section class="sec"><h2>Workout goal <span class="aside">${s.thisWeek} of ${WEEK_GOAL} this week</span></h2>
+    <section class="sec"><h2>Workout goal <span class="aside">${s.thisWeek} of ${weekGoal()} this week</span></h2>
       <div class="card" style="display:grid;gap:10px">
         <div class="weekdots">${dots}</div>
         <div class="legend"><span><i style="background:var(--btn)"></i>Workout</span><span><i style="background:var(--sunk);border:1px solid var(--line)"></i>Logged</span></div>
-        <div class="small">${s.weeks ? `${s.weeks} week${s.weeks > 1 ? 's' : ''} in a row with ${WEEK_GOAL}+ workouts.` : `Hit ${WEEK_GOAL} workouts in a week to start a weekly streak.`}</div>
+        <div class="small">${s.weeks ? `${s.weeks} week${s.weeks > 1 ? 's' : ''} in a row with ${weekGoal()}+ workouts.` : `Hit ${weekGoal()} workouts in a week to start a weekly streak.`}</div>
       </div></section>
     <section class="sec"><h2>${gm().section} <span class="aside">${g.toNext} points ${gm().next}</span></h2>
       ${gardenScene()}
@@ -3138,6 +3145,8 @@ function growSettings() {
   const soft = softTheme(); const kind = growKind(); const M = gm();
   return `<div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Grow something</div>
       <div class="small muted">Something on the Food tab that grows as you log, and fastest when you work out. Finished ones go to their own tab.</div>
+      <div class="f"><span>Weekly workout goal</span><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="stepper"><button type="button" data-act="weekGoal" data-d="-1" aria-label="Fewer">−</button><span>${weekGoal()}</span><button type="button" data-act="weekGoal" data-d="1" aria-label="More">+</button></div>
+        <span class="small muted">${S.config?.weekGoal ? `<button type="button" class="linkbtn" data-act="weekGoal" data-d="auto">Match my split (${weekGoalAuto()})</button>` : 'Matches your training split'}</span></div></div>
       <div class="seg" role="group" aria-label="Show it">
         <button type="button" data-act="garden" data-v="on" aria-pressed="${gardenOn()}">Show</button>
         <button type="button" data-act="garden" data-v="off" aria-pressed="${!gardenOn()}">Hide</button>
@@ -3384,6 +3393,7 @@ document.addEventListener('click', async e => {
     case 'bonsaiSp': { const cfg = cfgCopy(); cfg.bonsai = b.dataset.v; saveConfig(cfg); openSettings(); toast(`${BONSAI[b.dataset.v].name} it is`); break; }
     case 'carStyle': { const cfg = cfgCopy(); cfg[CAR_STYLES[b.dataset.v].soft ? 'carSoft' : 'car'] = b.dataset.v; saveConfig(cfg); openSettings(); toast(`Building a ${CAR_STYLES[b.dataset.v].name}`); break; }
     case 'grow': { const cfg = cfgCopy(); cfg[softTheme() ? 'growSoft' : 'grow'] = b.dataset.v; saveConfig(cfg); openSettings(); toast(b.dataset.v === 'car' ? 'New build started in the garage' : b.dataset.v === 'bonsai' ? 'Bonsai planted' : 'Flower planted'); break; }
+    case 'weekGoal': { const cfg = cfgCopy(); if (b.dataset.d === 'auto') delete cfg.weekGoal; else cfg.weekGoal = Math.min(7, Math.max(1, weekGoal() + Number(b.dataset.d))); saveConfig(cfg); openSettings(); break; }
     case 'garden': {
       const cfg = JSON.parse(JSON.stringify(S.config || {})); cfg.garden = b.dataset.v === 'on'; saveConfig(cfg); openSettings(); break;
     }
