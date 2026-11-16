@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 65; // keep in step with VERSION in sw.js
+const APP_VERSION = 66; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1137,7 +1137,7 @@ function viewTrain() {
     ${customHead}
     ${cards}
     <div class="add-ex-row">${picker}<button class="btn ghost" data-act="addEx">+ Add ${picker ? 'a new ' : 'an '}exercise</button></div>
-    <div class="add-ex-row"><button class="btn ghost" data-act="wodAdd">${d.wods.length ? '+ Add another WOD part' : '+ Add a WOD (CrossFit-style: for time, AMRAP, EMOM)'}</button></div>
+    ${d.wods.length ? '' : `<div class="add-ex-row"><button class="btn ghost" data-act="wodAdd">+ Add a WOD (CrossFit-style: for time, AMRAP, EMOM)</button></div>`}
     <label class="f">Session notes<textarea id="sessNote" data-f="note">${esc(d.note)}</textarea></label>
     ${saved ? (S.confirmSession ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Delete this ${custom ? (d.title || 'custom') : S.trainDay} session? <button class="btn danger sm" data-act="delSession">Delete</button><button class="btn ghost sm" data-act="cancelDelSession">Keep it</button></div>` : `<div><button class="linkbtn" style="color:var(--red)" data-act="askDelSession">Delete this session</button></div>`) : ''}
     <div class="savebar${S.config?.timerHidden ? ' no-timer' : ''}">
