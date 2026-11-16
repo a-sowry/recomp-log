@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 67; // keep in step with VERSION in sw.js
+const APP_VERSION = 68; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -273,6 +273,21 @@ function showSetup(msg) {
     <p class="small muted">Find both in Supabase under Project Settings → API.</p>
   </form>`);
 }
+// "Add to home screen" help on the sign-in page, for the phone they're on. Hidden once it's opened from the home screen.
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; const b = document.getElementById('installBtn'); if (b) b.hidden = false; });
+function isInstalled() { return window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true; }
+function installHelp() {
+  if (isInstalled()) return '';
+  const ua = navigator.userAgent; const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); const android = /Android/.test(ua);
+  const iosSteps = `<ol class="install-steps"><li>Open <b>refynefit.net</b> in <b>Safari</b>.</li><li>Tap the <b>Share</b> button <span class="share-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 11v9h14v-9"/></svg></span> at the bottom of the screen.</li><li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open Refyne from your home screen and sign in there.</li></ol>`;
+  const andSteps = `<ol class="install-steps"><li>Open <b>refynefit.net</b> in <b>Chrome</b>.</li><li>Tap the <b>⋮</b> menu in the top corner.</li><li>Tap <b>Install app</b> or <b>Add to Home screen</b>, then confirm.</li><li>Open Refyne from your home screen and sign in there.</li></ol>`;
+  return `<details class="install-help"${lsGet('rl:lastUser') ? '' : ' open'}><summary>Add Refyne to your home screen</summary>
+    <div class="small">Refyne is a web app: no App Store needed. Added to your home screen, it opens full screen like a normal app and keeps you signed in.</div>
+    <button type="button" class="btn sm" id="installBtn" data-act="installApp"${installPrompt ? '' : ' hidden'}>Install Refyne</button>
+    ${ios ? iosSteps : android ? andSteps : `<div class="small"><b>On iPhone:</b></div>${iosSteps}<div class="small"><b>On Android:</b></div>${andSteps}`}
+  </details>`;
+}
 function showLogin(msg, email, mode = 'in', note = '') {
   const last = lsGet('rl:lastUser'); const em = esc(email || last?.email || '');
   const emailField = `<label class="f">Email<input type="email" id="li_email" autocomplete="username" autocapitalize="off" value="${em}" required></label>`;
@@ -286,14 +301,14 @@ function showLogin(msg, email, mode = 'in', note = '') {
     <label class="tick"><input type="checkbox" id="li_ok" required> I understand Refyne isn't medical advice, and I agree to it storing my logs and progress photos as described below</label>
     <details class="privacy"><summary>Privacy and disclaimer</summary>${PRIVACY_HTML}</details>
     <button class="btn" type="submit" id="li_btn">Create account</button>
-    <div class="small">Already have an account? <button class="linkbtn" type="button" data-act="authMode" data-v="in">Sign in</button></div>`;
+    <div class="small">Already have an account? <button class="linkbtn" type="button" data-act="authMode" data-v="in">Sign in</button></div>${installHelp()}`;
   else if (mode === 'reset') body = `<p>Enter your email and we'll send you a link to set a new password.</p>${err}${ok}${emailField}
     <button class="btn" type="submit" id="li_btn">Send reset link</button>
     <div class="small"><button class="linkbtn" type="button" data-act="authMode" data-v="in">Back to sign in</button></div>`;
   else body = `<p>Sign in or create your account.</p>${err}${ok}${emailField}
     <label class="f">Password<input type="password" id="li_pw" autocomplete="current-password" required></label>
     <button class="btn" type="submit" id="li_btn">Sign in</button>
-    <div class="small" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>New here? <button class="linkbtn" type="button" data-act="authMode" data-v="up">Create an account</button></span><button class="linkbtn muted" type="button" data-act="authMode" data-v="reset">Forgot password?</button></div>`;
+    <div class="small" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>New here? <button class="linkbtn" type="button" data-act="authMode" data-v="up">Create an account</button></span><button class="linkbtn muted" type="button" data-act="authMode" data-v="reset">Forgot password?</button></div>${installHelp()}`;
   showGate(`<form class="gatebox" id="loginForm" data-mode="${mode}">
     <div class="brand big"><span class="plate" aria-hidden="true"></span>Refyne</div>
     ${body}
@@ -396,6 +411,7 @@ gate.addEventListener('submit', async e => {
 gate.addEventListener('click', e => {
   if (e.target.closest('[data-act="resetConn"]')) { lsSet('rl:sbUrl', null); lsSet('rl:sbKey', null); location.reload(); }
   const am = e.target.closest('[data-act="authMode"]'); if (am) { showLogin('', document.getElementById('li_email')?.value.trim(), am.dataset.v); }
+  if (e.target.closest('[data-act="installApp"]') && installPrompt) { installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; const b = document.getElementById('installBtn'); if (b) b.hidden = true; }); }
 });
 
 /* ---------- backup + import ---------- */

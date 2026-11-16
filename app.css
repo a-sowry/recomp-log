@@ -871,3 +871,9 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .wod-clock { font-family: var(--font-display); font-weight: 700; font-size: 34px; font-variant-numeric: tabular-nums; min-width: 92px; }
 .wod-move input { padding-left: 8px; padding-right: 6px; }
 .wod-more { justify-self: start; margin-top: 4px; }
+/* sign-in: add to home screen */
+.install-help { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; display: grid; gap: 8px; background: var(--surface); }
+.install-help summary { font-weight: 700; cursor: pointer; }
+.install-help[open] { gap: 10px; }
+.install-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.4; }
+.share-ico svg { width: 16px; height: 16px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
