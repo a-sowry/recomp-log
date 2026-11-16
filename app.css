@@ -870,3 +870,4 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .wod-timer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--sunk); border-radius: 12px; padding: 10px 12px; }
 .wod-clock { font-family: var(--font-display); font-weight: 700; font-size: 34px; font-variant-numeric: tabular-nums; min-width: 92px; }
 .wod-move input { padding-left: 8px; padding-right: 6px; }
+.wod-more { justify-self: start; margin-top: 4px; }

@@ -81,7 +81,7 @@ function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2200);
 }
-const APP_VERSION = 64; // keep in step with VERSION in sw.js
+const APP_VERSION = 65; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1137,7 +1137,7 @@ function viewTrain() {
     ${customHead}
     ${cards}
     <div class="add-ex-row">${picker}<button class="btn ghost" data-act="addEx">+ Add ${picker ? 'a new ' : 'an '}exercise</button></div>
-    <div class="add-ex-row"><button class="btn ghost" data-act="wodAdd">+ Add a WOD (CrossFit-style: for time, AMRAP, EMOM)</button></div>
+    <div class="add-ex-row"><button class="btn ghost" data-act="wodAdd">${d.wods.length ? '+ Add another WOD part' : '+ Add a WOD (CrossFit-style: for time, AMRAP, EMOM)'}</button></div>
     <label class="f">Session notes<textarea id="sessNote" data-f="note">${esc(d.note)}</textarea></label>
     ${saved ? (S.confirmSession ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Delete this ${custom ? (d.title || 'custom') : S.trainDay} session? <button class="btn danger sm" data-act="delSession">Delete</button><button class="btn ghost sm" data-act="cancelDelSession">Keep it</button></div>` : `<div><button class="linkbtn" style="color:var(--red)" data-act="askDelSession">Delete this session</button></div>`) : ''}
     <div class="savebar${S.config?.timerHidden ? ' no-timer' : ''}">
@@ -1261,7 +1261,7 @@ function wodLast(w) { // last result for a named WOD of the same type
   for (const [k, sx] of Object.entries(S.sessions).sort((a, b) => a[1].date < b[1].date ? 1 : -1)) { if (k === draftKey()) continue; const hit = (sx.wods || []).find(x => (x.name || '').toLowerCase() === nm && x.type === w.type && x.result); if (hit) return { date: sx.date, w: hit }; }
   return null;
 }
-function wodCard(w, wi) {
+function wodCard(w, wi, all) {
   const T = WOD_TYPES[w.type]; const v = x => esc(x ?? ''); const last = wodLast(w);
   const numIn = (f, val, lbl, extra = '') => `<label class="f">${lbl}<input type="number" inputmode="numeric" min="0" data-wf="${f}" data-w="${wi}" value="${v(val)}" id="w${wi}_${f}"${extra}></label>`;
   const setup = w.type === 'amrap' ? numIn('cap', w.cap, 'Time cap (minutes)') : w.type === 'emom' ? numIn('mins', w.mins, 'How many minutes') : w.type === 'rounds' ? numIn('rounds', w.rounds, 'Rounds to do') : numIn('cap', w.cap, 'Time cap, minutes (optional)');
@@ -1277,8 +1277,8 @@ function wodCard(w, wi) {
         ${tm ? `<button type="button" class="btn sm" data-act="wodTimerStop">${w.type === 'fortime' || w.type === 'rounds' ? 'Stop and use time' : 'Stop'}</button>` : `<button type="button" class="btn sm" data-act="wodTimerStart" data-w="${wi}">Start</button>`}
         <button type="button" class="linkbtn muted" data-act="wodTimerHide" data-w="${wi}">Hide timer</button></div>`;
   return `<div class="card wod">
-    <div class="wod-head"><span class="wod-tag">WOD · ${T.label}</span><button type="button" class="linkbtn muted" style="margin-left:auto" data-act="wodDel" data-w="${wi}">Remove</button></div>
-    <input type="text" class="wod-name" data-wf="name" data-w="${wi}" value="${v(w.name)}" placeholder="Name it (optional), e.g. Fran, Murph, Tuesday class" aria-label="WOD name" id="w${wi}_name" maxlength="60">
+    <div class="wod-head"><span class="wod-tag">${all.length > 1 ? `WOD part ${wi + 1}` : 'WOD'} · ${T.label}</span><button type="button" class="linkbtn muted" style="margin-left:auto" data-act="wodDel" data-w="${wi}">Remove</button></div>
+    <input type="text" class="wod-name" data-wf="name" data-w="${wi}" value="${v(w.name)}" placeholder="Name (optional), e.g. Fran" aria-label="WOD name" id="w${wi}_name" maxlength="60">
     <div class="seg" role="group" aria-label="WOD type">${Object.entries(WOD_TYPES).map(([k, x]) => `<button type="button" data-act="wodType" data-w="${wi}" data-v="${k}" aria-pressed="${w.type === k}">${x.label}</button>`).join('')}</div>
     <div class="small muted">${T.help}</div>
     ${last ? `<div class="last">Last time (${fmtDay(last.date, { day: 'numeric', month: 'short' })}): ${esc(wodResultText(last.w))}</div>` : ''}
@@ -1291,6 +1291,7 @@ function wodCard(w, wi) {
     ${res}
     <div class="seg" role="group" aria-label="Rx or scaled"><button type="button" data-act="wodRx" data-w="${wi}" data-v="rx" aria-pressed="${w.rx !== 'scaled'}">Rx (as written)</button><button type="button" data-act="wodRx" data-w="${wi}" data-v="scaled" aria-pressed="${w.rx === 'scaled'}">Scaled</button></div>
     <input type="text" data-wf="note" data-w="${wi}" value="${v(w.note)}" placeholder="Notes, e.g. banded pull-ups, 35 kg bar" aria-label="WOD notes" id="w${wi}_note">
+    ${wi === all.length - 1 ? `<button type="button" class="btn ghost wod-more" data-act="wodAdd">+ Add another part (e.g. a second AMRAP or an EMOM)</button>` : ''}
   </div>`;
 }
 // Optional WOD timer: counts up (for time, rounds), down (AMRAP) or per minute (EMOM). Classes can ignore it.
