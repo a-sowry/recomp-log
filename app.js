@@ -76,12 +76,14 @@ function kgFmt(n) { return (Math.round(n * 100) / 100).toString(); }
 function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
 function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }
 function lsSet(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} }
-function toast(msg) {
+function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.querySelectorAll('.toast').forEach(x => x.remove());
-  const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2200);
+  const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+  if (action) { const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-act'; b.textContent = action.label; b.onclick = () => { t.remove(); action.fn(); }; t.appendChild(b); }
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 69; // keep in step with VERSION in sw.js
+const APP_VERSION = 70; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -883,7 +885,7 @@ function viewToday() {
         const mk = m.recipe ? 'R:' + m.recipe : m.food && (S.config?.foods || []).some(x => x.id === m.food) ? 'F:' + m.food : '';
         log += `<div class="row"><div style="min-width:0"${mk ? ` class="meal-open" data-act="openMeal" data-k="${mk}" role="button" tabindex="0"` : ''}><div class="t">${esc(m.name)}${mk ? ' <span class="open-hint" aria-hidden="true">›</span>' : ''}</div>
           <div class="chips"><span class="chip k">${r0(m.kcal * s)} kcal</span><span class="chip p">P ${r0(m.p * s)}</span><span class="chip c">C ${r0(m.c * s)}</span><span class="chip f">F ${r0(m.f * s)}</span></div></div>
-          <span class="rowbtns"><button class="starbtn" data-act="favToggle" data-k="L:${m.id}" aria-pressed="${isFav(m.name)}" aria-label="${isFav(m.name) ? 'Remove from' : 'Add to'} favourites">${starSVG(isFav(m.name))}</button><div class="stepper"><button data-act="serv" data-id="${m.id}" data-d="-0.5" aria-label="Less">−</button><span>${s}×</span><button data-act="serv" data-id="${m.id}" data-d="0.5" aria-label="More">+</button></div></span></div>`;
+          <span class="rowbtns"><button class="starbtn" data-act="favToggle" data-k="L:${m.id}" aria-pressed="${isFav(m.name)}" aria-label="${isFav(m.name) ? 'Remove from' : 'Add to'} favourites">${starSVG(isFav(m.name))}</button><button class="xbtn" data-act="delMeal" data-id="${m.id}" aria-label="Remove ${esc(m.name)}" title="Remove">×</button><div class="stepper"><button data-act="serv" data-id="${m.id}" data-d="-0.5" aria-label="Less"${s <= 0.5 ? ' disabled' : ''}>−</button><span>${s}×</span><button data-act="serv" data-id="${m.id}" data-d="0.5" aria-label="More">+</button></div></span></div>`;
       }
     }
   }
@@ -2017,14 +2019,14 @@ function searchRows() {
       <div class="chips"><span class="chip k">${r0(f.kcal * k)} kcal</span><span class="chip p">P ${r0(f.p * k)}</span><span class="chip c">C ${r0(f.c * k)}</span><span class="chip f">F ${r0(f.f * k)}</span></div></div>
       <button type="button" class="btn sm" data-act="searchPick" data-src="${src}" data-i="${i}">Add</button></div>`;
   };
-  let h = ta.length ? `<div class="slotlabel">Takeaway</div>${ta.map((t, i) => `<div class="row"><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="small muted">${esc(t.brand)} · 1 serve</div>
+  let h = common.length ? `<div class="slotlabel">Common foods</div>${common.map((f, i) => row(f, i, 'common')).join('')}` : '';
+  h += ta.length ? `<div class="slotlabel">Takeaway</div>${ta.map((t, i) => `<div class="row"><div style="min-width:0"><div class="t">${esc(t.name)}</div><div class="small muted">${esc(t.brand)} · 1 serve</div>
       <div class="chips"><span class="chip k">${r0(t.kcal)} kcal</span><span class="chip p">P ${r0(t.p)}</span><span class="chip c">C ${r0(t.c)}</span><span class="chip f">F ${r0(t.f)}</span></div></div>
       <button type="button" class="btn sm" data-act="searchPick" data-src="ta" data-i="${i}">Add</button></div>`).join('')}` : '';
   const dishes = searchDishes(q);
   if (dishes.length) h += `<div class="slotlabel">Eating out <span class="aside">· typical dishes, estimates</span></div>${dishes.map((d, i) => `<div class="row"><div style="min-width:0"><div class="t">${esc(d.name)}</div><div class="small muted">${esc(d.group)} · ${esc(d.serve)} · estimate</div>
       <div class="chips"><span class="chip k">${r0(d.kcal)} kcal</span><span class="chip p">P ${r0(d.p)}</span><span class="chip c">C ${r0(d.c)}</span><span class="chip f">F ${r0(d.f)}</span></div></div>
       <button type="button" class="btn sm" data-act="searchPick" data-src="dish" data-i="${i}">Add</button></div>`).join('')}`;
-  h += common.length ? `<div class="slotlabel">Common foods</div>${common.map((f, i) => row(f, i, 'common')).join('')}` : '';
   if (s.commQ === q && s.comm?.length) h += `<div class="slotlabel">Added by Refyne users</div>${s.comm.map((f, i) => row(f, i, 'comm')).join('')}`;
   const offHead = `<div class="slotlabel">Packaged foods</div>`;
   if (s.status === 'loading') h += offHead + `<div class="empty small">Searching Open Food Facts…</div>`;
@@ -2049,8 +2051,7 @@ function searchPanel(build) {
 }
 function productPanel(s, src, build) {
   const p = s.product; const g = s.grams || 100; const k = g / 100;
-  const presets = p.serving ? [p.serving, ...(p.unitLabel && !/^\d/.test(p.unitLabel) ? [p.serving * 2] : [])] : [];
-  const custom = s.custom || !presets.includes(g);
+  const custom = !p.serving || s.custom || (s.count == null && g !== p.serving); const count = s.count || 1;
   const note = src === 'common' ? 'Typical values for this food. Brands and recipes vary.' : src === 'community' || p.community ? `Added by a Refyne user from the packet label. Check it against your packet.${p.id ? ` <button type="button" class="linkbtn" data-act="prodReport" data-id="${esc(p.id)}">Numbers look wrong? Report it</button>` : ''}` : 'Nutrition from Open Food Facts. Check it against the packet if it looks off.';
   return `<div class="scan-result">
       <div><div class="t">${esc(p.name)}</div><div class="small muted">${esc([p.brand, p.size].filter(Boolean).join(' · '))}</div></div>
@@ -2059,7 +2060,8 @@ function productPanel(s, src, build) {
         ${custom ? `<label class="f">Grams (or ml)<input type="number" id="sc_g" inputmode="decimal" step="any" min="1" value="${g}"></label>` : ''}
         ${build ? '' : `<label class="f">Meal<select id="sc_slot">${SLOTS.map(x => `<option ${x === guessSlot() ? 'selected' : ''}>${x}</option>`).join('')}</select></label>`}
       </div>
-      <div class="seg">${p.serving ? `<button type="button" data-act="scanGrams" data-v="${p.serving}" aria-pressed="${!custom && g === p.serving}">${esc(p.unitLabel || '1 serve')} (${r0(p.serving)} g)</button>` : ''}${p.serving && p.unitLabel && !/^\d/.test(p.unitLabel) ? `<button type="button" data-act="scanGrams" data-v="${p.serving * 2}" aria-pressed="${!custom && g === p.serving * 2}">×2</button>` : ''}<button type="button" data-act="scanCustom" aria-pressed="${custom}">Custom amount</button></div>
+      <div class="seg">${p.serving ? `<button type="button" data-act="scanGrams" data-v="${p.serving}" aria-pressed="${!custom}">${esc(p.unitLabel || '1 serve')} (${r0(p.serving)} g)</button>` : ''}<button type="button" data-act="scanCustom" aria-pressed="${custom}">Custom amount</button></div>
+      ${!custom ? `<div class="qty-row"><span class="small muted">How many</span><div class="stepper qty"><button type="button" data-act="scanCount" data-d="-0.5" aria-label="Fewer"${count <= 0.5 ? ' disabled' : ''}>−</button><span>${count}</span><button type="button" data-act="scanCount" data-d="0.5" aria-label="More">+</button></div><span class="small muted">= ${r0(g)} g</span></div>` : ''}
       <div class="chips" id="sc_macros"><span class="chip k">${r0(p.kcal * k)} kcal</span><span class="chip p">P ${r0(p.p * k)}</span><span class="chip c">C ${r0(p.c * k)}</span><span class="chip f">F ${r0(p.f * k)}</span></div>
       ${build ? `<div><button type="button" class="btn" data-act="buildAdd">Add to meal</button></div>` : `<label class="f" style="flex-direction:row;display:flex;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="sc_save"> Save to my meal plan</label>
       <div><button class="btn" data-act="scanAdd">Add to log</button></div>`}
@@ -3537,8 +3539,13 @@ document.addEventListener('click', async e => {
     case 'serv': {
       const day = localDay(S.date); const m = day.meals.find(x => x.id === b.dataset.id); if (!m) break;
       const n = Math.round(((m.servings ?? 1) + Number(b.dataset.d)) * 2) / 2;
-      if (n <= 0) day.meals = day.meals.filter(x => x.id !== m.id); else m.servings = n;
+      if (n <= 0) break; m.servings = n;
       saveDay(S.date, day); break;
+    }
+    case 'delMeal': {
+      const date = S.date; const day = localDay(date); const i = day.meals.findIndex(x => x.id === b.dataset.id); if (i < 0) break;
+      const [gone] = day.meals.splice(i, 1); saveDay(date, day);
+      toast(`Removed ${gone.name}`, { label: 'Undo', fn: () => { const d2 = localDay(date); d2.meals.splice(Math.min(i, d2.meals.length), 0, gone); saveDay(date, d2); toast(`${gone.name} is back`); } }); break;
     }
     case 'delCardio': { const day = localDay(S.date); day.cardio = (day.cardio || []).filter(x => x.id !== b.dataset.id); saveDay(S.date, day); break; }
     case 'trainDay': {
@@ -3668,8 +3675,9 @@ document.addEventListener('click', async e => {
     case 'openScanner': openScanner(); break;
     case 'closeScanner': closeScanner(); break;
     case 'scanLookup': lookupBarcode(document.getElementById('sc_code')?.value); break;
-    case 'scanGrams': S.scan.grams = +b.dataset.v; S.scan.custom = false; render(); break;
-    case 'scanCustom': { S.scan.custom = true; render(); const el = document.getElementById('sc_g'); if (el) { el.focus(); el.select(); } break; }
+    case 'scanGrams': S.scan.grams = +b.dataset.v; S.scan.count = 1; S.scan.custom = false; render(); break;
+    case 'scanCount': { const p = S.scan.product; if (!p?.serving) break; const n = Math.min(20, Math.max(0.5, Math.round(((S.scan.count || 1) + Number(b.dataset.d)) * 2) / 2)); S.scan.count = n; S.scan.grams = Math.round(p.serving * n * 10) / 10; S.scan.custom = false; render(); break; }
+    case 'scanCustom': { S.scan.custom = true; S.scan.count = null; render(); const el = document.getElementById('sc_g'); if (el) { el.focus(); el.select(); } break; }
     case 'openMeal': openMeal(b.dataset.k); break;
     case 'pushOn': enablePush(); break;
     case 'pushOff': disablePush(); break;
@@ -3776,7 +3784,8 @@ document.addEventListener('click', async e => {
     case 'scanAdd': {
       const p = S.scan.product; if (!p) break;
       const g = numOrNull(document.getElementById('sc_g')?.value) || S.scan.grams || 100; const k = g / 100;
-      const item = { name: `${p.name}${p.brand ? ' (' + p.brand + ')' : ''}, ${r0(g)} g`, kcal: r0(p.kcal * k), p: r1(p.p * k), c: r1(p.c * k), f: r1(p.f * k), slot: document.getElementById('sc_slot')?.value || guessSlot() };
+      const cnt = !S.scan.custom && S.scan.count && p.serving ? S.scan.count : null;
+      const item = { name: `${p.name}${p.brand ? ' (' + p.brand + ')' : ''}${cnt && cnt !== 1 ? ` × ${cnt}` : ''}, ${r0(g)} g`, kcal: r0(p.kcal * k), p: r1(p.p * k), c: r1(p.c * k), f: r1(p.f * k), slot: document.getElementById('sc_slot')?.value || guessSlot() };
       if (p.nut) { item.nut = {}; for (const [kk, vv] of Object.entries(p.nut)) item.nut[kk] = Math.round(vv * k * 100) / 100; }
       const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, barcode: S.scan.code, ...item }); saveDay(S.date, day);
       if (document.getElementById('sc_save')?.checked) { const cfg = cfgCopy(); cfg.foods = [...(cfg.foods || []), { id: uid(), barcode: S.scan.code, ...item }]; saveConfig(cfg); }

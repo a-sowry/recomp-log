@@ -877,3 +877,9 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .install-help[open] { gap: 10px; }
 .install-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.4; }
 .share-ico svg { width: 16px; height: 16px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.qty-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.stepper.qty button { width: 40px; height: 38px; font-size: 20px; }
+.stepper.qty span { min-width: 40px; font-size: 18px; }
+.stepper button:disabled { opacity: .35; }
+.toast { display: flex; align-items: center; gap: 12px; }
+.toast-act { background: none; border: 0; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; padding: 0; cursor: pointer; }
