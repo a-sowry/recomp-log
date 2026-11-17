@@ -883,3 +883,5 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .stepper button:disabled { opacity: .35; }
 .toast { display: flex; align-items: center; gap: 12px; }
 .toast-act { background: none; border: 0; color: inherit; font: inherit; font-weight: 800; text-decoration: underline; padding: 0; cursor: pointer; }
+.mach-row { display: flex; align-items: center; gap: 8px; margin-top: -2px; }
+.mach-row select, .mach-row input { flex: 1; min-width: 0; font-size: 15px; padding: 6px 8px; }

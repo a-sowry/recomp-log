@@ -83,7 +83,7 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 71; // keep in step with VERSION in sw.js
+const APP_VERSION = 72; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1031,10 +1031,15 @@ function stepsTile(day) {
 
 /* ---------- TRAIN ---------- */
 function sessionsSorted() { return Object.entries(S.sessions).map(([id, s]) => ({ id, ...s })).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0); }
-function lastFor(name, beforeDate) {
+/* ---------- machines: the same exercise on different brands is tracked separately ---------- */
+const MACHINE_BRANDS = ['Hammer Strength', 'Life Fitness', 'Matrix', 'Technogym', 'Cybex', 'Precor', 'Nautilus', 'Panatta', 'Gym80', 'Prime', 'Arsenal Strength', 'Atlantis', 'Freemotion', 'Body-Solid', 'Plate-loaded'];
+const vkey = e => e.machine ? `${e.name} · ${e.machine}` : e.name; // exercise + machine, the key for history, PBs and progress
+function lastMachine(name) { for (const s of sessionsSorted()) { const e = (s.exercises || []).find(x => x.name === name); if (e) return e.machine || ''; } return ''; }
+function machinesFor(name) { const out = new Set(); for (const s of Object.values(S.sessions)) for (const e of s.exercises || []) if (e.name === name && e.machine) out.add(e.machine); return [...out]; }
+function lastFor(name, beforeDate, machine = '') {
   for (const s of sessionsSorted()) {
     if (s.date >= beforeDate) continue;
-    const e = (s.exercises || []).find(x => x.name === name);
+    const e = (s.exercises || []).find(x => x.name === name && (x.machine || '') === (machine || ''));
     if (e && e.sets?.length) return { date: s.date, sets: e.sets };
   }
   return null;
@@ -1052,6 +1057,22 @@ function increment(name, kg) {
   if (/leg press/i.test(name) || kg >= 100) return 5;
   if (/lateral|rear delt|fly|curl|pushdown|extension/i.test(name) && kg <= 12.5) return 1.25;
   return 2.5;
+}
+function machinePicker(ex, ei) {
+  if (ex.machineEdit) return `<div class="mach-row"><span class="small muted">Machine</span><input type="text" id="mach_${ei}" data-f="machineName" data-e="${ei}" placeholder="e.g. Hammer Strength, the one by the window" maxlength="40" value="${esc(ex.machine || '')}"><button type="button" class="btn sm" data-act="machineOk" data-e="${ei}">Done</button></div>`;
+  const mine = machinesFor(ex.name); const opts = [...new Set([...mine, ...(ex.machine ? [ex.machine] : []), ...MACHINE_BRANDS])];
+  return `<div class="mach-row"><span class="small muted">Machine</span><select data-f="machine" data-e="${ei}" id="mach_${ei}" aria-label="Machine brand for ${esc(ex.name)}">
+    <option value="" ${!ex.machine ? 'selected' : ''}>Not set / free weights</option>
+    ${mine.length ? `<optgroup label="You've used">${mine.map(m => `<option ${m === ex.machine ? 'selected' : ''}>${esc(m)}</option>`).join('')}</optgroup>` : ''}
+    <optgroup label="Brands">${opts.filter(m => !mine.includes(m)).map(m => `<option ${m === ex.machine ? 'selected' : ''}>${esc(m)}</option>`).join('')}</optgroup>
+    <option value="__other">Other (type a name)…</option></select></div>`;
+}
+// Switching machine fills in what you last did on that machine (sets you've already logged are left alone).
+function applyMachine(ex, machine) {
+  ex.machine = machine; ex.machineEdit = false; const last = lastFor(ex.name, S.date, machine);
+  ex.rows.forEach((r, i) => { if (numOrNull(r.reps) > 0) return; const ls = last?.sets[i] || last?.sets[last.sets.length - 1]; r.kg = ls ? ls.kg : ''; r.ph = ls ? ls.reps : ''; });
+  persistDraft(); render();
+  toast(last ? `Filled in your last ${machine || 'free-weight'} weights` : `No history on ${machine || 'this'} yet, so it starts fresh`);
 }
 function hintFor(ex, last) {
   if (!last || !ex.max || STEP_EXERCISES.has(ex.name)) return '';
@@ -1076,17 +1097,17 @@ function getDraft() {
   if (existing) {
     d = { note: existing.note || '', title: existing.name || '', wods: (existing.wods || []).map(wodToDraft), exercises: existing.exercises.map((e, i) => {
       const p = prog.find(x => x.name === e.name) || prog[i] || {};
-      return { name: e.name, sets: p.sets || e.sets.length, min: p.min, max: p.max, rows: e.sets.map(s => ({ kg: s.kg, reps: s.reps, partials: s.partials || '', drop: s.drop ? { kg: s.drop.kg, reps: s.drop.reps, partials: s.drop.partials || '' } : null })) };
+      return { name: e.name, machine: e.machine || '', sets: p.sets || e.sets.length, min: p.min, max: p.max, rows: e.sets.map(s => ({ kg: s.kg, reps: s.reps, partials: s.partials || '', drop: s.drop ? { kg: s.drop.kg, reps: s.drop.reps, partials: s.drop.partials || '' } : null })) };
     }), fromSaved: true };
   } else {
     d = { note: '', exercises: prog.map(p => {
-      const last = lastFor(p.name, S.date);
+      const machine = lastMachine(p.name); const last = lastFor(p.name, S.date, machine);
       const rows = [];
       for (let i = 0; i < p.sets; i++) {
         const ls = last?.sets[i] || last?.sets[last.sets.length - 1];
         rows.push({ kg: ls ? ls.kg : '', reps: '', partials: '', drop: null, ph: ls ? ls.reps : '' });
       }
-      return { name: p.name, sets: p.sets, min: p.min, max: p.max, rows };
+      return { name: p.name, machine, sets: p.sets, min: p.min, max: p.max, rows };
     }) };
   }
   return (S.drafts[key] = d);
@@ -1118,7 +1139,7 @@ function viewTrain() {
   let cards = ''; const halfReps = halfRepsOn();
   d.exercises.forEach((ex, ei) => {
     const steps = STEP_EXERCISES.has(ex.name);
-    const last = lastFor(ex.name, S.date);
+    const last = lastFor(ex.name, S.date, ex.machine);
     const scheme = ex.max ? `${ex.sets} set${ex.sets === 1 ? '' : 's'} · ${ex.min === ex.max ? ex.min : ex.min + '–' + ex.max} ${steps ? 'steps' : 'reps'}` : '';
     const half = !steps && halfReps; const gc = half ? ' half' : '';
     let rows = `<div class="sethead${gc}"><span>Set</span><span>kg</span><span>${steps ? 'Steps' : 'Reps'}</span>${half ? '<span>Half reps</span>' : ''}<span></span></div>`;
@@ -1135,6 +1156,7 @@ function viewTrain() {
     });
     cards += `<div class="card ex">
       <div class="ex-head"><input type="text" data-ac="ex" autocomplete="off" aria-label="Exercise" placeholder="Search or pick an exercise" data-f="name" data-e="${ei}" value="${esc(ex.name)}" id="exn_${ei}"><span class="scheme">${scheme}</span></div>
+      ${steps ? '' : machinePicker(ex, ei)}
       ${last ? `<div class="last">Last (${fmtDay(last.date, { day: 'numeric', month: 'short' })}): ${last.sets.map(s => setTxt(s, steps)).join(', ')}</div>` : `<div class="last">No history for this exercise yet.</div>`}
       ${hintFor(ex, last)}
       <div class="sets">${rows}</div>
@@ -1326,7 +1348,7 @@ function wodTimerEnd() { clearInterval(S.wt?.iv); S.wt = null; render(); }
 async function saveSession() {
   const d = getDraft(); const key = draftKey();
   const exercises = d.exercises.map(ex => ({
-    name: (ex.name || '').trim(),
+    name: (ex.name || '').trim(), ...((ex.machine || '').trim() ? { machine: ex.machine.trim() } : {}),
     sets: ex.rows.filter(r => numOrNull(r.reps) > 0).map(r => {
       const st = { kg: numOrNull(r.kg) ?? 0, reps: numOrNull(r.reps), partials: numOrNull(r.partials) || 0 };
       if (STEP_EXERCISES.has(ex.name)) st.unit = 'steps';
@@ -1349,10 +1371,10 @@ async function saveSession() {
 
 /* ---------- PROGRESS ---------- */
 function e1rm(st) { if (st.unit === 'steps') return st.kg; const r = Math.min(st.reps, 15); return st.kg * (1 + r / 30); }
-function historyFor(name) {
+function historyFor(key) {
   const out = [];
   for (const s of sessionsSorted().slice().reverse()) {
-    const e = (s.exercises || []).find(x => x.name === name);
+    const e = (s.exercises || []).find(x => vkey(x) === key);
     if (!e || !e.sets?.length) continue;
     const best = e.sets.reduce((b, st) => e1rm(st) > e1rm(b) ? st : b, e.sets[0]);
     const top = e.sets.reduce((b, st) => (st.kg > b.kg || (st.kg === b.kg && st.reps > b.reps)) ? st : b, e.sets[0]);
@@ -1401,7 +1423,7 @@ function viewProgressAll() {
 function viewProgress() {
   const sess = sessionsSorted();
   if (!sess.length) return weeklyCard() + (S.loaded.sessions || !navigator.onLine ? `<div class="card empty"><b>No lifts logged yet.</b>Save a session under Train and your progress shows up here.<div style="margin-top:8px">Have a backup file? Restore it from Settings (gear icon) → Restore from backup.</div></div>` : `<div class="card empty">Loading your lift history…</div>`);
-  const lastUse = {}; for (const s of sess) for (const e of s.exercises || []) if (!lastUse[e.name]) lastUse[e.name] = s.date;
+  const lastUse = {}; for (const s of sess) for (const e of s.exercises || []) if (!lastUse[vkey(e)]) lastUse[vkey(e)] = s.date;
   const names = Object.keys(lastUse).sort((a, b) => lastUse[a] < lastUse[b] ? 1 : lastUse[a] > lastUse[b] ? -1 : a.localeCompare(b));
   if (!S.progressEx || !lastUse[S.progressEx]) S.progressEx = names.includes('Back squat') ? 'Back squat' : names[0];
   const h = historyFor(S.progressEx);
@@ -1412,11 +1434,12 @@ function viewProgress() {
   const change = first && last ? ((last.e1 - first.e1) / first.e1) * 100 : 0;
   // summary of current program lifts
   const prog = program(); const seen = new Set(); let sumRows = '';
-  for (const d of splitDays()) for (const p of prog[d]) {
-    if (seen.has(p.name)) continue; seen.add(p.name);
-    const hh = historyFor(p.name); if (!hh.length) continue;
+  for (const d of splitDays()) for (const p0 of prog[d]) for (const key of [p0.name, ...machinesFor(p0.name).map(m => `${p0.name} · ${m}`)]) {
+    const p = { name: key };
+    if (seen.has(key)) continue; seen.add(key);
+    const hh = historyFor(key); if (!hh.length) continue;
     const f = hh[0], l = hh[hh.length - 1]; const ch = hh.length > 1 ? ((l.e1 - f.e1) / f.e1) * 100 : null;
-    const st = STEP_EXERCISES.has(p.name);
+    const st = STEP_EXERCISES.has(p0.name);
     sumRows += `<tr><td><button class="linkbtn" data-act="pickEx" data-v="${esc(p.name)}">${esc(p.name)}</button><div class="small muted">${d}</div></td><td>${setTxt(l.top, st)}</td><td class="r">${st ? '' : kgFmt(r1(l.e1))}</td><td class="r ${ch == null ? '' : ch >= 0 ? 'up-txt' : 'down-txt'}">${ch == null ? '–' : (ch >= 0 ? '+' : '') + r0(ch) + '%'}</td></tr>`;
   }
   return `${weeklyCard()}
@@ -2641,14 +2664,14 @@ function detectPBs(doc, key) {
     let prevBest = 0, prevMax = 0, had = false;
     for (const [id, s] of Object.entries(S.sessions)) {
       if (id === key) continue;
-      const e = (s.exercises || []).find(x => x.name === ex.name); if (!e) continue;
+      const e = (s.exercises || []).find(x => vkey(x) === vkey(ex)); if (!e) continue;
       for (const st of e.sets || []) { had = true; prevBest = Math.max(prevBest, e1rm(st)); prevMax = Math.max(prevMax, st.kg); }
     }
     if (!had) continue;
     const best = ex.sets.reduce((b, st) => e1rm(st) > e1rm(b) ? st : b, ex.sets[0]);
     const nowE = e1rm(best), nowMax = Math.max(...ex.sets.map(s => s.kg));
-    if (nowMax > prevMax + 1e-9) pbs.push({ name: ex.name, text: `${kgFmt(nowMax)} kg, your heaviest yet (up from ${kgFmt(prevMax)} kg)` });
-    else if (nowE > prevBest + 0.25) pbs.push({ name: ex.name, text: `${kgFmt(best.kg)} kg × ${best.reps}: estimated max lift ${kgFmt(r1(nowE))} kg (+${kgFmt(r1(nowE - prevBest))} kg)` });
+    if (nowMax > prevMax + 1e-9) pbs.push({ name: vkey(ex), text: `${kgFmt(nowMax)} kg, your heaviest yet (up from ${kgFmt(prevMax)} kg)` });
+    else if (nowE > prevBest + 0.25) pbs.push({ name: vkey(ex), text: `${kgFmt(best.kg)} kg × ${best.reps}: estimated max lift ${kgFmt(r1(nowE))} kg (+${kgFmt(r1(nowE - prevBest))} kg)` });
   }
   return pbs;
 }
@@ -3580,6 +3603,7 @@ document.addEventListener('click', async e => {
       if (t.mode === 'up') { w.res.m = Math.floor(secs / 60); w.res.s = secs % 60; persistDraft(); toast(`Time saved: ${fmtSecs(secs)}`); }
       wodTimerEnd(); break;
     }
+    case 'machineOk': { const ex = D().exercises[+b.dataset.e]; const v = (ex.machineTyped ?? ex.machine ?? '').trim().slice(0, 40); delete ex.machineTyped; applyMachine(ex, v); break; }
     case 'addEx': { D().exercises.push({ name: '', sets: 3, min: 8, max: 12, rows: [0, 1, 2].map(() => ({ kg: '', reps: '', partials: '', drop: null })) }); persistDraft(); render(); setTimeout(() => document.getElementById('exn_' + (D().exercises.length - 1))?.focus(), 0); break; }
     case 'saveSession': saveSession(); break;
     case 'askDelSession': S.confirmSession = true; render(); break;
@@ -3922,6 +3946,8 @@ document.addEventListener('input', e => {
     if (el.dataset.f === 'title') { d.title = el.value; persistDraft(); return; }
     const ex = d.exercises[el.dataset.e];
     if (el.dataset.f === 'name') { ex.name = el.value; persistDraft(); return; }
+    if (el.dataset.f === 'machine') { if (el.value === '__other') { ex.machineEdit = true; render(); setTimeout(() => document.getElementById('mach_' + el.dataset.e)?.focus(), 30); } else applyMachine(ex, el.value); return; }
+    if (el.dataset.f === 'machineName') { ex.machineTyped = el.value; return; }
     const r = ex.rows[el.dataset.r];
     if (el.dataset.f === 'kg') r.kg = el.value; else if (el.dataset.f === 'reps') r.reps = el.value; else if (el.dataset.f === 'partials') r.partials = el.value;
     else if (r.drop) { if (el.dataset.f === 'dkg') r.drop.kg = el.value; else if (el.dataset.f === 'dreps') r.drop.reps = el.value; else if (el.dataset.f === 'dpartials') r.drop.partials = el.value; }
@@ -3938,11 +3964,11 @@ document.addEventListener('change', e => {
   }
   if (el.closest?.('#customForm') && (el.id === 'cf_slot' || el.id === 'cf_save')) { S.cf = S.cf || {}; S.cf[el.id] = el.type === 'checkbox' ? el.checked : el.value; }
   if (el.id === 'customPick' && el.value) {
-    const [dn, name] = el.value.split('|'); const last = lastFor(name, S.date);
+    const [dn, name] = el.value.split('|'); const machine = lastMachine(name); const last = lastFor(name, S.date, machine);
     const spec = (program()[dn] || []).find(x => x.name === name) || Object.values(program()).flat().find(x => x.name === name) || { sets: Math.min(6, last?.sets.length || 3), min: 8, max: 12 };
     const rows = [];
     for (let i = 0; i < spec.sets; i++) { const ls = last?.sets[i] || last?.sets[last.sets.length - 1]; rows.push({ kg: ls ? ls.kg : '', reps: '', partials: '', drop: null, ph: ls ? ls.reps : '' }); }
-    getDraft().exercises.push({ name, sets: spec.sets, min: spec.min, max: spec.max, rows }); persistDraft(); render(); toast(`Added ${name}`); return;
+    getDraft().exercises.push({ name, machine, sets: spec.sets, min: spec.min, max: spec.max, rows }); persistDraft(); render(); toast(`Added ${name}`); return;
   }
   if (el.id === 'tv_vol') { const cfg = cfgCopy(); cfg.timerVol = +el.value; saveConfig(cfg); beep(+el.value); return; }
   if (el.dataset.planD) {
