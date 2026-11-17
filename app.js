@@ -83,7 +83,7 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 70; // keep in step with VERSION in sw.js
+const APP_VERSION = 71; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -883,7 +883,7 @@ function viewToday() {
       for (const m of items) {
         const s = m.servings ?? 1;
         const mk = m.recipe ? 'R:' + m.recipe : m.food && (S.config?.foods || []).some(x => x.id === m.food) ? 'F:' + m.food : '';
-        log += `<div class="row"><div style="min-width:0"${mk ? ` class="meal-open" data-act="openMeal" data-k="${mk}" role="button" tabindex="0"` : ''}><div class="t">${esc(m.name)}${mk ? ' <span class="open-hint" aria-hidden="true">›</span>' : ''}</div>
+        log += `<div class="row"><div style="min-width:0"${mk ? ` class="meal-open" data-act="openMeal" data-k="${mk}" role="button" tabindex="0"` : ''}><div class="t">${esc(m.name)}${mk ? ' <span class="open-hint" aria-hidden="true">›</span>' : ''}${m.unitG ? ` <span class="small muted">${r0(m.unitG * s)} g</span>` : ''}</div>
           <div class="chips"><span class="chip k">${r0(m.kcal * s)} kcal</span><span class="chip p">P ${r0(m.p * s)}</span><span class="chip c">C ${r0(m.c * s)}</span><span class="chip f">F ${r0(m.f * s)}</span></div></div>
           <span class="rowbtns"><button class="starbtn" data-act="favToggle" data-k="L:${m.id}" aria-pressed="${isFav(m.name)}" aria-label="${isFav(m.name) ? 'Remove from' : 'Add to'} favourites">${starSVG(isFav(m.name))}</button><button class="xbtn" data-act="delMeal" data-id="${m.id}" aria-label="Remove ${esc(m.name)}" title="Remove">×</button><div class="stepper"><button data-act="serv" data-id="${m.id}" data-d="-0.5" aria-label="Less"${s <= 0.5 ? ' disabled' : ''}>−</button><span>${s}×</span><button data-act="serv" data-id="${m.id}" data-d="0.5" aria-label="More">+</button></div></span></div>`;
       }
@@ -2234,7 +2234,7 @@ function openMeal(key, editing) {
 // A loggable snapshot of a meal: name, slot, macros and links back to where it came from.
 function snapOf(m) {
   const o = { name: m.name, slot: m.slot || 'Snack', kcal: +m.kcal || 0, p: +m.p || 0, c: +m.c || 0, f: +m.f || 0 };
-  for (const k of ['recipe', 'food', 'ing', 'nut', 'drink', 'barcode']) if (m[k] != null) o[k] = m[k];
+  for (const k of ['recipe', 'food', 'ing', 'nut', 'drink', 'barcode', 'unitG']) if (m[k] != null) o[k] = m[k];
   return o;
 }
 function itemFromKey(key) {
@@ -3783,11 +3783,12 @@ document.addEventListener('click', async e => {
     }
     case 'scanAdd': {
       const p = S.scan.product; if (!p) break;
-      const g = numOrNull(document.getElementById('sc_g')?.value) || S.scan.grams || 100; const k = g / 100;
-      const cnt = !S.scan.custom && S.scan.count && p.serving ? S.scan.count : null;
-      const item = { name: `${p.name}${p.brand ? ' (' + p.brand + ')' : ''}${cnt && cnt !== 1 ? ` × ${cnt}` : ''}, ${r0(g)} g`, kcal: r0(p.kcal * k), p: r1(p.p * k), c: r1(p.c * k), f: r1(p.f * k), slot: document.getElementById('sc_slot')?.value || guessSlot() };
+      const g = numOrNull(document.getElementById('sc_g')?.value) || S.scan.grams || 100;
+      // Servings: log one serving × how many, so the − / + on the logged food keeps changing the amount. Custom grams log as one portion.
+      const bySrv = !S.scan.custom && p.serving && S.scan.count !== null; const cnt = bySrv ? (S.scan.count || 1) : 1; const unitG = bySrv ? p.serving : g; const k = unitG / 100;
+      const item = { name: `${p.name}${p.brand ? ' (' + p.brand + ')' : ''}`, unitG: r1(unitG), kcal: r1(p.kcal * k), p: r1(p.p * k), c: r1(p.c * k), f: r1(p.f * k), slot: document.getElementById('sc_slot')?.value || guessSlot() };
       if (p.nut) { item.nut = {}; for (const [kk, vv] of Object.entries(p.nut)) item.nut[kk] = Math.round(vv * k * 100) / 100; }
-      const day = localDay(S.date); day.meals.push({ id: uid(), servings: 1, barcode: S.scan.code, ...item }); saveDay(S.date, day);
+      const day = localDay(S.date); day.meals.push({ id: uid(), servings: cnt, barcode: S.scan.code, ...item }); saveDay(S.date, day);
       if (document.getElementById('sc_save')?.checked) { const cfg = cfgCopy(); cfg.foods = [...(cfg.foods || []), { id: uid(), barcode: S.scan.code, ...item }]; saveConfig(cfg); }
       const fromSearch = S.scan.from === 'search';
       S.scan = { code: '', status: 'idle', product: null }; S.foodAdd = fromSearch ? 'search' : 'plan'; S.search.pick = null; render(); toast(`Added ${p.name}`); break;
