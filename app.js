@@ -83,7 +83,7 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 72; // keep in step with VERSION in sw.js
+const APP_VERSION = 73; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1032,7 +1032,6 @@ function stepsTile(day) {
 /* ---------- TRAIN ---------- */
 function sessionsSorted() { return Object.entries(S.sessions).map(([id, s]) => ({ id, ...s })).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0); }
 /* ---------- machines: the same exercise on different brands is tracked separately ---------- */
-const MACHINE_BRANDS = ['Hammer Strength', 'Life Fitness', 'Matrix', 'Technogym', 'Cybex', 'Precor', 'Nautilus', 'Panatta', 'Gym80', 'Prime', 'Arsenal Strength', 'Atlantis', 'Freemotion', 'Body-Solid', 'Plate-loaded'];
 const vkey = e => e.machine ? `${e.name} · ${e.machine}` : e.name; // exercise + machine, the key for history, PBs and progress
 function lastMachine(name) { for (const s of sessionsSorted()) { const e = (s.exercises || []).find(x => x.name === name); if (e) return e.machine || ''; } return ''; }
 function machinesFor(name) { const out = new Set(); for (const s of Object.values(S.sessions)) for (const e of s.exercises || []) if (e.name === name && e.machine) out.add(e.machine); return [...out]; }
@@ -1059,13 +1058,12 @@ function increment(name, kg) {
   return 2.5;
 }
 function machinePicker(ex, ei) {
-  if (ex.machineEdit) return `<div class="mach-row"><span class="small muted">Machine</span><input type="text" id="mach_${ei}" data-f="machineName" data-e="${ei}" placeholder="e.g. Hammer Strength, the one by the window" maxlength="40" value="${esc(ex.machine || '')}"><button type="button" class="btn sm" data-act="machineOk" data-e="${ei}">Done</button></div>`;
-  const mine = machinesFor(ex.name); const opts = [...new Set([...mine, ...(ex.machine ? [ex.machine] : []), ...MACHINE_BRANDS])];
-  return `<div class="mach-row"><span class="small muted">Machine</span><select data-f="machine" data-e="${ei}" id="mach_${ei}" aria-label="Machine brand for ${esc(ex.name)}">
-    <option value="" ${!ex.machine ? 'selected' : ''}>Not set / free weights</option>
-    ${mine.length ? `<optgroup label="You've used">${mine.map(m => `<option ${m === ex.machine ? 'selected' : ''}>${esc(m)}</option>`).join('')}</optgroup>` : ''}
-    <optgroup label="Brands">${opts.filter(m => !mine.includes(m)).map(m => `<option ${m === ex.machine ? 'selected' : ''}>${esc(m)}</option>`).join('')}</optgroup>
-    <option value="__other">Other (type a name)…</option></select></div>`;
+  if (ex.machineEdit) return `<div class="mach-row"><span class="small muted">Machine</span><input type="text" id="mach_${ei}" data-f="machineName" data-e="${ei}" placeholder="e.g. Hammer Strength, or the one by the window" maxlength="40" value="${esc(ex.machine || '')}"><button type="button" class="btn sm" data-act="machineOk" data-e="${ei}">Done</button></div>`;
+  const mine = [...new Set([...machinesFor(ex.name), ...(ex.machine ? [ex.machine] : [])])];
+  return `<div class="mach-row"><span class="small muted">Machine</span><select data-f="machine" data-e="${ei}" id="mach_${ei}" aria-label="Machine for ${esc(ex.name)}">
+    <option value="" ${!ex.machine ? 'selected' : ''}>No machine set</option>
+    ${mine.map(m => `<option ${m === ex.machine ? 'selected' : ''}>${esc(m)}</option>`).join('')}
+    <option value="__other">+ Add a machine…</option></select></div>`;
 }
 // Switching machine fills in what you last did on that machine (sets you've already logged are left alone).
 function applyMachine(ex, machine) {
