@@ -83,7 +83,7 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 73; // keep in step with VERSION in sw.js
+const APP_VERSION = 74; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1058,12 +1058,12 @@ function increment(name, kg) {
   return 2.5;
 }
 function machinePicker(ex, ei) {
-  if (ex.machineEdit) return `<div class="mach-row"><span class="small muted">Machine</span><input type="text" id="mach_${ei}" data-f="machineName" data-e="${ei}" placeholder="e.g. Hammer Strength, or the one by the window" maxlength="40" value="${esc(ex.machine || '')}"><button type="button" class="btn sm" data-act="machineOk" data-e="${ei}">Done</button></div>`;
+  if (ex.machineEdit) return `<div class="mach-row"><span class="small muted">Machine</span><input type="text" id="mach_${ei}" data-f="machineName" data-e="${ei}" placeholder="e.g. Hammer Strength, Life Fitness" maxlength="40" value="${esc(ex.machine || '')}"><button type="button" class="btn sm" data-act="machineOk" data-e="${ei}">Done</button></div>`;
   const mine = [...new Set([...machinesFor(ex.name), ...(ex.machine ? [ex.machine] : [])])];
   return `<div class="mach-row"><span class="small muted">Machine</span><select data-f="machine" data-e="${ei}" id="mach_${ei}" aria-label="Machine for ${esc(ex.name)}">
-    <option value="" ${!ex.machine ? 'selected' : ''}>No machine set</option>
+    <option value="" ${!ex.machine ? 'selected' : ''}>No brand set</option>
     ${mine.map(m => `<option ${m === ex.machine ? 'selected' : ''}>${esc(m)}</option>`).join('')}
-    <option value="__other">+ Add a machine…</option></select></div>`;
+    <option value="__other">+ Add a brand…</option></select></div>`;
 }
 // Switching machine fills in what you last did on that machine (sets you've already logged are left alone).
 function applyMachine(ex, machine) {
