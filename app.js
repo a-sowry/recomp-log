@@ -83,7 +83,7 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 75; // keep in step with VERSION in sw.js
+const APP_VERSION = 76; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1058,15 +1058,30 @@ function increment(name, kg) {
   return 2.5;
 }
 function machinePicker(ex, ei) {
-  if (ex.machineEdit) { const ren = ex.machineEdit === 'rename';
-    return `<div class="mach-row"><span class="small muted">${ren ? 'Rename' : 'Machine'}</span><input type="text" id="mach_${ei}" data-f="machineName" data-e="${ei}" placeholder="e.g. Hammer Strength, Life Fitness" maxlength="40" value="${ren ? esc(ex.machine || '') : ''}"><button type="button" class="btn sm" data-act="machineOk" data-e="${ei}">Save</button><button type="button" class="linkbtn muted" data-act="machineCancel" data-e="${ei}">Cancel</button></div>
-      ${ren ? `<div class="small muted">Your past ${esc(ex.name.toLowerCase())} lifts ${ex.machine ? `on ${esc(ex.machine)}` : 'with no brand set'} move to the new name, so you keep all your progress.</div>` : ''}`; }
-  const mine = [...new Set([...machinesFor(ex.name), ...(ex.machine ? [ex.machine] : [])])];
-  return `<div class="mach-row"><span class="small muted">Machine</span><select data-f="machine" data-e="${ei}" id="mach_${ei}" aria-label="Machine for ${esc(ex.name)}">
-    <option value="" ${!ex.machine ? 'selected' : ''}>No brand set</option>
-    ${mine.map(m => `<option ${m === ex.machine ? 'selected' : ''}>${esc(m)}</option>`).join('')}
-    <option value="__rename">✎ ${ex.machine ? `Rename ${esc(ex.machine)}` : 'Name this one (keeps your history)'}…</option>
-    <option value="__other">+ Add a brand…</option></select></div>`;
+  const pen = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>';
+  return ex.machine ? `<div class="mach-line"><button type="button" class="mach-tag" data-act="machSheet" data-e="${ei}" aria-label="Machine brand: ${esc(ex.machine)}. Change">${esc(ex.machine)} ${pen}</button></div>`
+    : `<div class="mach-line"><button type="button" class="mach-add" data-act="machSheet" data-e="${ei}">+ brand</button></div>`;
+}
+// Bottom sheet: switch, add or rename the machine brand for one exercise.
+function openMachSheet() {
+  const m = S.machSheet; const ex = getDraft().exercises[m.ei]; if (!ex) { S.machSheet = null; return; }
+  const cur = ex.machine || ''; const mine = [...new Set([...machinesFor(ex.name), ...(cur ? [cur] : [])])];
+  const hasNone = Object.values(S.sessions).some(sx => (sx.exercises || []).some(e => e.name === ex.name && !e.machine));
+  const editRow = (val, ph, act) => `<div class="mach-edit"><input type="text" id="mach_in" maxlength="40" value="${esc(val)}" placeholder="${ph}" autocomplete="off"><button type="button" class="btn sm" data-act="${act}">Save</button><button type="button" class="linkbtn muted" data-act="machCancelEdit">Cancel</button></div>`;
+  const row = (val, label) => {
+    const key = val || '__none';
+    if (m.edit === key) return `<div class="mach-opt editing">${editRow(val, 'e.g. Hammer Strength', 'machSaveRename')}<div class="small muted">${val ? `Past lifts on ${esc(val)}` : 'Past lifts with no brand set'} move to the new name, so you keep your progress.</div></div>`;
+    const canRename = val || hasNone;
+    return `<div class="mach-opt${cur === val ? ' on' : ''}"><button type="button" class="mach-pick" data-act="machPick" data-v="${esc(val)}"><span class="radio" aria-hidden="true"></span>${label}</button>
+      ${canRename ? `<button type="button" class="mach-ren" data-act="machEdit" data-v="${esc(key)}" aria-label="${val ? 'Rename ' + esc(val) : 'Name it'}">${val ? 'Rename' : 'Name it'}</button>` : ''}</div>`;
+  };
+  document.getElementById('sheetRoot').innerHTML = `<div class="sheet mach-sheet"><div class="panel"><div class="wrap">
+    <div style="display:flex;align-items:center;gap:10px"><h3>Machine brand</h3><button type="button" class="btn ghost sm" style="margin-left:auto" data-act="machClose">Done</button></div>
+    <div class="small muted">${esc(ex.name)}. Each brand keeps its own weights and progress.</div>
+    <div class="mach-list">${row('', 'No brand set')}${mine.map(v => row(v, esc(v))).join('')}
+      ${m.edit === '__add' ? `<div class="mach-opt editing">${editRow('', 'e.g. Hammer Strength, Life Fitness', 'machSaveAdd')}</div>` : `<button type="button" class="mach-addrow" data-act="machEdit" data-v="__add">+ Add a brand</button>`}</div>
+  </div></div></div>`;
+  if (m.edit) setTimeout(() => { const el = document.getElementById('mach_in'); el?.focus(); el?.select(); }, 30);
 }
 // Switching machine fills in what you last did on that machine (sets you've already logged are left alone).
 // Rename a machine for one exercise everywhere it's been logged, so the history comes with it. Returns sessions changed.
@@ -3613,6 +3628,17 @@ document.addEventListener('click', async e => {
       const t = S.wt; if (!t) break; const w = getDraft().wods[t.wi]; const secs = Math.round((Date.now() - t.start) / 1000);
       if (t.mode === 'up') { w.res.m = Math.floor(secs / 60); w.res.s = secs % 60; persistDraft(); toast(`Time saved: ${fmtSecs(secs)}`); }
       wodTimerEnd(); break;
+    }
+    case 'machSheet': S.machSheet = { ei: +b.dataset.e, edit: null }; openMachSheet(); break;
+    case 'machClose': S.machSheet = null; document.getElementById('sheetRoot').innerHTML = ''; break;
+    case 'machEdit': S.machSheet.edit = b.dataset.v; openMachSheet(); break;
+    case 'machCancelEdit': S.machSheet.edit = null; openMachSheet(); break;
+    case 'machPick': { const ex = D().exercises[S.machSheet.ei]; S.machSheet = null; document.getElementById('sheetRoot').innerHTML = ''; if ((ex.machine || '') !== b.dataset.v) applyMachine(ex, b.dataset.v); break; }
+    case 'machSaveAdd': { const v = (document.getElementById('mach_in')?.value || '').trim().slice(0, 40); if (!v) { document.getElementById('mach_in')?.focus(); break; } const ex = D().exercises[S.machSheet.ei]; S.machSheet = null; document.getElementById('sheetRoot').innerHTML = ''; applyMachine(ex, v); break; }
+    case 'machSaveRename': {
+      const ex = D().exercises[S.machSheet.ei]; const from = S.machSheet.edit === '__none' ? '' : S.machSheet.edit; const to = (document.getElementById('mach_in')?.value || '').trim().slice(0, 40);
+      const n = renameMachine(ex.name, from, to); if ((ex.machine || '') === from) ex.machine = to; persistDraft(); S.machSheet.edit = null; render(); openMachSheet();
+      toast(n ? `Renamed. ${n} past session${n > 1 ? 's' : ''} moved to ${to || 'no brand set'}.` : 'Renamed'); break;
     }
     case 'machineOk': {
       const ex = D().exercises[+b.dataset.e]; const v = (ex.machineTyped ?? (ex.machineEdit === 'rename' ? ex.machine : '') ?? '').trim().slice(0, 40); delete ex.machineTyped;
