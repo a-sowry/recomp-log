@@ -83,7 +83,7 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 76; // keep in step with VERSION in sw.js
+const APP_VERSION = 77; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -2181,9 +2181,20 @@ function recentDrinks() {
   return [...seen.values()].slice(0, 6);
 }
 function drinksPanel() {
-  const d = drinkState(); const segBtns = (k, opts, cur) => `<div class="seg wrap">${opts.map(([v, l]) => `<button type="button" data-act="drinkOpt" data-k="${k}" data-v="${v}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
-  const recent = recentDrinks();
-  let h = recent.length ? `<div class="slotlabel" style="padding-top:0">Recent</div><div class="chips drink-recent">${recent.map((m, i) => `<button type="button" class="chip k chipbtn" data-act="drinkRecent" data-i="${i}">+ ${esc(m.name)} · ${r0(m.kcal)}</button>`).join('')}</div>` : '';
+  const d = drinkState(); const segBtns = (k, opts, cur) => `<div class="seg seg-wrap">${opts.map(([v, l]) => `<button type="button" data-act="drinkOpt" data-k="${k}" data-v="${v}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
+  const recent = recentDrinks(); const mine = S.config?.myDrinks || [];
+  let h = '';
+  if (S.drinkEd) { const e = S.drinkEd; const v = k => esc(e[k] ?? '');
+    h += `<div class="card drink-ed"><div class="t">${e.id ? 'Edit your drink' : 'Add your own drink'}</div>
+      <label class="f">Name<input type="text" id="dk_name" value="${v('name')}" placeholder="e.g. Large oat latte, 1 sugar" maxlength="60"></label>
+      <div class="grid4"><label class="f">kcal<input type="number" inputmode="decimal" step="any" min="0" id="dk_kcal" value="${v('kcal')}"></label><label class="f">Protein g<input type="number" inputmode="decimal" step="any" min="0" id="dk_p" value="${v('p')}"></label>
+        <label class="f">Carbs g<input type="number" inputmode="decimal" step="any" min="0" id="dk_c" value="${v('c')}"></label><label class="f">Fat g<input type="number" inputmode="decimal" step="any" min="0" id="dk_f" value="${v('f')}"></label></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button type="button" class="btn" data-act="drinkEdSave">Save</button><button type="button" class="btn ghost" data-act="drinkEdCancel">Cancel</button>
+        ${e.id ? `<button type="button" class="linkbtn" style="margin-left:auto;color:var(--red)" data-act="drinkEdDel">Delete</button>` : ''}</div></div>`;
+  }
+  h += `<div class="slotlabel" style="padding-top:0">Your drinks</div><div class="my-drinks">${mine.map(m => `<div class="my-drink"><button type="button" class="chip k chipbtn" data-act="myDrinkAdd" data-id="${m.id}">+ ${esc(m.name)} · ${r0(m.kcal)}</button><button type="button" class="mydrink-ed" data-act="myDrinkEdit" data-id="${m.id}" aria-label="Edit ${esc(m.name)}">Edit</button></div>`).join('')}
+    <button type="button" class="chip chipbtn add-drink" data-act="myDrinkNew">+ Add your own</button></div>`;
+  h += recent.length ? `<div class="slotlabel" style="padding-top:0">Recent</div><div class="chips drink-recent">${recent.map((m, i) => `<button type="button" class="chip k chipbtn" data-act="drinkRecent" data-i="${i}">+ ${esc(m.name)} · ${r0(m.kcal)}</button>`).join('')}</div>` : '';
   h += segBtns('cat', [['cafe', 'Coffee & tea'], ...DRINK_CATS], d.cat);
   if (d.cat === 'cafe') {
     const [, frac, , fixed] = CAFE[d.type] || CAFE.flatwhite;
@@ -2202,6 +2213,7 @@ function drinksPanel() {
   }
   const x = drinkCalc();
   h += `<div class="drink-total"><div><div class="t">${esc(x.name)}</div><div class="chips"><span class="chip k">${r0(x.kcal)} kcal</span><span class="chip p">P ${r0(x.p)}</span><span class="chip c">C ${r0(x.c)}</span><span class="chip f">F ${r0(x.f)}</span></div></div><button class="btn" data-act="drinkAdd">Add drink</button></div>
+    <div><button type="button" class="linkbtn" data-act="drinkSaveMine">Save this as one of your drinks</button></div>
     <div class="small muted">Typical café and supermarket figures. Alcohol calories are included even though they don't show up as protein, carbs or fat.</div>`;
   return `<div class="drinks-panel">${h}</div>`;
 }
@@ -3546,7 +3558,7 @@ document.addEventListener('click', async e => {
     case 'openPanel': S.panel = b.dataset.v; S.addOpen = false; render(); break;
     case 'closePanel': S.panel = null; render(); break;
     case 'progView': S.progView = b.dataset.v; render(); window.scrollTo(0, 0); break;
-    case 'foodAdd': S.foodAdd = b.dataset.v; S.label = null; render(); break;
+    case 'foodAdd': S.foodAdd = b.dataset.v; S.label = null; S.drinkEd = null; render(); break;
     case 'addRecipe': {
       const r = RECIPES.find(x => x.id === b.dataset.id); const day = localDay(S.date);
       day.meals.push({ id: uid(), name: r.name, slot: r.slot, servings: 1, kcal: r.kcal, p: r.p, c: r.c, f: r.f, recipe: r.id });
@@ -3837,6 +3849,21 @@ document.addEventListener('click', async e => {
       lsSet('rl:drink', d); render(); break;
     }
     case 'drinkAdd': { const x = drinkCalc(); if (x) addDrinkToLog(x); break; }
+    case 'myDrinkAdd': { const m = (S.config?.myDrinks || []).find(x => x.id === b.dataset.id); if (m) addDrinkToLog(m); break; }
+    case 'myDrinkNew': S.drinkEd = { name: '', kcal: '', p: '', c: '', f: '' }; render(); setTimeout(() => document.getElementById('dk_name')?.focus(), 30); break;
+    case 'myDrinkEdit': { const m = (S.config?.myDrinks || []).find(x => x.id === b.dataset.id); if (m) { S.drinkEd = { ...m }; render(); setTimeout(() => document.getElementById('dk_name')?.focus(), 30); } break; }
+    case 'drinkSaveMine': { const x = drinkCalc(); if (!x) break; S.drinkEd = { name: x.name, kcal: r0(x.kcal), p: r1(x.p), c: r1(x.c), f: r1(x.f) }; render(); setTimeout(() => { const el = document.getElementById('dk_name'); el?.focus(); el?.select(); }, 30); break; }
+    case 'drinkEdCancel': S.drinkEd = null; render(); break;
+    case 'drinkEdDel': { const id = S.drinkEd?.id; const cfg = cfgCopy(); const gone = (cfg.myDrinks || []).find(x => x.id === id); cfg.myDrinks = (cfg.myDrinks || []).filter(x => x.id !== id); S.drinkEd = null; saveConfig(cfg);
+      toast(`Deleted ${gone?.name || 'drink'}`, gone ? { label: 'Undo', fn: () => { const c2 = cfgCopy(); c2.myDrinks = [...(c2.myDrinks || []), gone]; saveConfig(c2); } } : undefined); break; }
+    case 'drinkEdSave': {
+      const v = id => document.getElementById(id)?.value; const name = (v('dk_name') || '').trim(); const kcal = numOrNull(v('dk_kcal'));
+      if (!name) { toast('Give your drink a name.'); document.getElementById('dk_name')?.focus(); break; }
+      if (kcal == null) { toast('Add the calories.'); document.getElementById('dk_kcal')?.focus(); break; }
+      const item = { id: S.drinkEd?.id || uid(), name: name.slice(0, 60), kcal, p: numOrNull(v('dk_p')) || 0, c: numOrNull(v('dk_c')) || 0, f: numOrNull(v('dk_f')) || 0 };
+      const cfg = cfgCopy(); const list = cfg.myDrinks || []; cfg.myDrinks = S.drinkEd?.id ? list.map(x => x.id === item.id ? item : x) : [...list, item];
+      const edited = !!S.drinkEd?.id; S.drinkEd = null; saveConfig(cfg); toast(edited ? `${name} updated` : `${name} saved to your drinks`); break;
+    }
     case 'drinkRecent': { const m = recentDrinks()[+b.dataset.i]; if (m) addDrinkToLog(m); break; }
     case 'stepsAdd': {
       const inp = document.getElementById('st_add'); const n = Math.round(+(b.dataset.v || inp?.value || 0)); if (!(n > 0)) { toast('Type how many steps to add'); break; }

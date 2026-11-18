@@ -592,8 +592,8 @@ nav.tabs button { min-width: 0; }
 /* search, drinks, steps */
 .search-panel, .drinks-panel { display: grid; gap: 10px; }
 .search-panel .rows .row .btn { flex: none; }
-.seg.wrap { flex-wrap: wrap; }
-.seg.wrap button { font-size: 13px; padding: 5px 11px; }
+.seg.seg-wrap { flex-wrap: wrap; }
+.seg.seg-wrap button { font-size: 13px; padding: 5px 11px; }
 .drinks-panel .f { gap: 6px; }
 .drink-total { display: flex; align-items: center; gap: 10px; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 10px; }
 .drink-total > div { min-width: 0; display: grid; gap: 4px; }
@@ -900,3 +900,8 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .mach-addrow { background: none; border: 0; text-align: left; padding: 14px 12px; font-size: 16px; color: var(--btn); font-weight: 600; cursor: pointer; }
 .mach-edit { display: flex; gap: 8px; align-items: center; }
 .mach-edit input { flex: 1; min-width: 0; }
+.my-drinks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.my-drink { display: inline-flex; align-items: center; gap: 2px; }
+.mydrink-ed { background: none; border: 0; color: var(--muted); font-size: 12px; text-decoration: underline; padding: 4px 6px; cursor: pointer; }
+.add-drink { background: none; border: 1px dashed var(--line); color: var(--muted); }
+.card.drink-ed { display: grid; gap: 10px; }
