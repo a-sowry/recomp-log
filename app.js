@@ -83,7 +83,7 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 74; // keep in step with VERSION in sw.js
+const APP_VERSION = 75; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1058,14 +1058,27 @@ function increment(name, kg) {
   return 2.5;
 }
 function machinePicker(ex, ei) {
-  if (ex.machineEdit) return `<div class="mach-row"><span class="small muted">Machine</span><input type="text" id="mach_${ei}" data-f="machineName" data-e="${ei}" placeholder="e.g. Hammer Strength, Life Fitness" maxlength="40" value="${esc(ex.machine || '')}"><button type="button" class="btn sm" data-act="machineOk" data-e="${ei}">Done</button></div>`;
+  if (ex.machineEdit) { const ren = ex.machineEdit === 'rename';
+    return `<div class="mach-row"><span class="small muted">${ren ? 'Rename' : 'Machine'}</span><input type="text" id="mach_${ei}" data-f="machineName" data-e="${ei}" placeholder="e.g. Hammer Strength, Life Fitness" maxlength="40" value="${ren ? esc(ex.machine || '') : ''}"><button type="button" class="btn sm" data-act="machineOk" data-e="${ei}">Save</button><button type="button" class="linkbtn muted" data-act="machineCancel" data-e="${ei}">Cancel</button></div>
+      ${ren ? `<div class="small muted">Your past ${esc(ex.name.toLowerCase())} lifts ${ex.machine ? `on ${esc(ex.machine)}` : 'with no brand set'} move to the new name, so you keep all your progress.</div>` : ''}`; }
   const mine = [...new Set([...machinesFor(ex.name), ...(ex.machine ? [ex.machine] : [])])];
   return `<div class="mach-row"><span class="small muted">Machine</span><select data-f="machine" data-e="${ei}" id="mach_${ei}" aria-label="Machine for ${esc(ex.name)}">
     <option value="" ${!ex.machine ? 'selected' : ''}>No brand set</option>
     ${mine.map(m => `<option ${m === ex.machine ? 'selected' : ''}>${esc(m)}</option>`).join('')}
+    <option value="__rename">✎ ${ex.machine ? `Rename ${esc(ex.machine)}` : 'Name this one (keeps your history)'}…</option>
     <option value="__other">+ Add a brand…</option></select></div>`;
 }
 // Switching machine fills in what you last did on that machine (sets you've already logged are left alone).
+// Rename a machine for one exercise everywhere it's been logged, so the history comes with it. Returns sessions changed.
+function renameMachine(name, from, to) {
+  from = from || ''; to = (to || '').trim(); if (from === to) return 0; let n = 0;
+  for (const [key, sx] of Object.entries(S.sessions)) {
+    let changed = false;
+    for (const e of sx.exercises || []) if (e.name === name && (e.machine || '') === from) { if (to) e.machine = to; else delete e.machine; changed = true; }
+    if (changed) { n++; store.set('sessions', key, sx); }
+  }
+  return n;
+}
 function applyMachine(ex, machine) {
   ex.machine = machine; ex.machineEdit = false; const last = lastFor(ex.name, S.date, machine);
   ex.rows.forEach((r, i) => { if (numOrNull(r.reps) > 0) return; const ls = last?.sets[i] || last?.sets[last.sets.length - 1]; r.kg = ls ? ls.kg : ''; r.ph = ls ? ls.reps : ''; });
@@ -3601,7 +3614,12 @@ document.addEventListener('click', async e => {
       if (t.mode === 'up') { w.res.m = Math.floor(secs / 60); w.res.s = secs % 60; persistDraft(); toast(`Time saved: ${fmtSecs(secs)}`); }
       wodTimerEnd(); break;
     }
-    case 'machineOk': { const ex = D().exercises[+b.dataset.e]; const v = (ex.machineTyped ?? ex.machine ?? '').trim().slice(0, 40); delete ex.machineTyped; applyMachine(ex, v); break; }
+    case 'machineOk': {
+      const ex = D().exercises[+b.dataset.e]; const v = (ex.machineTyped ?? (ex.machineEdit === 'rename' ? ex.machine : '') ?? '').trim().slice(0, 40); delete ex.machineTyped;
+      if (ex.machineEdit === 'rename') { const n = renameMachine(ex.name, ex.machine || '', v); ex.machine = v; ex.machineEdit = false; persistDraft(); render(); toast(n ? `Renamed. ${n} past session${n > 1 ? 's' : ''} moved to ${v || 'no brand set'}.` : 'Renamed'); }
+      else applyMachine(ex, v); break;
+    }
+    case 'machineCancel': { const ex = D().exercises[+b.dataset.e]; ex.machineEdit = false; delete ex.machineTyped; render(); break; }
     case 'addEx': { D().exercises.push({ name: '', sets: 3, min: 8, max: 12, rows: [0, 1, 2].map(() => ({ kg: '', reps: '', partials: '', drop: null })) }); persistDraft(); render(); setTimeout(() => document.getElementById('exn_' + (D().exercises.length - 1))?.focus(), 0); break; }
     case 'saveSession': saveSession(); break;
     case 'askDelSession': S.confirmSession = true; render(); break;
@@ -3944,7 +3962,7 @@ document.addEventListener('input', e => {
     if (el.dataset.f === 'title') { d.title = el.value; persistDraft(); return; }
     const ex = d.exercises[el.dataset.e];
     if (el.dataset.f === 'name') { ex.name = el.value; persistDraft(); return; }
-    if (el.dataset.f === 'machine') { if (el.value === '__other') { ex.machineEdit = true; render(); setTimeout(() => document.getElementById('mach_' + el.dataset.e)?.focus(), 30); } else applyMachine(ex, el.value); return; }
+    if (el.dataset.f === 'machine') { if (el.value === '__other' || el.value === '__rename') { ex.machineEdit = el.value === '__rename' ? 'rename' : 'add'; render(); setTimeout(() => document.getElementById('mach_' + el.dataset.e)?.focus(), 30); } else applyMachine(ex, el.value); return; }
     if (el.dataset.f === 'machineName') { ex.machineTyped = el.value; return; }
     const r = ex.rows[el.dataset.r];
     if (el.dataset.f === 'kg') r.kg = el.value; else if (el.dataset.f === 'reps') r.reps = el.value; else if (el.dataset.f === 'partials') r.partials = el.value;
