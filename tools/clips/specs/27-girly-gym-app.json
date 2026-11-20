@@ -1,0 +1,49 @@
+{
+ "id": "27-girly-gym-app",
+ "look": "pink",
+ "duration": 10.6,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Finally, a gym app that's girly."
+  },
+  {
+   "t": 8.8,
+   "title": "Refyne fit",
+   "sub": "pink and lilac themes"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "05-pink-dream-car",
+   7.6,
+   1.6,
+   1.6
+  ],
+  [
+   "02-tumbler-and-forest",
+   3.4,
+   4.0,
+   2.4
+  ],
+  [
+   "02-tumbler-and-forest",
+   10.8,
+   3.6,
+   2.4
+  ],
+  [
+   "04-tap-for-vitamins",
+   3.0,
+   4.5,
+   2.2
+  ],
+  [
+   "14-body-progress",
+   4.0,
+   4.0,
+   2.0
+  ]
+ ]
+}
