@@ -1,0 +1,110 @@
+{
+ "id": "30-everything-in-refyne",
+ "look": "white",
+ "duration": 38.2,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Everything in Refyne",
+   "sub": "log food and drinks in a few taps"
+  },
+  {
+   "t": 5.0,
+   "title": "Search the chains",
+   "sub": "official published nutrition info"
+  },
+  {
+   "t": 10.0,
+   "title": "Starter meals",
+   "sub": "for your eating style"
+  },
+  {
+   "t": 15.0,
+   "title": "Plan your week",
+   "sub": "and the shopping list builds itself"
+  },
+  {
+   "t": 20.0,
+   "title": "Know what to lift next"
+  },
+  {
+   "t": 24.5,
+   "title": "Celebrate every PB"
+  },
+  {
+   "t": 26.7,
+   "title": "Watch your lifts climb"
+  },
+  {
+   "t": 30.2,
+   "title": "Grow a bonsai, a flower or a car"
+  },
+  {
+   "t": 34.2,
+   "title": "Eight themes to choose from"
+  },
+  {
+   "t": 36.4,
+   "title": "Refyne fit",
+   "sub": "track your day"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "03-coffee-in-seconds",
+   1.2,
+   7.6,
+   5.0
+  ],
+  [
+   "07-takeaway-search",
+   3.4,
+   5.4,
+   5.0
+  ],
+  [
+   "08-starter-meals",
+   2.0,
+   10.0,
+   5.0
+  ],
+  [
+   "10-plan-and-shop",
+   1.0,
+   8.0,
+   5.0
+  ],
+  [
+   "12-progression-hint",
+   3.0,
+   7.0,
+   4.5
+  ],
+  [
+   "11-personal-best",
+   6.6,
+   2.2,
+   2.2
+  ],
+  [
+   "15-lift-progress",
+   5.0,
+   4.0,
+   3.5
+  ],
+  [
+   "09-bonsai-timelapse",
+   0.3,
+   8.4,
+   4.0
+  ],
+  [
+   "06-make-it-yours",
+   1.9,
+   9.6,
+   4.0
+  ]
+ ],
+ "max_duration": 60
+}

@@ -1,0 +1,38 @@
+{
+ "id": "29-gym-bag-essentials",
+ "look": "pink",
+ "duration": 7.4,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Gym bag essentials",
+   "sub": "a tumbler, a meal plan, a bonsai"
+  },
+  {
+   "t": 5.6,
+   "title": "Refyne fit",
+   "sub": "all in one app"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "02-tumbler-and-forest",
+   3.4,
+   4.0,
+   2.4
+  ],
+  [
+   "17-plan-your-week",
+   14.0,
+   8.0,
+   2.6
+  ],
+  [
+   "09-bonsai-timelapse",
+   0.3,
+   8.4,
+   2.4
+  ]
+ ]
+}

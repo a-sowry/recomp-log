@@ -1,0 +1,31 @@
+{
+ "id": "31-plan-week-fast",
+ "look": "mint",
+ "duration": 8.0,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Plan your whole week in a few taps."
+  },
+  {
+   "t": 6.2,
+   "title": "Refyne fit",
+   "sub": "shopping list included"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "10-plan-and-shop",
+   1.9,
+   7.0,
+   4.0
+  ],
+  [
+   "17-plan-your-week",
+   16.0,
+   8.0,
+   4.0
+  ]
+ ]
+}

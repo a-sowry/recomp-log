@@ -1,0 +1,37 @@
+{
+ "id": "28-gym-app-garden",
+ "look": "white",
+ "duration": 8.0,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Your gym app should have a garden."
+  },
+  {
+   "t": 6.2,
+   "title": "Refyne fit",
+   "sub": "grow it workout by workout"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "20-flower-garden",
+   0.3,
+   8.4,
+   2.8
+  ],
+  [
+   "09-bonsai-timelapse",
+   0.3,
+   8.4,
+   2.8
+  ],
+  [
+   "02-tumbler-and-forest",
+   10.8,
+   3.6,
+   2.4
+  ]
+ ]
+}
