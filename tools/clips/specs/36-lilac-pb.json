@@ -1,0 +1,48 @@
+{
+ "id": "36-lilac-pb",
+ "look": "lilac",
+ "config": {
+  "theme": "lilac"
+ },
+ "duration": 12.6,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Lift heavier than ever\u2026"
+  },
+  {
+   "t": 5.0,
+   "title": "\u2026and Refyne celebrates it",
+   "sub": "every personal best, tracked"
+  }
+ ],
+ "steps": [
+  {
+   "at": 1.2,
+   "do": "tap",
+   "target": "[data-tab='train']"
+  },
+  {
+   "at": 1.9,
+   "do": "tap",
+   "target": "[data-act='trainDay']:has-text('Legs')"
+  },
+  {
+   "at": 3.2,
+   "do": "type",
+   "target": "#kg_0_0",
+   "text": "80"
+  },
+  {
+   "at": 4.3999999999999995,
+   "do": "type",
+   "target": "#rp_0_0",
+   "text": "9"
+  },
+  {
+   "at": 6.199999999999999,
+   "do": "tap",
+   "target": "[data-act='saveSession']"
+  }
+ ]
+}

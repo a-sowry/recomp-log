@@ -1,0 +1,43 @@
+{
+ "id": "39-soft-girl-gym-app",
+ "look": "pink",
+ "duration": 9.8,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Soft girl gym app"
+  },
+  {
+   "t": 8.0,
+   "title": "Refyne fit",
+   "sub": "pink and lilac themes"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "34-pink-coffee",
+   1.6,
+   8.2,
+   2.6
+  ],
+  [
+   "32-pink-flowers",
+   0.2,
+   8.0,
+   2.6
+  ],
+  [
+   "02-tumbler-and-forest",
+   3.4,
+   4.0,
+   2.0
+  ],
+  [
+   "37-pink-meals",
+   3.2,
+   8.0,
+   2.6
+  ]
+ ]
+}

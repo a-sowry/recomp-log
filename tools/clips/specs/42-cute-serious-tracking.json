@@ -1,0 +1,44 @@
+{
+ "id": "42-cute-serious-tracking",
+ "look": "lilac",
+ "duration": 8.6,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Cute on the outside.",
+   "sub": "serious tracking inside"
+  },
+  {
+   "t": 6.8,
+   "title": "Refyne fit",
+   "sub": "track your day"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "36-lilac-pb",
+   7.6,
+   2.0,
+   1.8
+  ],
+  [
+   "35-lilac-plan",
+   3.0,
+   9.0,
+   2.4
+  ],
+  [
+   "04-tap-for-vitamins",
+   3.0,
+   4.5,
+   2.4
+  ],
+  [
+   "14-body-progress",
+   4.0,
+   4.0,
+   2.0
+  ]
+ ]
+}

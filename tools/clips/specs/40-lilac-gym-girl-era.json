@@ -1,0 +1,43 @@
+{
+ "id": "40-lilac-gym-girl-era",
+ "look": "lilac",
+ "duration": 9.2,
+ "captions": [
+  {
+   "t": 0,
+   "title": "Lilac gym girl era."
+  },
+  {
+   "t": 7.4,
+   "title": "Refyne fit",
+   "sub": "bubble cars and sakura"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "38-lilac-bubble-car",
+   9.0,
+   2.4,
+   2.2
+  ],
+  [
+   "33-lilac-sakura",
+   0.2,
+   8.0,
+   2.6
+  ],
+  [
+   "36-lilac-pb",
+   7.6,
+   2.0,
+   1.8
+  ],
+  [
+   "35-lilac-plan",
+   3.0,
+   9.0,
+   2.6
+  ]
+ ]
+}

@@ -1,0 +1,38 @@
+{
+ "id": "41-flowers-bubble-cars",
+ "look": "pink",
+ "duration": 7.4,
+ "captions": [
+  {
+   "t": 0,
+   "title": "It grows flowers. It builds bubble cars.",
+   "sub": "and it's pink"
+  },
+  {
+   "t": 5.6,
+   "title": "Refyne fit",
+   "sub": "pink and lilac themes"
+  }
+ ],
+ "steps": [],
+ "montage": [
+  [
+   "32-pink-flowers",
+   0.2,
+   8.0,
+   2.6
+  ],
+  [
+   "38-lilac-bubble-car",
+   9.0,
+   2.4,
+   2.2
+  ],
+  [
+   "33-lilac-sakura",
+   0.2,
+   8.0,
+   2.6
+  ]
+ ]
+}
