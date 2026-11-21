@@ -83,7 +83,7 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 77; // keep in step with VERSION in sw.js
+const APP_VERSION = 78; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -1023,7 +1023,7 @@ function stepsTile(day) {
   const n = day?.steps || 0; const goal = stepGoal(); const pct = Math.min(100, n / goal * 100); const cardio = day?.cardio || [];
   return `<div class="tile${n >= goal ? ' done' : ''}">
     <button type="button" class="tile-main" data-act="openPanel" data-v="steps" aria-label="Steps: ${n} of ${goal}. Open steps and cardio">
-      <span class="tile-txt"><span class="tile-k">Steps${cardio.length ? ` · ${cardio.length} cardio` : ''}</span><b>${n.toLocaleString()}</b><span class="tile-of">/ ${goal.toLocaleString()}</span></span>
+      <span class="tile-txt"><span class="tile-k">Steps &amp; cardio${cardio.length ? ` · ${cardio.length}` : ''}</span><b>${n.toLocaleString()}</b><span class="tile-of">/ ${goal.toLocaleString()}</span></span>
       <span class="garden-bar steps-bar"><i style="width:${pct}%"></i></span></button>
     <div class="tile-btns"><button type="button" class="chip chipbtn" data-act="stepsAdd" data-v="1000">+1,000</button><button type="button" class="chip chipbtn" data-act="openPanel" data-v="steps">More</button></div>
   </div>`;
