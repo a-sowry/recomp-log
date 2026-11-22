@@ -83,7 +83,7 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 78; // keep in step with VERSION in sw.js
+const APP_VERSION = 79; // keep in step with VERSION in sw.js
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -536,7 +536,7 @@ function gardenStats() {
   let pts = 0, todayPts = 0, lastWorkout = null;
   const add = (n, date) => { pts += n; if (date === today) todayPts += n; };
   for (const s of Object.values(S.sessions)) {
-    if (s.source === 'spreadsheet' || !s.exercises?.length) continue;
+    if (!isWorkout(s)) continue;
     add(GARDEN.WORKOUT, s.date);
     if (!lastWorkout || s.date > lastWorkout) lastWorkout = s.date;
   }
@@ -960,6 +960,8 @@ function viewToday() {
       <div class="ovl-head"><h3>Steps &amp; cardio</h3><button type="button" class="btn ghost sm" data-act="closePanel">Done</button></div>
       <div class="card" style="display:grid;gap:10px">
       ${stepsCard(day)}
+      ${trainCardioOn(S.date).length ? `<div class="rows">${trainCardioOn(S.date).map(c => `<div class="row"><div><span class="t">${esc(cardioLabel(c))}</span> <span class="muted">${esc(cardioTxt(c))}</span></div><span class="small muted">In Train</span></div>`).join('')}</div>` : ''}
+      <div class="small muted">Runs, swims, rides and rows: log them in Train (+ Add cardio) to track pace and PBs. Use this for anything else, like abs or a sport.</div>
       ${cardio.length ? `<div class="rows">${cardio.map(c => `<div class="row"><div><span class="t">${esc(c.type)}</span> <span class="muted">${c.minutes ? c.minutes + ' min' : ''}${c.note ? ' · ' + esc(c.note) : ''}</span></div><button class="btn sm ghost" data-act="delCardio" data-id="${c.id}">Remove</button></div>`).join('')}</div>` : ''}
       <form id="cardioForm" class="formrow">
         <label class="f">Activity<select id="cd_type">${CARDIO_TYPES.map(c => `<option>${c}</option>`).join('')}</select></label>
@@ -1020,7 +1022,7 @@ function waterTile() {
   </div>`;
 }
 function stepsTile(day) {
-  const n = day?.steps || 0; const goal = stepGoal(); const pct = Math.min(100, n / goal * 100); const cardio = day?.cardio || [];
+  const n = day?.steps || 0; const goal = stepGoal(); const pct = Math.min(100, n / goal * 100); const cardio = [...(day?.cardio || []), ...trainCardioOn(S.date)];
   return `<div class="tile${n >= goal ? ' done' : ''}">
     <button type="button" class="tile-main" data-act="openPanel" data-v="steps" aria-label="Steps: ${n} of ${goal}. Open steps and cardio">
       <span class="tile-txt"><span class="tile-k">Steps &amp; cardio${cardio.length ? ` · ${cardio.length}` : ''}</span><b>${n.toLocaleString()}</b><span class="tile-of">/ ${goal.toLocaleString()}</span></span>
@@ -1121,7 +1123,7 @@ function getDraft() {
   const prog = program()[S.trainDay] || [];
   let d;
   if (existing) {
-    d = { note: existing.note || '', title: existing.name || '', wods: (existing.wods || []).map(wodToDraft), exercises: existing.exercises.map((e, i) => {
+    d = { note: existing.note || '', title: existing.name || '', wods: (existing.wods || []).map(wodToDraft), cardio: (existing.cardio || []).map(cardioToDraft), exercises: existing.exercises.map((e, i) => {
       const p = prog.find(x => x.name === e.name) || prog[i] || {};
       return { name: e.name, machine: e.machine || '', sets: p.sets || e.sets.length, min: p.min, max: p.max, rows: e.sets.map(s => ({ kg: s.kg, reps: s.reps, partials: s.partials || '', drop: s.drop ? { kg: s.drop.kg, reps: s.drop.reps, partials: s.drop.partials || '' } : null })) };
     }), fromSaved: true };
@@ -1155,9 +1157,9 @@ function viewTrain() {
     const day = S.days[S.date];
     return `<section class="sec"><h2>Session <span class="aside">${fmtDay(S.date, { weekday: 'long', day: 'numeric', month: 'long' })}</span></h2>${seg}<div class="small muted day-hint">Training today after all? Pick a day above, or tap <button type="button" class="linkbtn" data-act="trainDay" data-v="Custom">Custom</button> for CrossFit, a class or anything else.</div></section>
     ${splitDays().length ? '' : `<div class="card" style="display:grid;gap:8px"><b>No training split set up yet.</b><div class="small muted">Build your own split in Settings: name your days, pick which weekdays they're on, and add exercises. Or tap Custom to log any session.</div><div><button class="btn sm" data-act="openSplit">Set up my split</button></div></div>`}
-    <div class="card empty"><b>Rest day.</b>Log abs, cardio, swims and hikes under Food → Steps &amp; cardio. ${day?.cardio?.length ? `Logged today: ${day.cardio.map(c => esc(c.type)).join(', ')}.` : ''}<div style="margin-top:10px"><button class="btn ghost" data-act="tab" data-v="today">Go to steps &amp; cardio</button></div></div>`;
+    <div class="card empty"><b>Rest day.</b>Going for a run, swim or ride? Log it here to track your pace, distance and PBs. For anything else, like abs or a sport, use Food → Steps &amp; cardio. ${day?.cardio?.length ? `Logged today: ${day.cardio.map(c => esc(c.type)).join(', ')}.` : ''}<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="cardioRest">Log cardio</button><button class="btn ghost" data-act="tab" data-v="today">Go to steps &amp; cardio</button></div></div>`;
   }
-  const customTip = S.trainDay === 'Custom' ? `<div class="small muted day-hint">Custom: build any session. Add exercises, or a WOD for CrossFit and classes.</div>` : `<div class="small muted day-hint">Doing CrossFit, a class or something different today? Tap <button type="button" class="linkbtn" data-act="trainDay" data-v="Custom">Custom</button>.</div>`;
+  const customTip = S.trainDay === 'Custom' ? `<div class="small muted day-hint">Custom: build any session. Add exercises, cardio like a run or swim, or a WOD for CrossFit and classes.</div>` : `<div class="small muted day-hint">Doing CrossFit, a class or something different today? Tap <button type="button" class="linkbtn" data-act="trainDay" data-v="Custom">Custom</button>.</div>`;
   const segH = seg + (DAY_HINTS[S.trainDay] ? `<div class="small muted day-hint">${S.trainDay}: ${DAY_HINTS[S.trainDay].toLowerCase()}</div>` : '') + customTip;
   if (!S.loaded.sessions && navigator.onLine && !S.offlineAuth) return `<section class="sec">${segH}</section><div class="card empty">Loading your lift history…</div>`;
   const d = getDraft();
@@ -1190,6 +1192,7 @@ function viewTrain() {
     </div>`;
   });
   d.wods = d.wods || []; cards += d.wods.map(wodCard).join('');
+  d.cardio = d.cardio || []; cards += d.cardio.map(cardioCard).join('');
   const t = S.timer; const custom = S.trainDay === 'Custom';
   const prog = program();
   // Pick any exercise you've got in your split or have logged before (most recent first); ones already in this session are left out.
@@ -1204,6 +1207,7 @@ function viewTrain() {
     ${customHead}
     ${cards}
     <div class="add-ex-row">${picker}<button class="btn ghost" data-act="addEx">+ Add ${picker ? 'a new ' : 'an '}exercise</button></div>
+    <div class="add-ex-row"><button class="btn ghost" data-act="cardioAdd">+ Add cardio (run, swim, bike, row)</button></div>
     ${d.wods.length ? '' : `<div class="add-ex-row"><button class="btn ghost" data-act="wodAdd">+ Add a WOD (CrossFit-style: for time, AMRAP, EMOM)</button></div>`}
     <label class="f">Session notes<textarea id="sessNote" data-f="note">${esc(d.note)}</textarea></label>
     ${saved ? (S.confirmSession ? `<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Delete this ${custom ? (d.title || 'custom') : S.trainDay} session? <button class="btn danger sm" data-act="delSession">Delete</button><button class="btn ghost sm" data-act="cancelDelSession">Keep it</button></div>` : `<div><button class="linkbtn" style="color:var(--red)" data-act="askDelSession">Delete this session</button></div>`) : ''}
@@ -1371,6 +1375,139 @@ function wodTimerTick() {
     if (minute !== t.lastMin) { if (t.lastMin != null) beep(timerVol(), 1); t.lastMin = minute; } if (el) el.textContent = fmtSecs(Math.ceil(left) % 61); if (sub) sub.textContent = `Minute ${minute + 1} of ${t.total / 60}`; }
 }
 function wodTimerEnd() { clearInterval(S.wt?.iv); S.wt = null; render(); }
+/* ---------- Cardio in Train: runs, swims, rides and rows tracked like lifts ---------- */
+// dist is km for run/walk/hike/bike/other and metres for swim/row. Pace is seconds per pace unit, lower is faster.
+const CARDIO_KINDS = {
+  run: { label: 'Run', unit: 'km', per: 1, paceLbl: '/km', minD: 1 },
+  walk: { label: 'Walk', unit: 'km', per: 1, paceLbl: '/km', minD: 1 },
+  hike: { label: 'Hike', unit: 'km', per: 1, paceLbl: '/km', minD: 1 },
+  swim: { label: 'Swim', unit: 'm', per: 100, paceLbl: '/100 m', minD: 100 },
+  bike: { label: 'Bike', unit: 'km', per: 1, paceLbl: '/km', minD: 3, speed: true },
+  row: { label: 'Row', unit: 'm', per: 500, paceLbl: '/500 m', minD: 500 },
+  other: { label: 'Other', unit: 'km', per: 1, paceLbl: '/km', minD: 1 },
+};
+const ck = c => CARDIO_KINDS[c.type] || CARDIO_KINDS.other;
+const cardioKey = c => c.type === 'other' ? 'other:' + (c.name || '').trim().toLowerCase() : c.type;
+const cardioLabel = c => c.type === 'other' ? ((c.name || '').trim() || 'Other cardio') : ck(c).label;
+function fmtDur(sec) { sec = Math.round(sec); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`; }
+function distTxt(c, d = c.dist) { return ck(c).unit === 'm' ? `${Math.round(d).toLocaleString()} m` : `${kgFmt(d)} km`; }
+function cardioPace(c) { return c.dist > 0 && c.secs > 0 ? c.secs / (c.dist / ck(c).per) : null; }
+function paceTxt(c, p = cardioPace(c)) { if (p == null) return ''; return ck(c).speed ? `${r1(3600 / p)} km/h` : `${fmtSecs(p)}${ck(c).paceLbl}`; }
+function cardioTxt(c) { return [c.dist ? distTxt(c) : '', c.secs ? (c.dist ? 'in ' : '') + fmtDur(c.secs) : '', cardioPace(c) ? `(${paceTxt(c)})` : ''].filter(Boolean).join(' '); }
+function newCardio(type = 'run') { return { type, name: '', dist: '', h: '', m: '', s: '', laps: '', pool: '', hr: '', rpe: '', note: '', more: false }; }
+function cardioToDraft(c) { const t = c.secs || 0; return { type: c.type, name: c.name || '', dist: c.dist ?? '', h: t >= 3600 ? Math.floor(t / 3600) : '', m: t ? Math.floor(t % 3600 / 60) : '', s: t ? t % 60 : '', laps: c.laps ?? '', pool: c.pool ?? '', hr: c.hr ?? '', rpe: c.rpe ?? '', note: c.note || '', more: !!(c.hr || c.rpe || c.note) }; }
+function cardioFromDraft(c) {
+  const n = v => (v === '' || v == null || isNaN(+v) ? null : +v);
+  const secs = (n(c.h) || 0) * 3600 + (n(c.m) || 0) * 60 + (n(c.s) || 0);
+  let dist = n(c.dist); const laps = n(c.laps), pool = n(c.pool);
+  if (c.type === 'swim' && !(dist > 0) && laps > 0 && pool > 0) dist = laps * pool;
+  if (!(dist > 0) && !(secs > 0)) return null;
+  return { type: CARDIO_KINDS[c.type] ? c.type : 'other', ...(c.type === 'other' && (c.name || '').trim() ? { name: c.name.trim().slice(0, 40) } : {}), ...(dist > 0 ? { dist } : {}), ...(secs > 0 ? { secs } : {}),
+    ...(c.type === 'swim' && laps > 0 ? { laps } : {}), ...(c.type === 'swim' && pool > 0 ? { pool } : {}), ...(n(c.hr) > 0 ? { hr: n(c.hr) } : {}), ...(n(c.rpe) > 0 ? { rpe: Math.min(10, n(c.rpe)) } : {}), ...((c.note || '').trim() ? { note: c.note.trim() } : {}) };
+}
+// Every saved cardio entry for a key, oldest first. skip = a session id to leave out (the one being edited).
+function cardioHistory(key, skip) {
+  const out = [];
+  for (const s of sessionsSorted().slice().reverse()) { if (s.id === skip) continue; for (const c of s.cardio || []) if (cardioKey(c) === key) out.push({ date: s.date, c }); }
+  return out;
+}
+function cardioBests(list) {
+  const b = { dist: 0, pace: null, k5: null, k10: null };
+  for (const { c } of list) {
+    if (c.dist > b.dist) b.dist = c.dist;
+    const p = cardioPace(c); if (p == null) continue;
+    if (c.dist >= ck(c).minD && (b.pace == null || p < b.pace)) b.pace = p;
+    if (c.type === 'run' && c.dist >= 5 && (b.k5 == null || p * 5 < b.k5)) b.k5 = p * 5;
+    if (c.type === 'run' && c.dist >= 10 && (b.k10 == null || p * 10 < b.k10)) b.k10 = p * 10;
+  }
+  return b;
+}
+function detectCardioPBs(list, skip) {
+  const pbs = [];
+  for (const c of list) {
+    const prev = cardioHistory(cardioKey(c), skip); if (!prev.length) continue;
+    const b = cardioBests(prev); const p = cardioPace(c); const nm = cardioLabel(c);
+    if (c.dist > b.dist + 1e-9) pbs.push({ name: nm, text: `${distTxt(c)}, your longest yet (up from ${distTxt(c, b.dist)})` });
+    if (p == null) continue;
+    if (c.type === 'run' && c.dist >= 10 && b.k10 != null && p * 10 < b.k10 - 0.5) pbs.push({ name: nm, text: `10 km pace PB: ${fmtDur(p * 10)} (was ${fmtDur(b.k10)})` });
+    else if (c.type === 'run' && c.dist >= 5 && b.k5 != null && p * 5 < b.k5 - 0.5) pbs.push({ name: nm, text: `5 km pace PB: ${fmtDur(p * 5)} (was ${fmtDur(b.k5)})` });
+    else if (c.dist >= ck(c).minD && b.pace != null && p < b.pace - 0.2) pbs.push({ name: nm, text: `${paceTxt(c)}, your fastest yet (was ${paceTxt(c, b.pace)})` });
+  }
+  return pbs;
+}
+function cardioDraftPace(c) { const x = cardioFromDraft(c); return x && cardioPace(x) ? `${ck(x).speed ? 'Speed' : 'Pace'}: ${paceTxt(x)}` : ''; }
+function cardioCard(c, ci) {
+  const K = ck(c); const v = x => esc(x ?? ''); const key = cardioKey(c);
+  const hist = key === 'other:' ? [] : cardioHistory(key, draftKey()).filter(x => x.date <= S.date);
+  const last = hist[hist.length - 1]; const b = hist.length ? cardioBests(hist) : null;
+  const num = (f, val, lbl, extra = '') => `<label class="f">${lbl}<input type="number" inputmode="decimal" step="any" min="0" data-cf="${f}" data-c="${ci}" value="${v(val)}" id="c${ci}_${f}"${extra}></label>`;
+  const sw = S.ct && S.ct.ci === ci;
+  const bestBits = b ? [b.pace != null ? `fastest ${paceTxt(c, b.pace)}` : '', b.dist ? `longest ${distTxt(c, b.dist)}` : '', b.k5 != null ? `5 km ${fmtDur(b.k5)}` : '', b.k10 != null ? `10 km ${fmtDur(b.k10)}` : ''].filter(Boolean) : [];
+  return `<div class="card cardio-card">
+    <div class="wod-head"><span class="wod-tag">Cardio · ${esc(cardioLabel(c))}</span><button type="button" class="linkbtn muted" style="margin-left:auto" data-act="cardioDel" data-c="${ci}">Remove</button></div>
+    <div class="seg seg-wrap" role="group" aria-label="Cardio type">${Object.entries(CARDIO_KINDS).map(([k, x]) => `<button type="button" data-act="cardioType" data-c="${ci}" data-v="${k}" aria-pressed="${c.type === k}">${x.label}</button>`).join('')}</div>
+    ${c.type === 'other' ? `<input type="text" data-cf="name" data-c="${ci}" value="${v(c.name)}" placeholder="What was it? e.g. Elliptical, Ski erg" aria-label="Cardio name" id="c${ci}_name" maxlength="40">` : ''}
+    ${last ? `<div class="last">Last (${fmtDay(last.date, { day: 'numeric', month: 'short' })}): ${esc(cardioTxt(last.c))}</div>` : `<div class="last">No ${esc(cardioLabel(c).toLowerCase())} history yet. Log it and next time you'll see your last effort here.</div>`}
+    ${bestBits.length ? `<div class="small muted">Your bests: ${esc(bestBits.join(' · '))}</div>` : ''}
+    <div class="cardio-row">${num('dist', c.dist, `Distance (${K.unit})`)}${num('h', c.h, 'Hours', ' inputmode="numeric" step="1"')}${num('m', c.m, 'Min', ' inputmode="numeric" step="1"')}${num('s', c.s, 'Sec', ' inputmode="numeric" step="1" max="59"')}</div>
+    ${c.type === 'swim' ? `<div class="cardio-row two">${num('laps', c.laps, 'Laps (optional)', ' inputmode="numeric" step="1"')}${num('pool', c.pool, 'Pool length, m', ' placeholder="25 or 50"')}</div><div class="small muted">Enter laps and pool length instead of distance if that's easier.</div>` : ''}
+    <div class="cardio-pace" id="c${ci}_pace" aria-live="polite">${cardioDraftPace(c)}</div>
+    <div class="wod-timer-wrap">${sw ? `<div class="wod-timer"><span class="wod-clock" id="ct_clock">0:00</span><button type="button" class="btn sm" data-act="cardioSwStop">Stop and use time</button><button type="button" class="linkbtn muted" data-act="cardioSwCancel">Cancel</button></div>`
+      : `<button type="button" class="linkbtn" data-act="cardioSwStart" data-c="${ci}">Use a stopwatch (optional)</button><span class="small muted"> · Or just type your time from your watch or app.</span>`}</div>
+    ${c.more ? `<div class="cardio-row two">${num('hr', c.hr, 'Avg heart rate (optional)', ' inputmode="numeric" step="1"')}${num('rpe', c.rpe, 'How hard, 1–10 (optional)', ' inputmode="numeric" step="1" max="10"')}</div>
+      <input type="text" data-cf="note" data-c="${ci}" value="${v(c.note)}" placeholder="Notes, e.g. hilly route, intervals 6×400 m" aria-label="Cardio notes" id="c${ci}_note">`
+      : `<div><button type="button" class="linkbtn" data-act="cardioMore" data-c="${ci}">+ Heart rate, effort and notes</button></div>`}
+  </div>`;
+}
+function cardioSwTick() { const el = document.getElementById('ct_clock'); if (S.ct && el) el.textContent = fmtDur((Date.now() - S.ct.start) / 1000); }
+function cardioSwEnd() { clearInterval(S.ct?.iv); S.ct = null; }
+// All cardio on a date: quick entries under Steps & cardio plus cardio logged in Train.
+function trainCardioOn(date) { return Object.values(S.sessions).filter(s => s.date === date).flatMap(s => s.cardio || []); }
+function lastCardioType() { for (const s of sessionsSorted()) { const c = (s.cardio || [])[0]; if (c) return c.type; } return 'run'; }
+function isWorkout(s) { return s.source !== 'spreadsheet' && !!(s.exercises?.length || s.wods?.length || s.cardio?.length); }
+
+/* ---------- Progress → Cardio ---------- */
+function viewCardioProgress() {
+  const all = []; for (const s of sessionsSorted()) for (const c of s.cardio || []) all.push({ date: s.date, c });
+  if (!all.length) return weeklyCard() + `<div class="card empty"><b>No cardio logged in Train yet.</b>In any workout, tap <b>+ Add cardio</b> to log a run, swim, ride or row with distance and time. Your pace, distances and PBs show up here.<div style="margin-top:10px"><button class="btn ghost" data-act="tab" data-v="train">Go to Train</button></div></div>`;
+  const keys = []; const lbl = {}; for (const { c } of all) { const k = cardioKey(c); if (!keys.includes(k)) { keys.push(k); lbl[k] = cardioLabel(c); } }
+  if (!S.cardioKey || !keys.includes(S.cardioKey)) S.cardioKey = keys[0];
+  const h = cardioHistory(S.cardioKey); const c0 = h[h.length - 1].c; const K = ck(c0); const b = cardioBests(h);
+  const metric = S.cardioMetric === 'dist' ? 'dist' : 'pace';
+  const pacePts = h.filter(x => cardioPace(x.c) != null && x.c.dist >= K.minD).map(x => ({ x: fromISO(x.date).getTime(), y: K.speed ? 3600 / cardioPace(x.c) : cardioPace(x.c) }));
+  const distPts = h.filter(x => x.c.dist > 0).map(x => ({ x: fromISO(x.date).getTime(), y: x.c.dist }));
+  const chart = metric === 'pace'
+    ? lineChart(pacePts, { label: `${lbl[S.cardioKey]} ${K.speed ? 'speed' : 'pace'}`, noun: 'activity with distance and time', fmt: K.speed ? (n => kgFmt(r1(n))) : fmtSecs, unit: K.speed ? ' km/h' : K.paceLbl, invert: !K.speed })
+    : lineChart(distPts, { label: `${lbl[S.cardioKey]} distance`, noun: 'activity with a distance', fmt: K.unit === 'm' ? (n => Math.round(n).toLocaleString()) : (n => kgFmt(r1(n))), unit: ' ' + K.unit });
+  // distance per week, last 8 weeks
+  const ws0 = weekStart(todayISO()); const weeks = [];
+  for (let i = 7; i >= 0; i--) { const ws = addDays(ws0, -7 * i), we = addDays(ws, 6); weeks.push({ ws, d: h.filter(x => x.date >= ws && x.date <= we).reduce((n, x) => n + (x.c.dist || 0), 0), n: h.filter(x => x.date >= ws && x.date <= we).length }); }
+  const wmax = Math.max(...weeks.map(w => w.d), 0);
+  const latest = h[h.length - 1];
+  return `${weeklyCard()}
+  <section class="sec"><h2>Cardio</h2>
+    <select id="cardioPick" aria-label="Cardio type">${keys.map(k => `<option value="${esc(k)}" ${k === S.cardioKey ? 'selected' : ''}>${esc(lbl[k])}</option>`).join('')}</select>
+  </section>
+  <section class="card" style="display:grid;gap:12px">
+    <div class="stat3">
+      <div class="s"><span>Latest</span><b>${esc(cardioPace(latest.c) ? paceTxt(latest.c) : latest.c.dist ? distTxt(latest.c) : fmtDur(latest.c.secs || 0))}</b></div>
+      <div class="s"><span>${K.speed ? 'Fastest speed' : 'Fastest pace'}</span><b>${b.pace != null ? esc(paceTxt(c0, b.pace)) : '–'}</b></div>
+      <div class="s"><span>Longest</span><b>${b.dist ? esc(distTxt(c0, b.dist)) : '–'}</b></div>
+    </div>
+    ${b.k5 != null || b.k10 != null ? `<div class="small"><b>Best 5 km:</b> ${b.k5 != null ? fmtDur(b.k5) : '–'} · <b>Best 10 km:</b> ${b.k10 != null ? fmtDur(b.k10) : '–'} <span class="muted">(from your average pace on runs that long or longer)</span></div>` : ''}
+    <div class="seg" role="group" aria-label="Chart"><button data-act="cardioMetric" data-v="pace" aria-pressed="${metric === 'pace'}">${K.speed ? 'Speed' : 'Pace'}</button><button data-act="cardioMetric" data-v="dist" aria-pressed="${metric === 'dist'}">Distance</button></div>
+    ${chart}
+    <div class="small muted">${metric === 'pace' ? (K.speed ? 'Higher is faster.' : 'Higher on the chart is faster (less time per ' + K.paceLbl.slice(1) + ').') + ` Only sessions of ${distTxt(c0, K.minD)} or more count, so short sprints don't skew it.` : 'Distance each session.'}</div>
+  </section>
+  <section class="sec"><h2>Distance per week</h2>
+    <div class="card week-bars">${weeks.map(w => `<div class="wb"><span class="wb-l">${fmtDay(w.ws, { day: 'numeric', month: 'short' })}</span><span class="wb-bar"><i style="width:${wmax ? (w.d / wmax * 100).toFixed(1) : 0}%"></i></span><span class="wb-v">${w.d ? esc(distTxt(c0, w.d)) : '–'}</span></div>`).join('')}</div>
+  </section>
+  <section class="sec"><h2>Every session <span class="aside">${h.length} logged</span></h2>
+    <div class="card tablewrap"><table><thead><tr><th>Date</th><th>Distance</th><th>Time</th><th>${K.speed ? 'Speed' : 'Pace'}</th></tr></thead><tbody>
+    ${h.slice().reverse().map(x => `<tr><td style="white-space:nowrap">${fmtDay(x.date, { day: 'numeric', month: 'short' })}</td><td>${x.c.dist ? esc(distTxt(x.c)) : '–'}</td><td>${x.c.secs ? fmtDur(x.c.secs) : '–'}</td><td>${esc(paceTxt(x.c)) || '–'}${x.c.note ? `<div class="small muted">${esc(x.c.note)}</div>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>
+  </section>`;
+}
 async function saveSession() {
   const d = getDraft(); const key = draftKey();
   const exercises = d.exercises.map(ex => ({
@@ -1383,11 +1520,14 @@ async function saveSession() {
     }),
   })).filter(e => e.name && e.sets.length);
   const wods = (d.wods || []).map(wodFromDraft).filter(Boolean);
-  if (!exercises.length && !wods.length) { toast('Log reps on at least one set, or a WOD result, first.'); return; }
-  const doc = { date: S.date, day: S.trainDay, exercises, note: d.note || '' }; if (wods.length) doc.wods = wods;
+  const cardio = (d.cardio || []).map(cardioFromDraft).filter(Boolean);
+  if (!exercises.length && !wods.length && !cardio.length) { toast('Log reps on at least one set, a WOD result, or a cardio distance or time first.'); return; }
+  const doc = { date: S.date, day: S.trainDay, exercises, note: d.note || '' }; if (wods.length) doc.wods = wods; if (cardio.length) doc.cardio = cardio;
   if (S.trainDay === 'Custom' && (d.title || '').trim()) doc.name = d.title.trim();
-  const pbs = detectPBs(doc, key);
-  if (pbs.length) doc.pbs = pbs.map(x => x.name);
+  else if (S.trainDay === 'Custom' && cardio.length && !exercises.length && !wods.length) doc.name = [...new Set(cardio.map(cardioLabel))].join(' + ');
+  if (S.ct) cardioSwEnd();
+  const pbs = [...detectPBs(doc, key), ...detectCardioPBs(cardio, key)];
+  if (pbs.length) doc.pbs = [...new Set(pbs.map(x => x.name))];
   S.sessions[key] = doc; lsSet('draft:' + key, null); delete S.drafts[key];
   render();
   if (pbs.length) celebrate(pbs.length > 1 ? `${pbs.length} new personal bests!` : 'New personal best!', pbs, gardenOn() ? `<div class="small muted">${gm().grew} too (+${GARDEN.WORKOUT}).</div>` : '');
@@ -1423,14 +1563,14 @@ function lineChart(points, opts) {
   const x0 = Math.min(...xs), x1 = Math.max(...xs);
   const { lo, hi, ticks } = niceTicks(Math.min(...ys), Math.max(...ys), 4);
   const X = x => L + (x1 === x0 ? 0.5 : (x - x0) / (x1 - x0)) * (W - L - R);
-  const Y = y => Tp + (1 - (y - lo) / (hi - lo || 1)) * (H - Tp - B);
+  const Y = y => Tp + (opts.invert ? (y - lo) / (hi - lo || 1) : 1 - (y - lo) / (hi - lo || 1)) * (H - Tp - B); const F = opts.fmt || kgFmt;
   let g = '<g class="grid">' + ticks.map(t => `<line x1="${L}" x2="${W - R}" y1="${Y(t)}" y2="${Y(t)}"/>`).join('') + '</g>';
-  g += '<g class="axis">' + ticks.map(t => `<text x="${L - 8}" y="${Y(t) + 4}" text-anchor="end">${kgFmt(t)}</text>`).join('');
+  g += '<g class="axis">' + ticks.map(t => `<text x="${L - 8}" y="${Y(t) + 4}" text-anchor="end">${F(t)}</text>`).join('');
   const months = []; const d0 = new Date(x0); const dm = new Date(d0.getFullYear(), d0.getMonth() + 1, 1);
   for (let d = dm; d.getTime() <= x1; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) months.push(d);
   g += months.map(m => `<text x="${X(m.getTime())}" y="${H - 8}" text-anchor="middle">${m.toLocaleDateString('en-AU', { month: 'short' })}</text>`).join('') + '</g>';
   const path1 = points.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ' ' + Y(p.y).toFixed(1)).join(' ');
-  const area = path1 + ` L${X(points[points.length - 1].x).toFixed(1)} ${Y(lo)} L${X(points[0].x).toFixed(1)} ${Y(lo)} Z`;
+  const base = opts.invert ? Y(hi) : Y(lo); const area = path1 + ` L${X(points[points.length - 1].x).toFixed(1)} ${base} L${X(points[0].x).toFixed(1)} ${base} Z`;
   g += `<path class="a1" d="${area}"/><path class="l1" d="${path1}"/>`;
   if (opts.second) {
     const p2 = points.filter(p => p.y2 != null);
@@ -1438,19 +1578,20 @@ function lineChart(points, opts) {
   }
   g += points.map(p => `<circle class="p1" cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.2"/>`).join('');
   const last = points[points.length - 1];
-  g += `<g class="end"><text x="${X(last.x) + 8}" y="${Y(last.y) + 5}">${kgFmt(r1(last.y))}${opts.unit || ''}</text></g>`;
+  g += `<g class="end"><text x="${X(last.x) + 8}" y="${Y(last.y) + 5}">${opts.fmt ? F(last.y) : kgFmt(r1(last.y))}${opts.unit || ''}</text></g>`;
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">${g}</svg></div>`;
 }
 function viewProgressAll() {
-  const v = ['body', 'photos'].includes(S.progView) ? S.progView : 'lifts';
-  const seg = `<div class="seg prog-seg" role="group" aria-label="Progress view">${[['lifts', 'Lifts'], ['body', 'Body'], ['photos', 'Photos']].map(([k, l]) => `<button data-act="progView" data-v="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</div>`;
-  return seg + (v === 'body' ? viewBody() : v === 'photos' ? viewPhotos() : viewProgress());
+  const v = ['body', 'photos', 'cardio'].includes(S.progView) ? S.progView : 'lifts';
+  const seg = `<div class="seg prog-seg" role="group" aria-label="Progress view">${[['lifts', 'Lifts'], ['cardio', 'Cardio'], ['body', 'Body'], ['photos', 'Photos']].map(([k, l]) => `<button data-act="progView" data-v="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</div>`;
+  return seg + (v === 'body' ? viewBody() : v === 'photos' ? viewPhotos() : v === 'cardio' ? viewCardioProgress() : viewProgress());
 }
 function viewProgress() {
   const sess = sessionsSorted();
   if (!sess.length) return weeklyCard() + (S.loaded.sessions || !navigator.onLine ? `<div class="card empty"><b>No lifts logged yet.</b>Save a session under Train and your progress shows up here.<div style="margin-top:8px">Have a backup file? Restore it from Settings (gear icon) → Restore from backup.</div></div>` : `<div class="card empty">Loading your lift history…</div>`);
   const lastUse = {}; for (const s of sess) for (const e of s.exercises || []) if (!lastUse[vkey(e)]) lastUse[vkey(e)] = s.date;
   const names = Object.keys(lastUse).sort((a, b) => lastUse[a] < lastUse[b] ? 1 : lastUse[a] > lastUse[b] ? -1 : a.localeCompare(b));
+  if (!names.length) return weeklyCard() + `<div class="card empty"><b>No lifts logged yet.</b>Your cardio and WODs are saved. Lift progress shows here once you log sets with weights. ${sess.some(s => s.cardio?.length) ? '<div style="margin-top:10px"><button class="btn ghost" data-act="progView" data-v="cardio">See your cardio progress</button></div>' : ''}</div>`;
   if (!S.progressEx || !lastUse[S.progressEx]) S.progressEx = names.includes('Back squat') ? 'Back squat' : names[0];
   const h = historyFor(S.progressEx);
   const steps = STEP_EXERCISES.has(S.progressEx);
@@ -2753,8 +2894,9 @@ function weekSummary(ws) {
   const logged = days.filter(d => d.meals?.length);
   const kcals = logged.map(d => dayTotals(d).kcal), prots = logged.map(d => dayTotals(d).p);
   const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
-  const sess = Object.values(S.sessions).filter(s => inWeek(s.date) && s.source !== 'spreadsheet' && s.exercises?.length);
-  const cardio = days.flatMap(d => d.cardio || []);
+  const sess = Object.values(S.sessions).filter(s => inWeek(s.date) && isWorkout(s));
+  const tc = Object.values(S.sessions).filter(s => inWeek(s.date)).flatMap(s => s.cardio || []);
+  const cardio = [...days.flatMap(d => d.cardio || []), ...tc.map(c => ({ minutes: c.secs ? Math.round(c.secs / 60) : 0 }))];
   const list = weightList();
   const wNow = avgBetween(list, ws, we), wPrev = avgBetween(list, addDays(ws, -7), addDays(ws, -1));
   const waists = list.filter(w => w.waist);
@@ -3103,7 +3245,7 @@ function weekGoal() { const g = +S.config?.weekGoal; return g >= 1 && g <= 7 ? g
 function loggedDates() {
   const set = new Set();
   for (const d of Object.values(S.days)) if (d.meals?.length || d.cardio?.length || d.supps?.length || d.water) set.add(d.date);
-  for (const s of Object.values(S.sessions)) if (s.source !== 'spreadsheet' && s.exercises?.length) set.add(s.date);
+  for (const s of Object.values(S.sessions)) if (isWorkout(s)) set.add(s.date);
   for (const w of Object.values(S.weights)) if (w.kg) set.add(w.date);
   return set;
 }
@@ -3113,7 +3255,7 @@ function streakStats() {
   while (set.has(d)) { cur++; d = addDays(d, -1); }
   const sorted = [...set].sort(); let best = 0, run = 0, prev = null;
   for (const x of sorted) { run = prev && addDays(prev, 1) === x ? run + 1 : 1; best = Math.max(best, run); prev = x; }
-  const wk = ws => Object.values(S.sessions).filter(s => s.source !== 'spreadsheet' && s.exercises?.length && s.date >= ws && s.date <= addDays(ws, 6)).length;
+  const wk = ws => Object.values(S.sessions).filter(s => isWorkout(s) && s.date >= ws && s.date <= addDays(ws, 6)).length;
   const thisWs = weekStart(today); const thisWeek = wk(thisWs);
   let weeks = thisWeek >= weekGoal() ? 1 : 0; let w = addDays(thisWs, -7);
   while (wk(w) >= weekGoal()) { weeks++; w = addDays(w, -7); }
@@ -3128,7 +3270,7 @@ function streakChips() {
 /* ---------- garden: bloom history + Garden tab ---------- */
 function bloomEvents() {
   const T = targets(); const ev = [];
-  for (const s of Object.values(S.sessions)) if (s.source !== 'spreadsheet' && s.exercises?.length) ev.push([s.date, GARDEN.WORKOUT]);
+  for (const s of Object.values(S.sessions)) if (isWorkout(s)) ev.push([s.date, GARDEN.WORKOUT]);
   for (const d of Object.values(S.days)) {
     if (d.meals?.length) { ev.push([d.date, GARDEN.FOOD_DAY]); if (T.p && dayTotals(d).p >= T.p - 10) ev.push([d.date, GARDEN.PROTEIN_DAY]); }
     if (d.cardio?.length) ev.push([d.date, GARDEN.CARDIO * Math.min(d.cardio.length, 2)]);
@@ -3215,7 +3357,7 @@ function viewGardenRest() {
   const s = streakStats(); const g = gardenStats(); const blooms = S.config?.blooms || [];
   const ws = weekStart(todayISO());
   const dots = Array.from({ length: 7 }, (_, i) => {
-    const d = addDays(ws, i); const worked = Object.values(S.sessions).some(x => x.date === d && x.source !== 'spreadsheet' && x.exercises?.length);
+    const d = addDays(ws, i); const worked = Object.values(S.sessions).some(x => x.date === d && isWorkout(x));
     const logged = loggedDates().has(d);
     return `<span class="wd${worked ? ' w' : logged ? ' l' : ''}${d === todayISO() ? ' today' : ''}"><i></i>${fromISO(d).toLocaleDateString('en-AU', { weekday: 'narrow' })}</span>`;
   }).join('');
@@ -3620,6 +3762,22 @@ document.addEventListener('click', async e => {
     case 'addSet': { const ex = D().exercises[b.dataset.e]; const l = ex.rows[ex.rows.length - 1]; ex.rows.push({ kg: l?.kg ?? '', reps: '', partials: '', drop: null, ph: l?.ph ?? '' }); persistDraft(); render(); break; }
     case 'rmSet': { D().exercises[b.dataset.e].rows.pop(); persistDraft(); render(); break; }
     case 'rmEx': { D().exercises.splice(+b.dataset.e, 1); persistDraft(); render(); break; }
+    case 'cardioAdd': { const d = getDraft(); d.cardio = d.cardio || []; const prev = d.cardio[d.cardio.length - 1]; d.cardio.push(newCardio(prev?.type || lastCardioType())); persistDraft(); render(); setTimeout(() => document.getElementById(`c${d.cardio.length - 1}_dist`)?.scrollIntoView({ block: 'center' }), 50); break; }
+    case 'cardioRest': {
+      S.trainDay = 'Custom'; const picks = lsGet('rl:trainPick') || {}; picks[S.date] = 'Custom'; lsSet('rl:trainPick', picks);
+      const d = getDraft(); d.cardio = d.cardio || []; if (!d.cardio.length) d.cardio.push(newCardio(lastCardioType())); persistDraft(); render(); break;
+    }
+    case 'cardioDel': { const ci = +b.dataset.c; if (S.ct) cardioSwEnd(); getDraft().cardio.splice(ci, 1); persistDraft(); render(); break; }
+    case 'cardioType': { const c = getDraft().cardio[+b.dataset.c]; if (c.type !== b.dataset.v && ck({ type: b.dataset.v }).unit !== ck(c).unit) c.dist = ''; c.type = b.dataset.v; persistDraft(); render(); break; }
+    case 'cardioMore': { getDraft().cardio[+b.dataset.c].more = true; persistDraft(); render(); setTimeout(() => document.getElementById(`c${b.dataset.c}_hr`)?.focus(), 30); break; }
+    case 'cardioSwStart': { if (S.ct) cardioSwEnd(); S.ct = { ci: +b.dataset.c, start: Date.now() }; render(); S.ct.iv = setInterval(cardioSwTick, 250); cardioSwTick(); break; }
+    case 'cardioSwCancel': { cardioSwEnd(); render(); break; }
+    case 'cardioSwStop': {
+      const t = S.ct; if (!t) break; const c = getDraft().cardio[t.ci]; const secs = Math.round((Date.now() - t.start) / 1000);
+      if (c) { c.h = secs >= 3600 ? Math.floor(secs / 3600) : ''; c.m = Math.floor(secs % 3600 / 60); c.s = secs % 60; persistDraft(); toast(`Time saved: ${fmtDur(secs)}`); }
+      cardioSwEnd(); render(); break;
+    }
+    case 'cardioMetric': S.cardioMetric = b.dataset.v; render(); break;
     case 'wodAdd': { const d = getDraft(); d.wods = d.wods || []; d.wods.push(newWod()); persistDraft(); render(); setTimeout(() => document.getElementById(`w${d.wods.length - 1}_name`)?.scrollIntoView({ block: 'center' }), 50); break; }
     case 'wodDel': { if (S.wt?.wi === +b.dataset.w) wodTimerEnd(); getDraft().wods.splice(+b.dataset.w, 1); persistDraft(); render(); break; }
     case 'wodType': { const w = getDraft().wods[+b.dataset.w]; w.type = b.dataset.v; w.res = { m: '', s: '', r: '', x: '' }; persistDraft(); render(); break; }
@@ -4002,6 +4160,10 @@ document.addEventListener('input', e => {
     return;
   }
   if (el.id === 'ob_kcal') { const sh = document.getElementById('ob_kcal_show'); if (sh) sh.textContent = (+el.value || 0).toLocaleString(); }
+  if (el.dataset.cf && S.tab === 'train' && el.closest('#view')) {
+    const c = getDraft().cardio?.[+el.dataset.c]; if (!c) return; c[el.dataset.cf] = el.value; persistDraft();
+    const pe = document.getElementById(`c${el.dataset.c}_pace`); if (pe) pe.textContent = cardioDraftPace(c); return;
+  }
   if (el.dataset.wf && S.tab === 'train' && el.closest('#view')) {
     const w = getDraft().wods?.[+el.dataset.w]; if (!w) return; const f = el.dataset.wf;
     if (f === 'mname' || f === 'mreps' || f === 'mkg') { const m = w.moves[+el.dataset.m]; if (m) m[{ mname: 'name', mreps: 'reps', mkg: 'kg' }[f]] = el.value; }
@@ -4045,6 +4207,7 @@ document.addEventListener('change', e => {
     savePlan(wp => { wp[d] = wp[d] || {}; wp[d][sl] = [...(wp[d][sl] || []), key]; }); render(); openPlanner(); return;
   }
   if (el.dataset.groc) { const k = el.dataset.groc; const on = el.checked; saveGrocery(gr => { if (on) gr.checked[k] = true; else delete gr.checked[k]; }); return; }
+  if (el.id === 'cardioPick') { S.cardioKey = el.value; render(); return; }
   if (el.id === 'exPick') { S.progressEx = el.value; render(); }
   else if (el.id === 'cmpA') { S.compare.a = el.value; render(); }
   else if (el.id === 'cmpB') { S.compare.b = el.value; render(); }

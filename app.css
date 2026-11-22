@@ -867,6 +867,17 @@ details.dayedit[open] > summary::after { transform: rotate(-135deg); margin-top:
 .wod-move input { min-width: 0; text-align: left; }
 .wod-move input + input { text-align: center; }
 .wod-res-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.card.cardio-card { display: grid; gap: 10px; }
+.cardio-row { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; }
+.cardio-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cardio-row .f { font-size: 12px; }
+.cardio-pace { font-weight: 700; min-height: 1.2em; }
+.week-bars { display: grid; gap: 8px; }
+.wb { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; font-size: 13px; }
+.wb-l { color: var(--muted); }
+.wb-bar { height: 10px; border-radius: 999px; background: var(--line, rgba(127,127,127,.18)); overflow: hidden; }
+.wb-bar i { display: block; height: 100%; background: var(--red); border-radius: 999px; }
+.wb-v { font-variant-numeric: tabular-nums; min-width: 56px; text-align: right; }
 .wod-timer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--sunk); border-radius: 12px; padding: 10px 12px; }
 .wod-clock { font-family: var(--font-display); font-weight: 700; font-size: 34px; font-variant-numeric: tabular-nums; min-width: 92px; }
 .wod-move input { padding-left: 8px; padding-right: 6px; }
