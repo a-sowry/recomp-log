@@ -1,0 +1,12 @@
+{
+  "appId": "net.refynefit.app",
+  "appName": "Refyne",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "scheme": "Refyne"
+  },
+  "plugins": {
+    "LocalNotifications": { "presentationOptions": ["sound", "banner"] }
+  }
+}

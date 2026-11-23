@@ -83,7 +83,10 @@ function toast(msg, action) { // action: { label, fn } adds a button, e.g. Undo
   document.body.appendChild(t);
   setTimeout(() => t.remove(), action ? 5000 : 2200);
 }
-const APP_VERSION = 79; // keep in step with VERSION in sw.js
+const APP_VERSION = 80; // keep in step with VERSION in sw.js
+// Running inside the iPhone app (Capacitor) rather than a browser.
+const NATIVE = !!window.Capacitor?.isNativePlatform?.();
+const nativePlugin = name => window.Capacitor?.Plugins?.[name] || window.Capacitor?.registerPlugin?.(name);
 const THEMES = [
   { id: 'auto', name: 'Chalk (follows phone)' },
   { id: 'white', name: 'White', bg: '#FFFFFF', surface: '#F6F6F4', sunk: '#ECECE9', line: '#DCDCD7' },
@@ -280,7 +283,7 @@ let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; const b = document.getElementById('installBtn'); if (b) b.hidden = false; });
 function isInstalled() { return window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true; }
 function installHelp() {
-  if (isInstalled()) return '';
+  if (NATIVE || isInstalled()) return '';
   const ua = navigator.userAgent; const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); const android = /Android/.test(ua);
   const iosSteps = `<ol class="install-steps"><li>Open <b>refynefit.net</b> in <b>Safari</b>.</li><li>Tap the <b>Share</b> button <span class="share-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M5 11v9h14v-9"/></svg></span> at the bottom of the screen.</li><li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open Refyne from your home screen and sign in there.</li></ol>`;
   const andSteps = `<ol class="install-steps"><li>Open <b>refynefit.net</b> in <b>Chrome</b>.</li><li>Tap the <b>⋮</b> menu in the top corner.</li><li>Tap <b>Install app</b> or <b>Add to Home screen</b>, then confirm.</li><li>Open Refyne from your home screen and sign in there.</li></ol>`;
@@ -325,7 +328,7 @@ function showNewPassword(msg) {
     <button class="btn" type="submit" id="np_btn">Save password</button>
   </form>`);
 }
-const authRedirect = () => location.origin + location.pathname;
+const authRedirect = () => NATIVE ? 'https://refynefit.net/' : location.origin + location.pathname;
 const PRIVACY_HTML = `<p><b>Not medical advice.</b> Refyne is a general fitness and nutrition tracker. Calorie, macro and nutrient numbers are estimates. If you have a medical condition, are pregnant, or have a history of disordered eating, talk to a doctor or dietitian before changing how you eat or train.</p>
   <p><b>What's stored.</b> Your email, the food, drinks, water, steps, training, weights, measurements and progress photos you log, and your settings. It's stored with Supabase in Sydney, Australia, and other users can't see it. Progress photos are kept in private storage.</p>
   <p><b>What isn't.</b> No ads and no selling your data. Barcode and packaged-food searches send only the barcode or search words to Open Food Facts.</p>
@@ -1250,11 +1253,16 @@ function beep(vol = timerVol(), count = timerBeeps()) {
 }
 /* ---------- rest-timer notifications (web push) ---------- */
 // Per phone: this device's on/off lives in localStorage; the subscription lives in Supabase (push_subs).
-function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function pushSupported() { if (NATIVE) return true; return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
 function isStandalone() { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
-function pushOn() { return !!lsGet('rl:pushOn') && pushSupported() && Notification.permission === 'granted'; }
+function pushOn() { if (NATIVE) return !!lsGet('rl:pushOn'); return !!lsGet('rl:pushOn') && pushSupported() && Notification.permission === 'granted'; }
 function vapidKey() { const k = window.RECOMP_CONFIG?.VAPID_PUBLIC_KEY || ''; const b = atob(k.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - k.length % 4) % 4)); return Uint8Array.from(b, c => c.charCodeAt(0)); }
 async function enablePush() {
+  if (NATIVE) { // the iPhone app uses local notifications: no server needed, works offline
+    try { const r = await nativePlugin('LocalNotifications').requestPermissions(); if (r.display !== 'granted') { toast('Notifications are off for Refyne. Turn them on in iPhone Settings → Notifications → Refyne.'); return; } lsSet('rl:pushOn', true); toast('Notifications on'); }
+    catch (e) { console.error(e); toast('Couldn\'t turn on notifications.'); }
+    if (document.getElementById('settingsForm')) openSettings(); return;
+  }
   if (!pushSupported()) { toast(/iPhone|iPad/.test(navigator.userAgent) && !isStandalone() ? 'Open Refyne from your Home Screen icon to turn on notifications.' : 'This browser can\'t show notifications.'); return; }
   try {
     const perm = await Notification.requestPermission();
@@ -1270,17 +1278,22 @@ async function enablePush() {
 }
 async function disablePush() {
   lsSet('rl:pushOn', false);
+  if (NATIVE) { toast('Notifications off'); if (document.getElementById('settingsForm')) openSettings(); return; }
   try { const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription(); if (sub) { await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); } } catch (e) { console.error(e); }
   toast('Notifications off for this phone'); if (document.getElementById('settingsForm')) openSettings();
 }
 async function schedulePush(sec, title = 'Rest over', body = 'Time for your next set.') {
+  if (NATIVE) {
+    if (!pushOn()) return null; const id = 1 + Math.floor(Math.random() * 2e9);
+    try { await nativePlugin('LocalNotifications').schedule({ notifications: [{ id, title, body, schedule: { at: new Date(Date.now() + sec * 1000), allowWhileIdle: true } }] }); return id; } catch (e) { console.error(e); return null; }
+  }
   if (!pushOn() || !navigator.onLine || !sb) return null;
   const id = crypto.randomUUID ? crypto.randomUUID() : uid() + '-0000-4000-8000-' + Date.now().toString(16).padStart(12, '0').slice(-12);
   const { error } = await sb.from('push_jobs').insert({ id, send_at: new Date(Date.now() + sec * 1000).toISOString(), title, body, tag: 'rest' });
   if (error) { console.error(error); return null; }
   return id;
 }
-async function cancelPush(id) { if (!id || !sb) return; try { await sb.from('push_jobs').delete().eq('id', id); } catch {} }
+async function cancelPush(id) { if (NATIVE) { if (id) try { await nativePlugin('LocalNotifications').cancel({ notifications: [{ id }] }); } catch {} return; } if (!id || !sb) return; try { await sb.from('push_jobs').delete().eq('id', id); } catch {} }
 function startTimer(sec) {
   clearInterval(S.timer.handle);
   if (S.timer.pushId) { cancelPush(S.timer.pushId); S.timer.pushId = null; }
@@ -1962,7 +1975,7 @@ async function openScanner() {
   } catch (e) {
     console.error(e);
     const tip = document.getElementById('scanTip');
-    if (tip) tip.textContent = e?.name === 'NotAllowedError' ? 'Camera access was blocked. Allow it in iPhone Settings → Safari → Camera, or type the barcode number instead.' : 'The camera isn\'t available here. Type the barcode number instead.';
+    if (tip) tip.textContent = e?.name === 'NotAllowedError' ? (NATIVE ? 'Camera access was blocked. Allow it in iPhone Settings → Refyne → Camera, or type the barcode number instead.' : 'Camera access was blocked. Allow it in iPhone Settings → Safari → Camera, or type the barcode number instead.') : 'The camera isn\'t available here. Type the barcode number instead.';
   }
 }
 function closeScanner() {
@@ -3517,7 +3530,7 @@ function openSettings() {
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Background colour</div>
       <div class="swatches" role="group" aria-label="Background colour">${THEMES.map(t => `<button type="button" class="swatch" data-act="theme" data-v="${t.id}" aria-pressed="${(S.config?.theme || 'auto') === t.id}" title="${t.name}">
         <span class="sw" style="${t.bg ? `background:${t.bg};border-color:${t.line}` : 'background:linear-gradient(135deg,#F1F1EC 50%,#11151A 50%)'}"></span><span class="swn">${t.name}</span></button>`).join('')}</div>
-      <div class="icon-note"><img src="icons/t/${findTheme(S.config?.theme)?.id || 'auto'}-180.png" alt="" width="40" height="40"><span class="small muted">Your home-screen icon matches this colour. Phones lock the icon in when you add the app, so to update it, remove Refyne from your home screen and add it again from ${/iPhone|iPad/.test(navigator.userAgent) ? 'Safari (Share → Add to Home Screen)' : 'your browser menu'}. Your data stays.</span></div>
+      ${NATIVE ? '' : `<div class="icon-note"><img src="icons/t/${findTheme(S.config?.theme)?.id || 'auto'}-180.png" alt="" width="40" height="40"><span class="small muted">Your home-screen icon matches this colour. Phones lock the icon in when you add the app, so to update it, remove Refyne from your home screen and add it again from ${/iPhone|iPad/.test(navigator.userAgent) ? 'Safari (Share → Add to Home Screen)' : 'your browser menu'}. Your data stays.</span></div>`}
     </div>
     <div class="card" style="display:grid;gap:10px"><div class="slotlabel" style="padding-top:0">Food page</div>
       <div class="small muted">Choose what shows on the Food tab. Everything you turn off still works, it's just out of the way.</div>
@@ -3917,7 +3930,7 @@ document.addEventListener('click', async e => {
     case 'openMeal': openMeal(b.dataset.k); break;
     case 'pushOn': enablePush(); break;
     case 'pushOff': disablePush(); break;
-    case 'pushTest': schedulePush(5, 'Test notification', 'Rest-timer notifications are working.').then(id => toast(id ? 'Test on its way. Lock your phone or switch apps now.' : 'Couldn\'t schedule the test. Check you\'re online.')); break;
+    case 'pushTest': schedulePush(5, 'Test notification', 'Rest-timer notifications are working.').then(id => toast(id ? 'Test on its way. Lock your phone or switch apps now.' : (NATIVE ? 'Couldn\'t schedule the test. Check notifications are allowed for Refyne in iPhone Settings.' : 'Couldn\'t schedule the test. Check you\'re online.'))); break;
     case 'testBeep': beep(+(document.getElementById('tv_vol')?.value ?? timerVol())); break;
     case 'timerBeeps': { const cfg = cfgCopy(); cfg.timerBeeps = +b.dataset.v; saveConfig(cfg); openSettings(); beep(timerVol(), +b.dataset.v); break; }
     case 'editMeal': editMeal(b.dataset.k); break;
